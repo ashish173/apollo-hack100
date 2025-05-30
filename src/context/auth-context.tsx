@@ -115,8 +115,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         if (roleFromDb && (roleFromDb === 'teacher' || roleFromDb === 'student')) {
             userRole = roleFromDb;
             if (userRole !== selectedRole) {
-                  console.log("role mismatch");
-
+                console.log("role mismatch");
+                
             } else {
                 console.log(`login successful ${userRole}`);
             }
