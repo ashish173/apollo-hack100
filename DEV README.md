@@ -14,6 +14,8 @@ cd apollo-hack100
 ```bash
 npm install
 ```
+Copy the environment var keys from `.sample.env.local` and add a new file `.env.local` and update the values.
+
 ```bash
 npm run dev
 ```
