@@ -1,0 +1,50 @@
+
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Rules for the 'users' collection
+    // (Based on suggestions in src/lib/firebase.ts comments)
+    match /users/{userId} {
+      // Allow a user to read their own document
+      allow read: if request.auth != null && request.auth.uid == userId;
+      
+      // Allow a user to create their own document if they are authenticated,
+      // the document ID matches their UID, and the role is either 'teacher' or 'student'.
+      // Ensure required fields like email and displayName are present from the auth token.
+      allow create: if request.auth != null && request.auth.uid == userId
+                      && request.resource.data.role in ['teacher', 'student']
+                      && request.resource.data.email == request.auth.token.email
+                      && request.resource.data.displayName == request.auth.token.name;
+                      
+      // Prevent users from updating their role once set. 
+      // Allow updating other fields if the user is the owner.
+      allow update: if request.auth != null && request.auth.uid == userId
+                       && request.resource.data.role == resource.data.role; 
+                       // Example: To allow updating displayName:
+                       // && (request.resource.data.displayName == request.auth.token.name || request.resource.data.displayName == resource.data.displayName)
+      
+      // Generally, disallow delete unless specific logic is needed.
+      allow delete: if false;
+    }
+
+    // Rules for the 'projectIdeaQueries' collection
+    match /projectIdeaQueries/{queryId} {
+      // Allow creation if the user is authenticated,
+      // the 'userId' in the document matches their UID,
+      // and their role (fetched from their /users/{uid} document) is 'teacher'.
+      allow create: if request.auth != null &&
+                       request.auth.uid == request.resource.data.userId &&
+                       get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'teacher';
+      
+      // Allow authenticated teachers (who are owners) to read their own queries.
+      allow read: if request.auth != null && 
+                     request.auth.uid == resource.data.userId &&
+                     get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'teacher';
+      
+      // Disallow updates and deletes for now for simplicity.
+      // You can expand these rules later if teachers need to edit or delete their queries.
+      allow update, delete: if false;
+    }
+  }
+}

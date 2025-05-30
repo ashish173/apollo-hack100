@@ -8,14 +8,17 @@ import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
+import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
+import { db as firebaseDbService } from '@/lib/firebase';
 
 export default function StudentMentorPage() {
-  const { user, loading } = useAuth(); 
+  const { user, loading: authLoading } = useAuth(); 
   const [projectKeywords, setProjectKeywords] = useState('');
   const [difficulty, setDifficulty] = useState('easy');
   const [duration, setDuration] = useState('3 weeks');
+  const [isSavingQuery, setIsSavingQuery] = useState(false);
 
-  if (loading || !user) { 
+  if (authLoading || !user) { 
     return (
      <div className="flex-grow flex items-center justify-center p-6">
        <p>Loading...</p>
@@ -23,10 +26,46 @@ export default function StudentMentorPage() {
    );
  }
 
-  const handleGenProjectIdeas = () => {
-    // Placeholder for future functionality
-    console.log("Generate Project Ideas Clicked", { projectKeywords, difficulty, duration });
-  };
+ const handleGenProjectIdeas = async () => {
+  if (!projectKeywords.trim()) {
+    console.error("Project keywords are empty.");
+    return;
+  }
+
+  if (!user || !user.uid || !user.email) {
+    console.error("User is not authenticated or does not have a valid UID or email.");
+    return;
+  }
+
+  if (!firebaseDbService) {
+    console.error("Firebase database service is not initialized.");
+    return;
+  }
+
+  setIsSavingQuery(true);
+  try {
+    const queryData = {
+      userId: user.uid,
+      userEmail: user.email,
+      keywords: projectKeywords.trim(),
+      difficulty: difficulty,
+      duration: duration,
+      createdAt: serverTimestamp(),
+    };
+
+    await addDoc(collection(firebaseDbService, "projectIdeaQueries"), queryData);
+
+    // Placeholder for future AI generation functionality
+    console.log("Project Idea Query Saved:", queryData);
+
+  } catch (error) {
+    console.error("Error saving project idea query:", error);
+    
+  } finally {
+    setIsSavingQuery(false);
+  }
+};
+
 
     return (
       <div className="flex-grow flex flex-col items-center justify-center p-12">
@@ -49,6 +88,7 @@ export default function StudentMentorPage() {
               value={projectKeywords}
               onChange={(e) => setProjectKeywords(e.target.value)}
               className="bg-card text-lg h-14 px-6 rounded-lg shadow-sm w-full focus:ring-2 focus:ring-primary"
+              disabled={isSavingQuery}
             />
               <p className="text-xs text-muted-foreground px-1">Enter topics to generate real-world problem focused project ideas.</p>
           </div>
@@ -56,7 +96,7 @@ export default function StudentMentorPage() {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div className="space-y-2">
               <Label htmlFor="difficulty-level" className="text-md font-medium">Difficulty Level</Label>
-              <Select onValueChange={setDifficulty} defaultValue={difficulty}>
+              <Select onValueChange={setDifficulty} defaultValue={difficulty} disabled={isSavingQuery}>
                 <SelectTrigger id="difficulty-level" className="text-base h-11 bg-card">
                   <SelectValue placeholder="Select difficulty" />
                 </SelectTrigger>
@@ -69,7 +109,7 @@ export default function StudentMentorPage() {
             </div>
             <div className="space-y-2">
               <Label htmlFor="duration-level" className="text-md font-medium">Est. Duration</Label>
-              <Select onValueChange={setDuration} defaultValue={duration}>
+              <Select onValueChange={setDuration} defaultValue={duration} disabled={isSavingQuery}>
                 <SelectTrigger id="duration-level" className="text-base h-11 bg-card">
                   <SelectValue placeholder="Select duration" />
                 </SelectTrigger>
@@ -85,9 +125,16 @@ export default function StudentMentorPage() {
             onClick={handleGenProjectIdeas} 
             className="w-full py-3 text-lg h-12 bg-primary hover:bg-primary/90 text-primary-foreground rounded-md shadow-md transition-transform transform hover:scale-105"
             aria-label="Generate Project Ideas"
+            disabled={isSavingQuery || authLoading}
           >
-            <Lightbulb className="mr-2 h-5 w-5" />
-            Gen Project Ideas
+            {isSavingQuery ? (
+              <p>Loading...</p>
+            ) : (
+              <>
+                <Lightbulb className="mr-2 h-5 w-5" />
+                Gen Project Ideas
+              </>
+            )}
           </Button>
         </div>
       </div>
