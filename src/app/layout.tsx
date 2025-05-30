@@ -14,8 +14,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: 'RoleAuth',
-  description: 'Firebase Google Authentication with User Roles',
+  title: 'Apollo',
+  description: 'Smart Teachers Assistant',
 };
 
 export default function RootLayout({
