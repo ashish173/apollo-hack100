@@ -1,61 +1,122 @@
-import cors from "cors";
+// @ts-nocheck
 
-const corsHandler = cors({ origin: true });
+// functions/index.js
+const { onRequest } = require("firebase-functions/v2/https");
+const { defineString } = require("firebase-functions/params");
 
-// Firebase Function (functions/index.js)
-const functions = require("firebase-functions");
-const vision = require("@google-cloud/vision");
+// Define the API key parameter
+const anthropicApiKey = defineString("ANTHROPIC_API_KEY");
 
-// Initialize the Vision API client
-const client = new vision.ImageAnnotatorClient();
+exports.claudeChat = onRequest({ cors: true }, async (req, res) => {
+  // Only allow POST requests
+  if (req.method !== "POST") {
+    return res.status(405).json({ error: "Method not allowed" });
+  }
 
-// @ts-ignore
-exports.analyzeImage = functions.https.onRequest((req, res) => {
-  return corsHandler(req, res, async () => {
-    // Only allow POST requests
-    if (req.method !== "POST") {
-      return res.status(405).json({ error: "Method not allowed" });
+  try {
+    const { message, image, imageType } = req.body;
+
+    if (!message && !image) {
+      return res.status(400).json({ error: "Message or image is required" });
     }
 
-    try {
-      const { image, features } = req.body;
+    // Get the API key from environment variable
+    const ANTHROPIC_API_KEY = anthropicApiKey.value();
 
-      if (!image) {
-        return res.status(400).json({ error: "No image provided" });
-      }
+    if (!ANTHROPIC_API_KEY) {
+      console.error("Anthropic API key not configured");
+      return res.status(500).json({ error: "API key not configured" });
+    }
 
-      if (!features || !Array.isArray(features)) {
-        return res.status(400).json({ error: "Features array is required" });
-      }
+    let requestBody = {
+      model: "claude-3-7-sonnet-20250219",
+      max_tokens: 2000,
+      messages: [],
+    };
 
-      // Prepare the request for Vision API
-      const request = {
-        image: {
-          content: image, // Base64 encoded image
+    // Handle image + text or text only
+    if (image) {
+      // For image analysis, create a message with both image and text
+      const content = [];
+
+      // Add image to content
+      content.push({
+        type: "image",
+        source: {
+          type: "base64",
+          media_type: imageType || "image/jpeg",
+          data: image,
         },
-        features: features,
-      };
+      });
 
-      // Call the Vision API
-      const [result] = await client.annotateImage(request);
+      // Add text prompt for attendance analysis
+      content.push({
+        type: "text",
+        text:
+          message ||
+          `Please analyze this attendance register image and extract the structured data. Return the data in JSON format with the following structure:
+        {
+          "employees": [
+            {
+              "name": "Employee Name",
+              "attendance": {
+                "1": "P/A/S", // Day 1 status
+                "2": "P/A/S", // Day 2 status
+                // ... for all days shown
+              }
+            }
+          ],
+          "legend": {
+            "P": "Present",
+            "A": "Absent", 
+            "S": "Sick/Leave"
+          }
+        }
+        
+        Extract all employee names and their daily attendance status. Use 'P' for Present, 'A' for Absent, and 'S' for Sick/Leave or other special codes.`,
+      });
 
-      // Check for errors in the response
-      if (result.error) {
-        console.error("Vision API error:", result.error);
-        return res
-          .status(500)
-          .json({ error: "Vision API error", details: result.error });
-      }
-
-      // Return the results
-      return res.status(200).json(result);
-    } catch (error) {
-      console.error("Error processing image:", error);
-      return res.status(500).json({
-        error: "Internal server error",
-        // @ts-ignore
-        message: error.message,
+      requestBody.messages.push({
+        role: "user",
+        content: content,
+      });
+    } else {
+      // Text only message
+      requestBody.messages.push({
+        role: "user",
+        content: message,
       });
     }
-  });
+
+    // Call Claude API
+    const response = await fetch("https://api.anthropic.com/v1/messages", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "x-api-key": ANTHROPIC_API_KEY,
+        "anthropic-version": "2023-06-01",
+      },
+      body: JSON.stringify(requestBody),
+    });
+
+    if (!response.ok) {
+      const errorData = await response.text();
+      console.error("Claude API error:", errorData);
+      return res
+        .status(500)
+        .json({ error: "Failed to get response from Claude" });
+    }
+
+    const data = await response.json();
+
+    // Extract the response text from Claude's response
+    const claudeResponse = data.content[0].text;
+
+    return res.status(200).json({
+      response: claudeResponse,
+    });
+  } catch (error) {
+    console.error("Error:", error);
+    return res.status(500).json({ error: "Internal server error" });
+  }
 });

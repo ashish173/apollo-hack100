@@ -4,6 +4,7 @@
 import { useAuth } from '@/context/auth-context';
 import React from 'react';
 import VisionApp from './attendance-manager';
+import AttendanceExtractor from './attendance-extractor';
 export default function AdminWorkPage() {
   const { user, loading } = useAuth();
 
@@ -18,7 +19,8 @@ export default function AdminWorkPage() {
   return (
     <div className="flex flex-col items-center justify-center">
       <p>Admin Work Page</p>
-      <VisionApp />
+      {/* <VisionApp /> */}
+      <AttendanceExtractor />
     </div>
   );
 }
