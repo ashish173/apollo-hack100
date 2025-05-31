@@ -10,13 +10,17 @@ import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
 import { db as firebaseDbService } from '@/lib/firebase';
+import { generateProjectIdeas } from "@/ai/flows/generate-project-ideas";
 
 export default function StudentMentorPage() {
   const { user, loading: authLoading } = useAuth(); 
+
   const [projectKeywords, setProjectKeywords] = useState('');
   const [difficulty, setDifficulty] = useState('easy');
   const [duration, setDuration] = useState('3 weeks');
   const [isSavingQuery, setIsSavingQuery] = useState(false);
+
+  const [projectIdeas, setProjectIdeas] = useState<string[]>([]);
 
   if (authLoading || !user) { 
     return (
@@ -42,6 +46,19 @@ export default function StudentMentorPage() {
     return;
   }
 
+  setProjectIdeas([]);
+  // Make GenAI API call
+
+  try {
+    const result = await generateProjectIdeas({ topic: projectKeywords, difficulty: difficulty, duration: duration });
+    setProjectIdeas(result.ideas);
+  } catch (error: any) {
+    console.log("error in gen ai query");
+  } finally {
+    // 
+  }
+
+  // Make it async
   setIsSavingQuery(true);
   try {
     const queryData = {
@@ -138,6 +155,10 @@ export default function StudentMentorPage() {
           </Button>
         </div>
       </div>
+      {projectIdeas.map((idea, index) => (
+                        <div>{idea}</div>
+                      ))}
+
     </div>
     );
 }
