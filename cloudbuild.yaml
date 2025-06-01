@@ -32,7 +32,7 @@ steps:
     # If you have specific targets, you can use --only, e.g., --only hosting,functions
     # env:
     #   - 'FIREBASE_AUTH_KEY=${_FIREBASE_AUTH_KEY}' # Example for a server-side only Firebase variable if needed
-    secretEnv: ['_FIREBASE_PROJECT_ID'] # Make sure this variable is also in Secret Manager if not using built-in Cloud Build substitutions
+    secretEnv: ['_NEXT_PUBLIC_FIREBASE_PROJECT_ID'] # Make sure this variable is also in Secret Manager if not using built-in Cloud Build substitutions
 
 options:
   logging: CLOUD_LOGGING_ONLY
@@ -54,8 +54,8 @@ availableSecrets:
       env: _NEXT_PUBLIC_FIREBASE_APP_ID
     - versionName: projects/${PROJECT_ID}/secrets/NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID/versions/latest
       env: _NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID # if applicable
-    - versionName: projects/${PROJECT_ID}/secrets/FIREBASE_PROJECT_ID/versions/latest
-      env: _FIREBASE_PROJECT_ID
+    - versionName: projects/${PROJECT_ID}/secrets/NEXT_PUBLIC_FIREBASE_PROJECT_ID/versions/latest
+      env: _NEXT_PUBLIC_FIREBASE_PROJECT_ID
     - versionName: projects/${PROJECT_ID}/secrets/GOOGLE_GENAI_API_KEY/versions/latest
       env: _GOOGLE_GENAI_API_KEY
     - versionName: projects/${PROJECT_ID}/secrets/ANTHROPIC_API_KEY/versions/latest
