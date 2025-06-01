@@ -60,6 +60,6 @@ availableSecrets:
       env: _GOOGLE_GENAI_API_KEY
     - versionName: projects/${PROJECT_ID}/secrets/ANTHROPIC_API_KEY/versions/latest
       env: _ANTHROPIC_API_KEY
-      # Add any other secrets you need here following the same pattern  
+      # Add any other secrets you need here following the same pat 
       # - versionName: projects/${PROJECT_ID}/secrets/YOUR_SECRET_NAME/versions/latest
       #   env: _YOUR_ENV_VAR_NAME
