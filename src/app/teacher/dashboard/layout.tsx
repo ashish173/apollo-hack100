@@ -7,7 +7,7 @@ import { useRouter, usePathname } from 'next/navigation';
 import Link from 'next/link';
 import { useAuth } from '@/context/auth-context';
 import LoadingSpinner from '@/components/ui/loading-spinner';
-import { SidebarProvider, Sidebar, SidebarHeader, SidebarTrigger, SidebarContent, SidebarMenu, SidebarMenuItem, SidebarMenuButton, SidebarInset } from '@/components/ui/sidebar';
+import { SidebarProvider, Sidebar, SidebarHeader, SidebarTrigger, SidebarContent, SidebarMenu, SidebarMenuItem, SidebarMenuButton, SidebarInset, SidebarFooter } from '@/components/ui/sidebar';
 import { LayoutDashboard, Users, Briefcase } from 'lucide-react';
 import LogoutButton from '@/components/auth/logout-button';
 
@@ -81,6 +81,12 @@ export default function TeacherDashboardLayout({
               </SidebarMenuItem>
             </SidebarMenu>
           </SidebarContent>
+
+          {/* Moved LogoutButton inside SidebarFooter */}
+          <SidebarFooter className="p-2"> {/* Add padding to SidebarFooter */}
+            <LogoutButton className="w-full" /> {/* Make button full width */}
+          </SidebarFooter>
+
         </Sidebar>
         <SidebarInset className="flex-grow flex flex-col">
           <main className="flex-grow p-6"> 
@@ -88,9 +94,9 @@ export default function TeacherDashboardLayout({
           </main>
           <footer className="text-center p-4 mt-auto text-muted-foreground text-sm border-t">
             EduConnect App &copy; {new Date().getFullYear()}
-            <div className="mt-2">
-                <LogoutButton />
-            </div>
+            {/* <div className="mt-2">
+              <LogoutButton /> // REMOVED from here
+            </div> */}
           </footer>
         </SidebarInset>
       </div>
