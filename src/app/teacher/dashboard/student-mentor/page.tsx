@@ -44,6 +44,8 @@ export default function StudentMentorPage() {
   const [viewMode, setViewMode] = useState<'list' | 'detail'>('list');
   const [selectedProjectForDetail, setSelectedProjectForDetail] = useState<ProjectIdea | null>(null);
 
+  const FIREBASE_FUNCTION_URL = 'https://us-central1-role-auth-7bc43.cloudfunctions.net/generateProjectIdeasFn';
+
   const handleOpenAssignDialog = (project: ProjectIdea) => {
     setSelectedProjectToAssign(project);
     setIsAssignDialogOpen(true);
@@ -100,7 +102,25 @@ export default function StudentMentorPage() {
     try {
       setLoadingProjectIdeas(true);
       const result = await generateProjectIdeas({ topic: projectKeywords, difficulty: difficulty, duration: duration });
-      setGeneratedIdeas(result.ideas); 
+
+      const requestBody = {
+        topic: projectKeywords,
+        difficulty: difficulty,
+        duration: duration
+      };
+
+      const response = await fetch(FIREBASE_FUNCTION_URL, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(requestBody)
+      });
+
+      const data = await response.json();
+      const rawResponseText = data.response;
+
+      setGeneratedIdeas(response.ideas || []); 
     } catch (error: any) {
       console.log("error in gen ai query");
     } finally {
