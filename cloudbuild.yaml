@@ -34,6 +34,9 @@ steps:
     #   - 'FIREBASE_AUTH_KEY=${_FIREBASE_AUTH_KEY}' # Example for a server-side only Firebase variable if needed
     secretEnv: ['_FIREBASE_PROJECT_ID'] # Make sure this variable is also in Secret Manager if not using built-in Cloud Build substitutions
 
+options:
+  logging: CLOUD_LOGGING_ONLY
+
 # Define substitutions for secrets, mapping them to Secret Manager secret names
 availableSecrets:
   secretManager:
