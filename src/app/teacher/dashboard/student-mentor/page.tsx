@@ -273,15 +273,6 @@ export default function StudentMentorPage() {
                       <Info className="mr-2 h-4 w-4" />
                       View Details
                     </Button>
-                    <Button 
-                      variant="default" 
-                      size="sm" 
-                      className="text-primary-foreground bg-primary hover:bg-primary/90"
-                      onClick={() => handleOpenAssignDialog(idea)}
-                    >
-                      <UserPlus className="mr-2 h-4 w-4" />
-                      Assign to Student
-                    </Button>
                   </CardFooter>
                 </Card>
               );

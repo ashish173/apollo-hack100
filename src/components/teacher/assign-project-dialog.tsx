@@ -1,11 +1,12 @@
-
+// assign-project-dialog.tsx
 "use client";
 
 import type { Dispatch, SetStateAction } from 'react';
 import { useEffect, useState } from 'react';
-import { collection, getDocs, query, where, addDoc, serverTimestamp, doc } from 'firebase/firestore';
+import { collection, getDocs, query, where, addDoc, serverTimestamp } from 'firebase/firestore';
 import { db as firebaseDbService } from '@/lib/firebase';
-import type { ProjectIdea } from '@/app/teacher/dashboard/student-mentor/page';
+// IMPORT ProjectIdea from idea-detail.tsx now, as that's where the updated type lives
+import type { ProjectIdea } from '@/app/teacher/dashboard/student-mentor/idea-detail'; // <--- UPDATED IMPORT PATH
 import type { UserProfile } from '@/types';
 import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
@@ -66,7 +67,7 @@ export default function AssignProjectDialog({ project, isOpen, onOpenChange, tea
     };
 
     if (isOpen) {
-        fetchStudents();
+      fetchStudents();
     }
   }, [isOpen, toast]);
 
@@ -82,8 +83,8 @@ export default function AssignProjectDialog({ project, isOpen, onOpenChange, tea
 
     const selectedStudent = students.find(s => s.uid === selectedStudentUid);
     if (!selectedStudent) {
-        toast({ title: "Student not found", description: "Selected student details could not be found.", variant: "destructive" });
-        return;
+      toast({ title: "Student not found", description: "Selected student details could not be found.", variant: "destructive" });
+      return;
     }
 
     setIsAssigning(true);
@@ -94,8 +95,8 @@ export default function AssignProjectDialog({ project, isOpen, onOpenChange, tea
         description: project.description,
         difficulty: project.difficulty,
         duration: project.duration,
-        // You could add teacherId as originalCreatorId or project.id as originalMockIdeaId if needed for traceability
-        createdAt: serverTimestamp(), 
+        tasks: project.tasks || [], // This will now correctly receive the tasks array with camelCase fields
+        createdAt: serverTimestamp(),
       };
       // Use addDoc to get an auto-generated ID for the new project document
       const newProjectRef = await addDoc(collection(firebaseDbService, 'projects'), projectDataForDatabase);
@@ -108,7 +109,7 @@ export default function AssignProjectDialog({ project, isOpen, onOpenChange, tea
         studentName: selectedStudent.displayName || selectedStudent.email || 'N/A',
         teacherUid: teacherId,
         assignedAt: serverTimestamp(),
-        status: 'assigned', 
+        status: 'assigned',
       };
 
       await addDoc(collection(firebaseDbService, 'assignedProjects'), assignmentData);
@@ -116,8 +117,8 @@ export default function AssignProjectDialog({ project, isOpen, onOpenChange, tea
         title: "Project Assigned!",
         description: `${project.title} has been assigned to ${selectedStudent.displayName || selectedStudent.email}.`,
       });
-      onOpenChange(false); 
-      setSelectedStudentUid(undefined); 
+      onOpenChange(false);
+      setSelectedStudentUid(undefined);
     } catch (error) {
       console.error("Error assigning project:", error);
       toast({
@@ -129,18 +130,18 @@ export default function AssignProjectDialog({ project, isOpen, onOpenChange, tea
       setIsAssigning(false);
     }
   };
-  
+
   if (!project) return null;
 
   const selectedStudentDisplayValue = students.find(student => student.uid === selectedStudentUid)?.displayName || students.find(student => student.uid === selectedStudentUid)?.email || "Select student...";
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => {
-        onOpenChange(open);
-        if (!open) {
-            setSelectedStudentUid(undefined); // Reset student selection on close
-            setIsComboboxOpen(false);
-        }
+      onOpenChange(open);
+      if (!open) {
+        setSelectedStudentUid(undefined); // Reset student selection on close
+        setIsComboboxOpen(false);
+      }
     }}>
       <DialogContent className="sm:max-w-[425px]">
         <DialogHeader>
@@ -156,11 +157,11 @@ export default function AssignProjectDialog({ project, isOpen, onOpenChange, tea
             </Label>
             <div className="col-span-3">
               {isLoadingStudents ? (
-                  <div className="flex items-center">
-                      <LoadingSpinner size={20} className="mr-2"/> Loading students...
-                  </div>
+                <div className="flex items-center">
+                  <LoadingSpinner size={20} className="mr-2" /> Loading students...
+                </div>
               ) : students.length === 0 ? (
-                  <p className="text-sm text-muted-foreground">No students found.</p>
+                <p className="text-sm text-muted-foreground">No students found.</p>
               ) : (
                 <Popover open={isComboboxOpen} onOpenChange={setIsComboboxOpen}>
                   <PopoverTrigger asChild>
@@ -214,9 +215,9 @@ export default function AssignProjectDialog({ project, isOpen, onOpenChange, tea
           <DialogClose asChild>
             <Button variant="outline" disabled={isAssigning}>Cancel</Button>
           </DialogClose>
-          <Button 
-            type="button" 
-            onClick={handleAssignProject} 
+          <Button
+            type="button"
+            onClick={handleAssignProject}
             disabled={!selectedStudentUid || isAssigning || isLoadingStudents || students.length === 0}
           >
             {isAssigning ? <LoadingSpinner size={20} iconClassName="text-primary-foreground" /> : 'Assign Project'}
