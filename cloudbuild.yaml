@@ -5,16 +5,12 @@ steps:
     entrypoint: 'npm'
     args: ['install']
     env:
-      - 'NPM_CONFIG_UPDATE_NOTIFIER=false' # Suppress NPM update notifications
+      - 'NPM_CONFIG_UPDATE_NOTIFIER=false'
 
   # Step 2: Build the Next.js application
-  # We'll inject environment variables from Secret Manager here
   - name: 'node:20'
     entrypoint: 'npm'
-    args: [
-      'run', 
-      'build'
-      ]
+    args: ['run', 'build']
     env:
       # Next.js client-side variables (prefixed with NEXT_PUBLIC_)
       - 'NEXT_PUBLIC_FIREBASE_API_KEY=${_NEXT_PUBLIC_FIREBASE_API_KEY}'
@@ -23,21 +19,25 @@ steps:
       - 'NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET=${_NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET}'
       - 'NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=${_NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID}'
       - 'NEXT_PUBLIC_FIREBASE_APP_ID=${_NEXT_PUBLIC_FIREBASE_APP_ID}'
-      - 'NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID=${_NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID}' # if applicable
+      - 'NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID=${_NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID}'
       - 'GOOGLE_GENAI_API_KEY=${_GOOGLE_GENAI_API_KEY}'
       - 'ANTHROPIC_API_KEY=${_ANTHROPIC_API_KEY}'
-      # You can add other build-time variables here as needed
-    secretEnv: ['_NEXT_PUBLIC_FIREBASE_API_KEY', '_NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN', '_NEXT_PUBLIC_FIREBASE_PROJECT_ID', '_NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET', '_NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID', '_NEXT_PUBLIC_FIREBASE_APP_ID', '_NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID', '_GOOGLE_GENAI_API_KEY', '_ANTHROPIC_API_KEY']
-
+    secretEnv: [
+      '_NEXT_PUBLIC_FIREBASE_API_KEY',
+      '_NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN', 
+      '_NEXT_PUBLIC_FIREBASE_PROJECT_ID',
+      '_NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET',
+      '_NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID',
+      '_NEXT_PUBLIC_FIREBASE_APP_ID',
+      '_NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID',
+      '_GOOGLE_GENAI_API_KEY',
+      '_ANTHROPIC_API_KEY'
+    ]
 
   # Step 3: Deploy to Firebase Hosting and Functions
-  # This uses the Firebase CLI builder. It automatically detects Next.js SSR functions.
   - name: 'us-docker.pkg.dev/firebase-cli/us/firebase'
     args: ['deploy', '--project=${_FIREBASE_PROJECT_ID}']
-    # If you have specific targets, you can use --only, e.g., --only hosting,functions
-    # env:
-    #   - 'FIREBASE_AUTH_KEY=${_FIREBASE_AUTH_KEY}' # Example for a server-side only Firebase variable if needed
-    secretEnv: ['_FIREBASE_PROJECT_ID'] # Make sure this variable is also in Secret Manager if not using built-in Cloud Build substitutions
+    secretEnv: ['_FIREBASE_PROJECT_ID']
 
 options:
   logging: CLOUD_LOGGING_ONLY
@@ -58,13 +58,10 @@ availableSecrets:
     - versionName: projects/${PROJECT_ID}/secrets/NEXT_PUBLIC_FIREBASE_APP_ID/versions/latest
       env: _NEXT_PUBLIC_FIREBASE_APP_ID
     - versionName: projects/${PROJECT_ID}/secrets/NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID/versions/latest
-      env: _NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID # if applicable
+      env: _NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID
     - versionName: projects/${PROJECT_ID}/secrets/FIREBASE_PROJECT_ID/versions/latest
       env: _FIREBASE_PROJECT_ID
     - versionName: projects/${PROJECT_ID}/secrets/GOOGLE_GENAI_API_KEY/versions/latest
       env: _GOOGLE_GENAI_API_KEY
     - versionName: projects/${PROJECT_ID}/secrets/ANTHROPIC_API_KEY/versions/latest
       env: _ANTHROPIC_API_KEY
-      # Add any other secrets you need here following the 
-      # - versionName: projects/${PROJECT_ID}/secrets/YOUR_SECRET_NAME/versions/latest
-      #   env: _YOUR_ENV_VAR_NAME
