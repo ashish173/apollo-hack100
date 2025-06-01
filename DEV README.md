@@ -26,5 +26,6 @@ npm run build
 ``` 
 
 # Deplopyment - Google Cloud
-Developing ...
+Auto deploy when PR is merged to main branch.
 
+Deployment Link: https://apollo-hack100-662485115027.asia-south1.run.app/ 
