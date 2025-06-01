@@ -8,10 +8,12 @@ import {
 import { getAuth, GoogleAuthProvider, type Auth } from "firebase/auth";
 import { getFirestore, type Firestore } from "firebase/firestore";
 import { getFunctions } from "firebase/functions";
+import { getStorage, type FirebaseStorage } from "firebase/storage"; // <--- Add this import
 
 let app: FirebaseApp | undefined;
 let auth: Auth | undefined;
 let db: Firestore | undefined;
+let storage: FirebaseStorage | undefined; // <--- Add this declaration
 let firebaseInitializationError: Error | null = null;
 
 const requiredEnvVars: Record<string, string | undefined> = {
@@ -19,6 +21,7 @@ const requiredEnvVars: Record<string, string | undefined> = {
   NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN:
     process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
   NEXT_PUBLIC_FIREBASE_PROJECT_ID: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
+  NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET, // <--- Add this to required
 };
 
 const missingConfigKeys: string[] = Object.entries(requiredEnvVars)
@@ -45,11 +48,13 @@ if (missingConfigKeys.length > 0) {
     app = !getApps().length ? initializeApp(firebaseConfig) : getApp();
     auth = getAuth(app);
     db = getFirestore(app);
+    storage = getStorage(app); // <--- Initialize Storage here
   } catch (e: any) {
     console.error("Firebase SDK initialization failed:", e);
     firebaseInitializationError = e;
     auth = undefined;
     db = undefined;
+    storage = undefined; // <--- Set storage to undefined on error
   }
 }
 
@@ -60,6 +65,7 @@ export {
   app,
   auth,
   db,
+  storage, // <--- Export storage
   googleAuthProvider,
   firebaseInitializationError,
   functions,
