@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useAuth } from '@/context/auth-context';
 import { Lightbulb } from 'lucide-react';
 import { Input } from '@/components/ui/input';
@@ -11,6 +11,29 @@ import { Button } from '@/components/ui/button';
 import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
 import { db as firebaseDbService } from '@/lib/firebase';
 import { generateProjectIdeas } from "@/ai/flows/generate-project-ideas";
+import { generateProjectPlan } from '@/ai/flows/generate-project-plan';
+import { addDays } from 'date-fns';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import { ScrollArea } from '@/components/ui/scroll-area';
+import { cn } from '@/lib/utils';
+
+interface Task {
+  TaskID: number;
+  TaskName: string;
+  StartDate?: string;
+  EndDate?: string;
+  Duration: string | number; // Allow number for programmatic setting
+  PercentageComplete: number;
+  Dependencies: string;
+  Milestone: boolean;
+}
 
 export default function StudentMentorPage() {
   const { user, loading: authLoading } = useAuth(); 
@@ -19,8 +42,18 @@ export default function StudentMentorPage() {
   const [difficulty, setDifficulty] = useState('easy');
   const [duration, setDuration] = useState('3 weeks');
   const [isSavingQuery, setIsSavingQuery] = useState(false);
+  const [selectedProjectIdea, setSelectedProjectIdea] = useState("");
+  const [projectPlan, setProjectPlan] = useState<Task[]>([]);
+  const [loadingPlan, setLoadingPlan] = useState(false);
+
 
   const [projectIdeas, setProjectIdeas] = useState<string[]>([]);
+
+  const [today, setToday] = useState(new Date());
+
+  useEffect(() => {
+    setToday(new Date());
+  }, []);
 
   if (authLoading || !user) { 
     return (
@@ -29,6 +62,8 @@ export default function StudentMentorPage() {
      </div>
    );
  }
+
+
 
  const handleGenProjectIdeas = async () => {
   if (!projectKeywords.trim()) {
@@ -82,6 +117,62 @@ export default function StudentMentorPage() {
     setIsSavingQuery(false);
   }
 };
+
+
+const handleGenerateProjectPlan = useCallback(async (idea: string) => {
+  setSelectedProjectIdea(idea);
+  setLoadingPlan(true);
+  setProjectPlan([]); // Clear previous plan and show loader
+  try {
+    const result = await generateProjectPlan({ projectIdea: idea });
+
+    let parsedData: Task[];
+    try {
+      parsedData = JSON.parse(result.projectPlan);
+    } catch (jsonError: any) {
+      console.error("Failed to parse project plan JSON:", jsonError);
+      alert("Failed to parse project plan data. The format might be incorrect.");
+      setProjectPlan([]);
+      setLoadingPlan(false);
+      return;
+    }
+
+    let currentDate = new Date(today);
+
+    const dataWithDates = parsedData.map((item) => {
+      let durationValue: number;
+      if (typeof item.Duration === 'string') {
+        const durationMatch = item.Duration.match(/(\d+)/);
+        durationValue = durationMatch ? parseInt(durationMatch[0], 10) : 1;
+      } else if (typeof item.Duration === 'number') {
+        durationValue = item.Duration;
+      } else {
+        durationValue = 1; 
+      }
+      const validDuration = isNaN(durationValue) || durationValue <= 0 ? 1 : durationValue;
+
+      const itemStartDate = new Date(currentDate);
+      const itemEndDate = addDays(itemStartDate, validDuration -1 );
+
+      const newItem = {
+        ...item,
+        StartDate: itemStartDate.toISOString().slice(0, 10),
+        EndDate: itemEndDate.toISOString().slice(0, 10),
+        Duration: `${validDuration} day${validDuration > 1 ? 's' : ''}`,
+      };
+      currentDate = addDays(itemEndDate, 1);
+      return newItem;
+    });
+
+    setProjectPlan(dataWithDates);
+  } catch (error: any) {
+    console.error("Error during project plan generation:", error);
+    alert(error.message || "An unexpected error occurred.");
+    setProjectPlan([]);
+  } finally {
+    setLoadingPlan(false);
+  }
+}, [today]);
 
 
     return (
@@ -156,8 +247,43 @@ export default function StudentMentorPage() {
         </div>
       </div>
       {projectIdeas.map((idea, index) => (
-                        <div>{idea}</div>
-                      ))}
+        <>
+          <div>{idea}</div>
+          <Button onClick={() => handleGenerateProjectPlan(idea)}>Generate Plan</Button>
+          <ScrollArea className="md:max-h-[calc(100vh-12rem)]">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="w-[60%]">Task Name</TableHead>
+                  <TableHead className="w-[20%]">Duration</TableHead>
+                  <TableHead className="w-[20%] text-right">End Date</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {projectPlan.map((task) => (
+                  <TableRow key={task.TaskID} className={cn("hover:bg-muted", task.Milestone ? "bg-secondary/70 font-semibold" : "")}>
+                    <TableCell className="flex items-center py-2">
+                      {task.Milestone ? (
+                          <span className="mr-2">⭐</span>
+                      ) : (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => {}}
+                        className="mr-2 text-xs py-1 h-auto border border-border hover:border-primary"
+                      > ✨ Hints</Button>
+                      )}
+                      {task.TaskName}
+                    </TableCell>
+                    <TableCell className="py-2">{task.Duration}</TableCell>
+                    <TableCell className="text-right py-2">{task.EndDate}</TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </ScrollArea>
+        </>
+      ))}
 
     </div>
     );
