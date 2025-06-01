@@ -6,6 +6,7 @@ import { useEffect } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import Link from 'next/link';
 import { useAuth } from '@/context/auth-context';
+import LoadingSpinner from '@/components/ui/loading-spinner';
 import { SidebarProvider, Sidebar, SidebarHeader, SidebarTrigger, SidebarContent, SidebarMenu, SidebarMenuItem, SidebarMenuButton, SidebarInset } from '@/components/ui/sidebar';
 import { LayoutDashboard, Users, Briefcase } from 'lucide-react';
 import LogoutButton from '@/components/auth/logout-button';
@@ -32,20 +33,28 @@ export default function TeacherDashboardLayout({
   if (loading || !user || user?.role !== 'teacher') {
     return (
       <div className="flex-grow flex items-center justify-center p-6 min-h-screen bg-background">
-        <p>Loading ...</p>
+        <LoadingSpinner size={64} />
       </div>
     );
   }
 
   return (
     <SidebarProvider defaultOpen={true}>
-      <div className="flex min-h-screen bg-background">
+      <div className="flex min-h-screen bg-background max-w-[1600px] mx-auto px-6">
         <Sidebar collapsible="icon" variant="sidebar" className="border-r">
-          <SidebarHeader className="p-2 flex justify-center items-center h-14"> 
+          <SidebarHeader className="flex flex-row items-center justify-between px-4 py-3 border-b border-sidebar-border">
+            <Link href="/teacher/dashboard" className="flex items-center gap-2 group-data-[state=collapsed]:hidden overflow-hidden">
+              {/* Abstract SVG Logo for EduConnect */}
+              <svg width="28" height="28" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" className="text-sidebar-primary flex-shrink-0">
+                <rect x="20" y="20" width="50" height="50" rx="10" ry="10" fill="currentColor" />
+                <rect x="40" y="40" width="50" height="50" rx="10" ry="10" fill="currentColor" opacity="0.7" />
+              </svg>
+              <span className="text-xl font-semibold text-sidebar-foreground whitespace-nowrap">EduConnect</span>
+            </Link>
             <SidebarTrigger />
           </SidebarHeader>
           <SidebarContent>
-            <SidebarMenu>
+            <SidebarMenu className="gap-2 p-2"> {/* Increased gap for more spacing */}
               <SidebarMenuItem>
                 <Link href="/teacher/dashboard" passHref legacyBehavior>
                   <SidebarMenuButton isActive={pathname === '/teacher/dashboard'} tooltip="Dashboard">
@@ -78,7 +87,7 @@ export default function TeacherDashboardLayout({
             {children}
           </main>
           <footer className="text-center p-4 mt-auto text-muted-foreground text-sm border-t">
-            Apollo 100x Hack &copy; 2025
+            EduConnect App &copy; {new Date().getFullYear()}
             <div className="mt-2">
                 <LogoutButton />
             </div>
