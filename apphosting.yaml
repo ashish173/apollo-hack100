@@ -1,6 +1,6 @@
 runConfig:
   # Increase this value if you'd like to automatically spin up
-  # more instances in response to increased traffic.  
+  # more instances in response to increased traffic.   
   maxInstances: 1
 
 env:
@@ -11,4 +11,4 @@ env:
       - RUNTIME
   
   - variable: NEXT_PUBLIC_FIREBASE_API_KEY
-    secret: projects/roleauth-puzao/secrets/NEXT_PUBLIC_FIREBASE_API_KEY/versions/1
+    secret: projects/486228852542/secrets/NEXT_PUBLIC_FIREBASE_API_KEY/versions/1
