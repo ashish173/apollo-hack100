@@ -21,6 +21,7 @@ import { cn } from '@/lib/utils';
 import LoadingSpinner from '@/components/ui/loading-spinner';
 import AssignProjectDialog from '@/components/teacher/assign-project-dialog';
 import { useAuth } from '@/context/auth-context';
+import TaskHints, { Task } from './task-hints';
 
 // This interface represents the *raw* data structure coming from your AI's project plan generation.
 // This is what will be stored in `projectPlan` state for *display* in IdeaDetail.
@@ -74,8 +75,10 @@ export default function IdeaDetail(
 
   // projectPlan now holds the *full* AI-generated tasks for *display* in the table
   const [projectPlan, setProjectPlan] = useState<DisplayTask[]>([]); // Use DisplayTask[] here
-
   const [loadingPlan, setLoadingPlan] = useState(false);
+
+  const [selectedTask, setSelectedTask] = useState<Task | null>(null);
+
   const [today, setToday] = useState(new Date());
 
   const FIREBASE_FUNCTION_URL = 'https://us-central1-role-auth-7bc43.cloudfunctions.net/generateProjectPlanFn';
@@ -109,13 +112,10 @@ export default function IdeaDetail(
       const data = await response.json();
       const rawResponseText = data.response;
 
-      console.log("rawResponseText", rawResponseText);
-
       try {
         parsedData = JSON.parse(rawResponseText.projectPlan);
       } catch (jsonError: any) {
         console.error("Failed to parse project plan JSON:", jsonError);
-        alert("Failed to parse project plan data. The format might be incorrect.");
         setProjectPlan([]);
         setLoadingPlan(false);
         return;
@@ -153,7 +153,6 @@ export default function IdeaDetail(
       setProjectPlan(tasksForDisplay); // Set the state with the full DisplayTask array for table display
     } catch (error: any) {
       console.error("Error during project plan generation:", error);
-      alert(error.message || "An unexpected error occurred.");
       setProjectPlan([]);
     } finally {
       setLoadingPlan(false);
@@ -217,10 +216,10 @@ export default function IdeaDetail(
                       </div>
                     </>
                   ) : projectPlan && projectPlan.length > 0 ? (
-                    <ScrollArea className="md:max-h-[calc(100vh-12rem)]">
+                    <ScrollArea className="h-[300px]">
                       <Table><TableHeader><TableRow> {/* <--- REMOVED WHITESPACE */}
+                            <TableHead className="w-[5%]">Task Name</TableHead>
                             <TableHead className="w-[30%]">Task Name</TableHead>
-                            <TableHead className="w-[10%]">Task ID</TableHead>
                             <TableHead className="w-[15%]">Duration</TableHead>
                             <TableHead className="w-[15%]">Start Date</TableHead>
                             <TableHead className="w-[15%] text-right">Due Date</TableHead>
@@ -230,18 +229,16 @@ export default function IdeaDetail(
                           {projectPlan.map((task, index) => (
                             <TableRow key={index} className={cn("hover:bg-muted", task.Milestone ? "bg-secondary/70 font-semibold" : "")}>
                               <TableCell className="flex items-center py-2">
-                                {task.Milestone && (
-                                  <span className="mr-2">⭐</span>
-                                )}
                                 <Button
                                   variant="ghost"
                                   size="sm"
-                                  onClick={() => { /* Handle hints logic here */ }}
+                                  onClick={() => {
+                                    setSelectedTask(task);
+                                  }}
                                   className="mr-2 text-xs py-1 h-auto border border-border hover:border-primary"
                                 > ✨ Hints</Button>
-                                {task.TaskName}
                               </TableCell>
-                              <TableCell className="py-2">{task.TaskID}</TableCell>
+                              <TableCell className="py-2">{task.TaskName}</TableCell>
                               <TableCell className="py-2">{task.Duration}</TableCell>
                               <TableCell className="py-2">{task.StartDate}</TableCell>
                               <TableCell className="text-right py-2">{task.EndDate}</TableCell>
@@ -283,6 +280,17 @@ export default function IdeaDetail(
           teacherId={user.uid}
         />
       )}
+
+      {
+        selectedTask && (
+          <TaskHints
+            task={selectedTask.TaskName}
+            idea={idea.description}
+            onClose={() => setSelectedTask(null)}
+          />
+        )
+      }
+
     </>
   );
 }

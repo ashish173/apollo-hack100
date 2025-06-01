@@ -19,6 +19,8 @@ import { cn } from '@/lib/utils';
 // Import the ProjectIdea and SavedProjectTask types from idea-detail.tsx
 import { ProjectIdea, SavedProjectTask } from '@/app/teacher/dashboard/student-mentor/idea-detail';
 import { Timestamp } from 'firebase/firestore'; // Import Timestamp for date conversion
+import TaskHints from '@/app/teacher/dashboard/student-mentor/task-hints';
+import { useState } from 'react';
 
 // Define the interface for the project data this component expects
 interface AssignedProjectWithDetails {
@@ -41,6 +43,8 @@ interface TeacherAssignedProjectDetailProps {
 }
 
 export default function TeacherAssignedProjectDetail({ project, onBack }: TeacherAssignedProjectDetailProps) {
+  const [selectedTask, setSelectedTask] = useState<SavedProjectTask | null>(null);
+  
   // Function to format Firestore Timestamp to a readable date string
   const formatAssignedDate = (timestamp: Timestamp) => {
     return timestamp.toDate().toLocaleDateString('en-US', {
@@ -85,6 +89,7 @@ export default function TeacherAssignedProjectDetail({ project, onBack }: Teache
                     <Table>
                       <TableHeader>
                         <TableRow>
+                          <TableHead className="w-[5%]"></TableHead>
                           <TableHead className="w-[30%]">Task Name</TableHead>
                           <TableHead className="w-[10%]">Task ID</TableHead>
                           <TableHead className="w-[15%]">Duration</TableHead>
@@ -95,6 +100,14 @@ export default function TeacherAssignedProjectDetail({ project, onBack }: Teache
                       <TableBody>
                         {project.tasks.map((task, index) => (
                           <TableRow key={task.taskId || index} className="hover:bg-muted">
+                            <TableCell className="py-2">
+                              <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => setSelectedTask(task)}
+                                  className="mr-2 text-xs py-1 h-auto border border-border hover:border-primary"
+                                > ✨ Hints</Button>
+                            </TableCell>
                             <TableCell className="py-2">{task.taskName}</TableCell>
                             <TableCell className="py-2">{task.taskId}</TableCell>
                             <TableCell className="py-2">{task.duration}</TableCell>
@@ -118,6 +131,17 @@ export default function TeacherAssignedProjectDetail({ project, onBack }: Teache
           </CardFooter>
         </Card>
       </div>
+
+      {
+        selectedTask && (
+          <TaskHints
+            task={selectedTask.taskName}
+            idea={project.description}
+            onClose={() => setSelectedTask(null)}
+          />
+        )
+      }
+
     </>
   );
 }
