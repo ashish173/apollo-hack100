@@ -11,4 +11,4 @@ env:
       - RUNTIME
   
   - variable: NEXT_PUBLIC_FIREBASE_API_KEY
-    secret: projects/486228852542/secrets/NEXT_PUBLIC_FIREBASE_API_KEY/versions/1
+    secret: AIzaSyCi43QYYbRvJ3tyTwSJdX9pfz2tP5e-E0s
