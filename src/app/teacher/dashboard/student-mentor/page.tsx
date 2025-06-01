@@ -101,7 +101,7 @@ export default function StudentMentorPage() {
 
     try {
       setLoadingProjectIdeas(true);
-      const result = await generateProjectIdeas({ topic: projectKeywords, difficulty: difficulty, duration: duration });
+      // const result = await generateProjectIdeas({ topic: projectKeywords, difficulty: difficulty, duration: duration });
 
       const requestBody = {
         topic: projectKeywords,
@@ -120,7 +120,7 @@ export default function StudentMentorPage() {
       const data = await response.json();
       const rawResponseText = data.response;
 
-      setGeneratedIdeas(response.ideas || []); 
+      setGeneratedIdeas(rawResponseText.ideas || []); 
     } catch (error: any) {
       console.log("error in gen ai query");
     } finally {

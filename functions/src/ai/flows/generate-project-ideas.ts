@@ -1,7 +1,6 @@
 // src/ai/flows/generate-project-ideas.ts
 "use server";
 
-import { logger } from "firebase-functions";
 /**
  * @fileOverview Generates project ideas based on a given topic or subject.
  *

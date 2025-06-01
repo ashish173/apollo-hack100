@@ -78,6 +78,9 @@ export default function IdeaDetail(
   const [loadingPlan, setLoadingPlan] = useState(false);
   const [today, setToday] = useState(new Date());
 
+  const FIREBASE_FUNCTION_URL = 'https://us-central1-role-auth-7bc43.cloudfunctions.net/generateProjectPlanFn';
+
+
   useEffect(() => {
     setToday(new Date());
   }, []);
@@ -86,11 +89,30 @@ export default function IdeaDetail(
     setLoadingPlan(true);
     setProjectPlan([]); // Clear previous plan and show loader
     try {
-      const result = await generateProjectPlan({ projectIdea: idea.description });
+      // const result = await generateProjectPlan({ projectIdea: idea.description });
 
       let parsedData: DisplayTask[]; // Parse as DisplayTask
+
+
+      const requestBody = {
+        projectIdea: idea.description,
+      };
+
+      const response = await fetch(FIREBASE_FUNCTION_URL, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(requestBody)
+      });
+
+      const data = await response.json();
+      const rawResponseText = data.response;
+
+      console.log("rawResponseText", rawResponseText);
+
       try {
-        parsedData = JSON.parse(result.projectPlan);
+        parsedData = JSON.parse(rawResponseText.projectPlan);
       } catch (jsonError: any) {
         console.error("Failed to parse project plan JSON:", jsonError);
         alert("Failed to parse project plan data. The format might be incorrect.");

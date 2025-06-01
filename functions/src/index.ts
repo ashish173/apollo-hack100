@@ -2,6 +2,7 @@
 
 import { generateProjectIdeas } from "./ai/flows/generate-project-ideas";
 import { logger } from "firebase-functions/v2";
+import { generateProjectPlan } from "./ai/flows/generate-project-plan";
 
 // functions/index.js
 const { onRequest } = require("firebase-functions/v2/https");
@@ -128,6 +129,23 @@ exports.generateProjectIdeasFn = onRequest({ cors: true }, async (req, res) => {
   try {
     const response = await generateProjectIdeas(req.body);
     logger.info("inside generateProjectIdeasFn response ", response);
+
+    return res.status(200).json({
+      response: response,
+    });
+
+    return;
+  } catch (error) {
+    return {
+      error: "Firebase error",
+    };
+  }
+});
+
+exports.generateProjectPlanFn = onRequest({ cors: true }, async (req, res) => {
+  try {
+    const response = await generateProjectPlan(req.body);
+    logger.info("inside generateProjectPlanFn response ", response);
 
     return res.status(200).json({
       response: response,
