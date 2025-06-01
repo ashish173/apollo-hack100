@@ -1,164 +1,181 @@
-
+// teacher/dashboard/page.tsx
 "use client";
 
-import { useEffect, useState } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '@/context/auth-context';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
-import { UserCircle, ListChecks, AlertTriangle, Info } from 'lucide-react';
-import LoadingSpinner from '@/components/ui/loading-spinner';
-import { collection, query, where, getDocs, Timestamp, doc, getDoc } from 'firebase/firestore';
+import { collection, query, where, getDocs, doc, getDoc, Timestamp } from 'firebase/firestore';
 import { db as firebaseDbService } from '@/lib/firebase';
-import { format } from 'date-fns';
+import LoadingSpinner from '@/components/ui/loading-spinner';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { Lightbulb, UserRound, BookOpen, ArrowLeft } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import TeacherAssignedProjectDetail from '@/components/teacher/teacher-assigned-project-detail';
+import { ProjectIdea, SavedProjectTask } from './student-mentor/idea-detail'; // Import types from idea-detail
 
-interface EnrichedAssignedProjectForTeacher {
-  assignmentId: string;
-  projectId: string;
-  projectTitle: string;
-  projectDescription: string; // Keep it brief or use for a details view later
-  assignedAt: Timestamp;
-  status: string;
+// Define an interface that combines data from 'assignedProjects' and 'projects' collections
+interface AssignedProjectWithDetails {
+  assignedProjectId: string; // The ID of the document in 'assignedProjects'
+  projectId: string;         // The ID of the document in 'projects'
   studentUid: string;
-  studentName: string; // From assignedProjects document
+  studentName: string;
+  teacherUid: string;
+  assignedAt: Timestamp;
+  title: string;
+  description: string;
+  difficulty: string;
+  duration: string;
+  tasks?: SavedProjectTask[]; // The detailed tasks array from the 'projects' document
 }
 
 export default function TeacherDashboardPage() {
   const { user, loading: authLoading } = useAuth();
-  const [assignedProjectsList, setAssignedProjectsList] = useState<EnrichedAssignedProjectForTeacher[]>([]);
-  const [isLoadingProjects, setIsLoadingProjects] = useState(true);
-  const [fetchError, setFetchError] = useState<string | null>(null);
+  const [assignedProjects, setAssignedProjects] = useState<AssignedProjectWithDetails[]>([]);
+  const [loadingProjects, setLoadingProjects] = useState(true);
+  const [viewMode, setViewMode] = useState<'list' | 'detail'>('list');
+  const [selectedProject, setSelectedProject] = useState<AssignedProjectWithDetails | null>(null);
+
+  const fetchAssignedProjects = useCallback(async () => {
+    if (!user || !firebaseDbService) return;
+
+    setLoadingProjects(true);
+    try {
+      const assignedProjectsRef = collection(firebaseDbService, 'assignedProjects');
+      const q = query(assignedProjectsRef, where('teacherUid', '==', user.uid));
+      const querySnapshot = await getDocs(q);
+
+      const fetchedAssignedProjects: AssignedProjectWithDetails[] = [];
+
+      for (const assignedDoc of querySnapshot.docs) {
+        const assignedData = assignedDoc.data();
+        const projectId = assignedData.projectId;
+
+        // Fetch the corresponding project details from the 'projects' collection
+        const projectRef = doc(firebaseDbService, 'projects', projectId);
+        const projectDoc = await getDoc(projectRef);
+
+        if (projectDoc.exists()) {
+          const projectData = projectDoc.data() as ProjectIdea; // Cast to ProjectIdea type
+          fetchedAssignedProjects.push({
+            assignedProjectId: assignedDoc.id,
+            projectId: projectId,
+            studentUid: assignedData.studentUid,
+            studentName: assignedData.studentName,
+            teacherUid: assignedData.teacherUid,
+            assignedAt: assignedData.assignedAt,
+            title: projectData.title,
+            description: projectData.description,
+            difficulty: projectData.difficulty,
+            duration: projectData.duration,
+            tasks: projectData.tasks || [], // Ensure tasks are included, use camelCase structure
+          });
+        } else {
+          console.warn(`Project document with ID ${projectId} not found.`);
+        }
+      }
+      setAssignedProjects(fetchedAssignedProjects);
+    } catch (error) {
+      console.error("Error fetching assigned projects:", error);
+      // Optionally show a toast error
+    } finally {
+      setLoadingProjects(false);
+    }
+  }, [user]);
 
   useEffect(() => {
-    if (authLoading || !user || user.role !== 'teacher') {
-      setIsLoadingProjects(false);
-      return;
+    if (!authLoading && user) {
+      fetchAssignedProjects();
     }
+  }, [user, authLoading, fetchAssignedProjects]);
 
-    const fetchAssignedProjects = async () => {
-      if (!user?.uid || !firebaseDbService) {
-        setFetchError("User data or database service is unavailable.");
-        setIsLoadingProjects(false);
-        return;
-      }
-      setIsLoadingProjects(true);
-      setFetchError(null);
+  const handleViewDetails = (project: AssignedProjectWithDetails) => {
+    setSelectedProject(project);
+    setViewMode('detail');
+  };
 
-      try {
-        const assignmentsRef = collection(firebaseDbService, 'assignedProjects');
-        const q = query(assignmentsRef, where('teacherUid', '==', user.uid));
-        const assignmentsSnapshot = await getDocs(q);
+  const handleBackToList = () => {
+    setSelectedProject(null);
+    setViewMode('list');
+    // Optionally re-fetch projects to ensure fresh data if needed after a potential change
+    // fetchAssignedProjects();
+  };
 
-        const projectsPromises = assignmentsSnapshot.docs.map(async (assignmentDoc) => {
-          const assignmentData = assignmentDoc.data();
-          const projectDocRef = doc(firebaseDbService, 'projects', assignmentData.projectId);
-          const projectDocSnap = await getDoc(projectDocRef);
-
-          if (projectDocSnap.exists()) {
-            const projectData = projectDocSnap.data();
-            return {
-              assignmentId: assignmentDoc.id,
-              projectId: assignmentData.projectId,
-              projectTitle: projectData.title,
-              projectDescription: projectData.description,
-              assignedAt: assignmentData.assignedAt as Timestamp,
-              status: assignmentData.status,
-              studentUid: assignmentData.studentUid,
-              studentName: assignmentData.studentName || 'N/A', // studentName is stored in assignedProjects
-            } as EnrichedAssignedProjectForTeacher;
-          } else {
-            console.warn(`Project details not found for projectId: ${assignmentData.projectId} (assignmentId: ${assignmentDoc.id})`);
-            // Still return assignment data but with placeholder project info
-            return {
-              assignmentId: assignmentDoc.id,
-              projectId: assignmentData.projectId,
-              projectTitle: "Project details unavailable",
-              projectDescription: "Could not load project description.",
-              assignedAt: assignmentData.assignedAt as Timestamp,
-              status: assignmentData.status,
-              studentUid: assignmentData.studentUid,
-              studentName: assignmentData.studentName || 'N/A',
-            } as EnrichedAssignedProjectForTeacher;
-          }
-        });
-
-        const resolvedProjects = (await Promise.all(projectsPromises)).filter(p => p !== null) as EnrichedAssignedProjectForTeacher[];
-        resolvedProjects.sort((a, b) => b.assignedAt.toMillis() - a.assignedAt.toMillis()); // Newest first
-        setAssignedProjectsList(resolvedProjects);
-
-      } catch (error) {
-        console.error("Error fetching teacher's assigned projects:", error);
-        setFetchError("Failed to load assigned projects. Please try again later.");
-      } finally {
-        setIsLoadingProjects(false);
-      }
-    };
-
-    fetchAssignedProjects();
-  }, [user, authLoading]);
-
-  if (authLoading || !user) {
-     return (
+  if (authLoading) {
+    return (
       <div className="flex-grow flex items-center justify-center p-6">
         <LoadingSpinner size={64} />
       </div>
     );
   }
 
+  if (!user) {
+    return (
+      <div className="flex-grow flex items-center justify-center p-6">
+        <p className="text-muted-foreground">Please sign in to view your dashboard.</p>
+      </div>
+    );
+  }
+
+  if (viewMode === 'detail' && selectedProject) {
+    return (
+      <TeacherAssignedProjectDetail
+        project={selectedProject}
+        onBack={handleBackToList}
+      />
+    );
+  }
+
   return (
-    <div className="w-full flex flex-col items-center justify-start space-y-8">
-      <Card className="w-full shadow-xl">
-        <CardHeader>
-          <div className="flex items-center space-x-3">
-            <ListChecks size={32} className="text-primary" />
-            <CardTitle className="text-2xl font-semibold text-primary">My Assigned Projects</CardTitle>
+    <div className="flex-grow flex flex-col p-6 space-y-8 mx-auto">
+      <div className="text-center">
+        <BookOpen size={56} className="mx-auto mb-5 text-primary" />
+        <h1 className="text-4xl font-bold tracking-tight text-primary">My Assigned Projects</h1>
+        <p className="mt-3 text-lg text-muted-foreground">
+          A quick overview of projects you've assigned to students.
+        </p>
+      </div>
+
+      <div className="w-full">
+        {loadingProjects ? (
+          <div className="flex justify-center items-center h-64">
+            <LoadingSpinner size={48} />
           </div>
-          <CardDescription className="text-muted-foreground pt-2">
-            A quick overview of projects you've assigned to students.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          {isLoadingProjects ? (
-            <div className="flex w-full justify-center py-8">
-              <LoadingSpinner size={48} />
-            </div>
-          ) : fetchError ? (
-            <div className="text-destructive flex flex-col items-center space-y-2 py-8">
-              <AlertTriangle size={40} />
-              <p>{fetchError}</p>
-            </div>
-          ) : assignedProjectsList.length === 0 ? (
-            <p className="text-muted-foreground text-center py-8">You haven't assigned any projects yet.</p>
-          ) : (
-            <div className="space-y-4">
-              {assignedProjectsList.map((project) => (
-                <Card key={project.assignmentId} className="shadow-md hover:shadow-lg transition-shadow">
-                  <CardHeader>
-                    <CardTitle className="text-xl text-primary">{project.projectTitle}</CardTitle>
-                    <CardDescription>
-                      Assigned to: <span className="font-medium text-foreground">{project.studentName}</span>
-                    </CardDescription>
-                  </CardHeader>
-                  <CardContent className="space-y-2">
-                    <p className="text-sm text-muted-foreground line-clamp-2">{project.projectDescription}</p>
-                    <div className="flex flex-wrap gap-2 items-center">
-                      <Badge variant="secondary">
-                        Assigned: {project.assignedAt ? format(project.assignedAt.toDate(), 'PP') : 'N/A'}
-                      </Badge>
-                      <Badge 
-                        variant={project.status === 'completed' ? 'default' : 'destructive'}
-                        className={project.status === 'completed' ? 'bg-green-500 hover:bg-green-600' : project.status === 'assigned' ? 'bg-blue-500 hover:bg-blue-600' : 'bg-yellow-500 hover:bg-yellow-600'}
-                      >
-                        Status: {project.status.charAt(0).toUpperCase() + project.status.slice(1)}
-                      </Badge>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
-          )}
-        </CardContent>
-      </Card>
+        ) : assignedProjects.length === 0 ? (
+          <Card className="shadow-lg">
+            <CardContent className="pt-6">
+              <p className="text-muted-foreground text-center">
+                You haven't assigned any projects yet. Go to "Student Mentor" to assign one!
+              </p>
+            </CardContent>
+          </Card>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {assignedProjects.map((project) => (
+              <Card
+                key={project.assignedProjectId}
+                className="shadow-lg hover:shadow-xl transition-shadow duration-300 cursor-pointer flex flex-col"
+                onClick={() => handleViewDetails(project)}
+              >
+                <CardHeader>
+                  <CardTitle className="text-xl text-primary">{project.title}</CardTitle>
+                  <CardDescription className="flex items-center text-sm">
+                    <UserRound className="mr-1 h-4 w-4 text-muted-foreground" />
+                    Assigned to: {project.studentName}
+                  </CardDescription>
+                  <div className="flex flex-wrap gap-2 pt-2">
+                    <Badge variant="secondary">Difficulty: {project.difficulty}</Badge>
+                    <Badge variant="outline">Duration: {project.duration}</Badge>
+                    <Badge variant="default">Status: Assigned</Badge>
+                  </div>
+                </CardHeader>
+                <CardContent className="flex-grow">
+                  <p className="text-sm text-muted-foreground line-clamp-3">{project.description}</p>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        )}
+      </div>
     </div>
   );
 }
