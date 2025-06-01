@@ -1,4 +1,4 @@
-
+// idea-detail.tsx
 "use client";
 
 import { useState, useEffect, useCallback } from 'react';
@@ -6,7 +6,6 @@ import { Lightbulb, UserPlus, ArrowLeft } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { ProjectIdea } from './page';
 import { generateProjectPlan } from '@/ai/flows/generate-project-plan';
 import { addDays } from 'date-fns';
 import {
@@ -23,45 +22,73 @@ import LoadingSpinner from '@/components/ui/loading-spinner';
 import AssignProjectDialog from '@/components/teacher/assign-project-dialog';
 import { useAuth } from '@/context/auth-context';
 
-interface Task {
+// This interface represents the *raw* data structure coming from your AI's project plan generation.
+// This is what will be stored in `projectPlan` state for *display* in IdeaDetail.
+interface DisplayTask {
   TaskID: number;
   TaskName: string;
   StartDate?: string;
   EndDate?: string;
-  Duration: string | number; // Allow number for programmatic setting
+  Duration: string | number; // This is the AI's raw duration (e.g., "2 days")
   PercentageComplete: number;
   Dependencies: string;
   Milestone: boolean;
 }
+
+// This interface represents the *specific subset* of task data you want to save in Firestore,
+// using camelCase for consistency.
+export interface SavedProjectTask { // Exported for use in assign-project-dialog.tsx
+  taskId: number;
+  taskName: string;
+  startDate: string;
+  endDate: string;
+  duration: string;
+}
+
+// Updated ProjectIdea interface:
+// It has `id`, `title`, `description`, `difficulty`, `duration`, `icon`
+// And now, its `tasks` array will conform to the `SavedProjectTask` structure for saving.
+export interface ProjectIdea { // Exported for use in page.tsx
+  id?: string;
+  title: string;
+  description: string;
+  difficulty: string;
+  duration: string;
+  icon?: React.ComponentType<{ size: number; className: string }>;
+  tasks?: SavedProjectTask[]; // This type is for the *saved* version of tasks
+}
+
 
 export default function IdeaDetail(
   {
     idea,
     goBack,
     handleAssign
-  }: { 
+  }: {
     idea: ProjectIdea,
     goBack: () => void,
     handleAssign: () => void
   }) {
-    const { user, loading: authLoading } = useAuth();
-    const [isAssignDialogOpen, setIsAssignDialogOpen] = useState(false);
-    const [projectPlan, setProjectPlan] = useState<Task[]>([]);
-    const [loadingPlan, setLoadingPlan] = useState(false);
-    const [today, setToday] = useState(new Date());
+  const { user, loading: authLoading } = useAuth();
+  const [isAssignDialogOpen, setIsAssignDialogOpen] = useState(false);
+
+  // projectPlan now holds the *full* AI-generated tasks for *display* in the table
+  const [projectPlan, setProjectPlan] = useState<DisplayTask[]>([]); // Use DisplayTask[] here
+
+  const [loadingPlan, setLoadingPlan] = useState(false);
+  const [today, setToday] = useState(new Date());
 
   useEffect(() => {
     setToday(new Date());
   }, []);
-
 
   const fetchProjectPlan = useCallback(async () => {
     setLoadingPlan(true);
     setProjectPlan([]); // Clear previous plan and show loader
     try {
       const result = await generateProjectPlan({ projectIdea: idea.description });
-  
-      let parsedData: Task[];
+
+      let parsedData: DisplayTask[]; // Parse as DisplayTask
       try {
         parsedData = JSON.parse(result.projectPlan);
       } catch (jsonError: any) {
@@ -71,10 +98,10 @@ export default function IdeaDetail(
         setLoadingPlan(false);
         return;
       }
-  
+
       let currentDate = new Date(today);
-  
-      const dataWithDates = parsedData.map((item) => {
+
+      const tasksForDisplay: DisplayTask[] = parsedData.map((item) => {
         let durationValue: number;
         if (typeof item.Duration === 'string') {
           const durationMatch = item.Duration.match(/(\d+)/);
@@ -82,25 +109,26 @@ export default function IdeaDetail(
         } else if (typeof item.Duration === 'number') {
           durationValue = item.Duration;
         } else {
-          durationValue = 1; 
+          durationValue = 1;
         }
         const validDuration = isNaN(durationValue) || durationValue <= 0 ? 1 : durationValue;
-  
+
         const itemStartDate = new Date(currentDate);
-        const itemEndDate = addDays(itemStartDate, validDuration -1 );
-  
-        const newItem = {
-          ...item,
-          StartDate: itemStartDate.toISOString().slice(0, 10),
-          EndDate: itemEndDate.toISOString().slice(0, 10),
-          Duration: `${validDuration} day${validDuration > 1 ? 's' : ''}`,
-  
-        };
+        const itemEndDate = addDays(itemStartDate, validDuration - 1); // -1 because addDays is inclusive of the start day
+
+        // Update currentDate for the next task
         currentDate = addDays(itemEndDate, 1);
-        return newItem;
+
+        // Return the full DisplayTask object, ensuring calculated dates/duration are set
+        return {
+          ...item, // Keep all original properties from AI for display
+          StartDate: itemStartDate.toISOString().slice(0, 10), // Set actual start date
+          EndDate: itemEndDate.toISOString().slice(0, 10),     // Set actual end date
+          Duration: `${validDuration} day${validDuration > 1 ? 's' : ''}`, // Format duration for display
+        };
       });
-  
-      setProjectPlan(dataWithDates);
+
+      setProjectPlan(tasksForDisplay); // Set the state with the full DisplayTask array for table display
     } catch (error: any) {
       console.error("Error during project plan generation:", error);
       alert(error.message || "An unexpected error occurred.");
@@ -108,27 +136,46 @@ export default function IdeaDetail(
     } finally {
       setLoadingPlan(false);
     }
-  }, [today]);
+  }, [idea.description, today]);
 
   const IconComponent = idea.icon || Lightbulb;
 
   useEffect(() => {
-    fetchProjectPlan()
-  }, []);
+    if (idea) {
+      fetchProjectPlan();
+    }
+  }, [fetchProjectPlan, idea]);
+
+  // --- Crucial Change: Create a *separate* tasks array for Firestore saving
+  //    that includes ONLY the desired fields and uses camelCase. ---
+  const tasksForFirestore: SavedProjectTask[] = projectPlan.map(task => ({
+    taskId: task.TaskID, // camelCase
+    taskName: task.TaskName, // camelCase
+    startDate: task.StartDate || '', // camelCase (ensure string, fallback)
+    endDate: task.EndDate || '',     // camelCase (ensure string, fallback)
+    duration: String(task.Duration), // camelCase (ensure string)
+  }));
+  // -----------------------------------------------------------------
+
+  // Construct the ProjectIdea object with *simplified* tasks for the dialog
+  const projectIdeaWithTasks: ProjectIdea = {
+    ...idea, // Copy existing properties
+    tasks: tasksForFirestore, // Assign the *simplified* tasks array here
+  };
 
   return (
     <>
       <div className="flex-grow flex flex-col items-center p-6 space-y-6">
         <div className="w-full flex justify-start">
-            <Button onClick={goBack} variant="outline" className="shadow-sm">
+          <Button onClick={goBack} variant="outline" className="shadow-sm">
             <ArrowLeft className="mr-2 h-4 w-4" /> Back to Ideas
-            </Button>
+          </Button>
         </div>
         <Card className="w-full shadow-xl">
           <CardHeader>
             <div className="flex justify-between items-start mb-2">
-                <CardTitle className="text-2xl font-bold text-primary">{idea.title}</CardTitle>
-                <IconComponent size={28} className="text-accent flex-shrink-0" />
+              <CardTitle className="text-2xl font-bold text-primary">{idea.title}</CardTitle>
+              <IconComponent size={28} className="text-accent flex-shrink-0" />
             </div>
             <div className="flex flex-wrap gap-2 pt-1">
               <Badge variant="secondary">Difficulty: {idea.difficulty}</Badge>
@@ -140,74 +187,80 @@ export default function IdeaDetail(
             <div className="mt-8 pt-6 border-t">
               <h3 className="text-xl font-semibold text-primary mb-3">Project Plan</h3>
               <div className="p-4 border rounded-md bg-background/50 shadow-sm">
-              {
-                loadingPlan ? (
-                  <>
-                    Generation Project Plan
-                    <LoadingSpinner />
-                  </>
-                ) : (
-                  <ScrollArea className="md:max-h-[calc(100vh-12rem)]">
-                    <Table>
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead className="w-[60%]">Task Name</TableHead>
-                          <TableHead className="w-[20%]">Duration</TableHead>
-                          <TableHead className="w-[20%] text-right">End Date</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {projectPlan.map((task) => (
-                          <TableRow key={task.TaskID} className={cn("hover:bg-muted", task.Milestone ? "bg-secondary/70 font-semibold" : "")}>
-                            <TableCell className="flex items-center py-2">
-                              {task.Milestone ? (
+                {
+                  loadingPlan ? (
+                    <>
+                      <div className="flex items-center justify-center p-4 text-muted-foreground">
+                        <LoadingSpinner size={24} className="mr-2" /> Generating Project Plan...
+                      </div>
+                    </>
+                  ) : projectPlan && projectPlan.length > 0 ? (
+                    <ScrollArea className="md:max-h-[calc(100vh-12rem)]">
+                      <Table><TableHeader><TableRow> {/* <--- REMOVED WHITESPACE */}
+                            <TableHead className="w-[30%]">Task Name</TableHead>
+                            <TableHead className="w-[10%]">Task ID</TableHead>
+                            <TableHead className="w-[15%]">Duration</TableHead>
+                            <TableHead className="w-[15%]">Start Date</TableHead>
+                            <TableHead className="w-[15%] text-right">Due Date</TableHead>
+                            <TableHead className="w-[15%] text-right">Progress</TableHead>
+                          </TableRow></TableHeader> {/* <--- REMOVED WHITESPACE */}
+                        <TableBody>
+                          {projectPlan.map((task, index) => (
+                            <TableRow key={index} className={cn("hover:bg-muted", task.Milestone ? "bg-secondary/70 font-semibold" : "")}>
+                              <TableCell className="flex items-center py-2">
+                                {task.Milestone && (
                                   <span className="mr-2">⭐</span>
-                              ) : (
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => {}}
-                                className="mr-2 text-xs py-1 h-auto border border-border hover:border-primary"
-                              > ✨ Hints</Button>
-                              )}
-                              {task.TaskName}
-                            </TableCell>
-                            <TableCell className="py-2">{task.Duration}</TableCell>
-                            <TableCell className="text-right py-2">{task.EndDate}</TableCell>
-                          </TableRow>
-                        ))}
-                      </TableBody>
-                    </Table>
-                  </ScrollArea>
-                )
-              }
+                                )}
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => { /* Handle hints logic here */ }}
+                                  className="mr-2 text-xs py-1 h-auto border border-border hover:border-primary"
+                                > ✨ Hints</Button>
+                                {task.TaskName}
+                              </TableCell>
+                              <TableCell className="py-2">{task.TaskID}</TableCell>
+                              <TableCell className="py-2">{task.Duration}</TableCell>
+                              <TableCell className="py-2">{task.StartDate}</TableCell>
+                              <TableCell className="text-right py-2">{task.EndDate}</TableCell>
+                              <TableCell className="text-right py-2">{task.PercentageComplete}%</TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
+                    </ScrollArea>
+                  ) : (
+                    <p className="text-center text-muted-foreground p-4">No project plan generated yet.</p>
+                  )
+                }
               </div>
             </div>
           </CardContent>
-            <CardFooter className="pt-6">
-              <Button 
-                variant="default" 
-                className="w-full text-primary-foreground bg-primary hover:bg-primary/90"
-                onClick={() => {
-                  setIsAssignDialogOpen(true);
-                }}
-              >
-                <UserPlus className="mr-2 h-4 w-4" />
-                Assign to Student
-              </Button>
+          <CardFooter className="pt-6">
+            <Button
+              variant="default"
+              className="w-full text-primary-foreground bg-primary hover:bg-primary/90"
+              onClick={() => {
+                setIsAssignDialogOpen(true);
+              }}
+              disabled={loadingPlan || projectPlan.length === 0}
+            >
+              <UserPlus className="mr-2 h-4 w-4" />
+              Assign to Student
+            </Button>
           </CardFooter>
         </Card>
       </div>
 
-      {idea && user && (
+      {/* Pass the projectIdeaWithTasks which includes the generated *simplified* tasks */}
+      {projectIdeaWithTasks && user && (
         <AssignProjectDialog
-          project={idea}
+          project={projectIdeaWithTasks}
           isOpen={isAssignDialogOpen}
           onOpenChange={setIsAssignDialogOpen}
           teacherId={user.uid}
         />
       )}
     </>
-    
   );
 }
