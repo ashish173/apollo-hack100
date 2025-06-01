@@ -1,0 +1,58 @@
+# cloudbuild.yaml
+steps:
+  # Step 1: Install Node.js dependencies
+  - name: 'gcr.io/cloud-builders/npm'
+    args: ['install']
+    env:
+      - 'NPM_CONFIG_UPDATE_NOTIFIER=false' # Suppress NPM update notifications
+
+  # Step 2: Build the Next.js application
+  # We'll inject environment variables from Secret Manager here
+  - name: 'gcr.io/cloud-builders/npm'
+    args: ['run', 'build']
+    env:
+      # Next.js client-side variables (prefixed with NEXT_PUBLIC_)
+      - 'NEXT_PUBLIC_FIREBASE_API_KEY=${_NEXT_PUBLIC_FIREBASE_API_KEY}'
+      - 'NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=${_NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN}'
+      - 'NEXT_PUBLIC_FIREBASE_PROJECT_ID=${_NEXT_PUBLIC_FIREBASE_PROJECT_ID}'
+      - 'NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET=${_NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET}'
+      - 'NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=${_NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID}'
+      - 'NEXT_PUBLIC_FIREBASE_APP_ID=${_NEXT_PUBLIC_FIREBASE_APP_ID}'
+      - 'NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID=${_NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID}' # if applicable
+      - 'GOOGLE_GENAI_API_KEY=${_GOOGLE_GENAI_API_KEY}'
+      - 'ANTHROPIC_API_KEY=${_ANTHROPIC_API_KEY}'
+      # You can add other build-time variables here as needed
+    secretEnv: ['_NEXT_PUBLIC_FIREBASE_API_KEY', '_NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN', '_NEXT_PUBLIC_FIREBASE_PROJECT_ID', '_NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET', '_NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID', '_NEXT_PUBLIC_FIREBASE_APP_ID', '_NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID', '_GOOGLE_GENAI_API_KEY', '_ANTHROPIC_API_KEY']
+
+
+  # Step 3: Deploy to Firebase Hosting and Functions
+  # This uses the Firebase CLI builder. It automatically detects Next.js SSR functions.
+  - name: 'us-docker.pkg.dev/firebase-cli/us/firebase'
+    args: ['deploy', '--project=${_FIREBASE_PROJECT_ID}']
+    # If you have specific targets, you can use --only, e.g., --only hosting,functions
+    # env:
+    #   - 'FIREBASE_AUTH_KEY=${_FIREBASE_AUTH_KEY}' # Example for a server-side only Firebase variable if needed
+    secretEnv: ['_FIREBASE_PROJECT_ID'] # Make sure this variable is also in Secret Manager if not using built-in Cloud Build substitutions
+
+# Define substitutions for secrets, mapping them to Secret Manager secret names
+availableSecrets:
+  secretManager:
+    - versionName: projects/${PROJECT_ID}/secrets/NEXTJS_FIREBASE_API_KEY/versions/latest
+      env: _NEXT_PUBLIC_FIREBASE_API_KEY
+    - versionName: projects/${PROJECT_ID}/secrets/NEXTJS_FIREBASE_AUTH_DOMAIN/versions/latest
+      env: _NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN
+    - versionName: projects/${PROJECT_ID}/secrets/NEXTJS_FIREBASE_PROJECT_ID/versions/latest
+      env: _NEXT_PUBLIC_FIREBASE_PROJECT_ID
+    - versionName: projects/${PROJECT_ID}/secrets/NEXTJS_FIREBASE_STORAGE_BUCKET/versions/latest
+      env: _NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET
+    - versionName: projects/${PROJECT_ID}/secrets/NEXTJS_FIREBASE_MESSAGING_SENDER_ID/versions/latest
+      env: _NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID
+    - versionName: projects/${PROJECT_ID}/secrets/NEXTJS_FIREBASE_APP_ID/versions/latest
+      env: _NEXT_PUBLIC_FIREBASE_APP_ID
+    - versionName: projects/${PROJECT_ID}/secrets/NEXTJS_FIREBASE_MEASUREMENT_ID/versions/latest
+      env: _NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID # if applicable
+    - versionName: projects/${PROJECT_ID}/secrets/FIREBASE_PROJECT_ID/versions/latest
+      env: _FIREBASE_PROJECT_ID
+      # Add any other secrets you need here following the same pattern
+      # - versionName: projects/${PROJECT_ID}/secrets/YOUR_SECRET_NAME/versions/latest
+      #   env: _YOUR_ENV_VAR_NAME
