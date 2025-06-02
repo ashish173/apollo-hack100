@@ -61,9 +61,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
               uid: firebaseUser.uid,
               email: firebaseUser.email || firestoreData?.email,
               displayName: firebaseUser.displayName || firestoreData?.displayName,
+              photoURL: firebaseUser.photoURL || firestoreData?.photoURL, // Add this
               role: roleFromDb,
             });
             setLoading(false);
+
+            // Optionally, update Firestore if Google photoURL is newer and different
+            // This is a good place if you want to keep Firestore updated even if the user doesn't re-authenticate via Google button
+            const googlePhotoURL = firebaseUser.photoURL;
+            if (googlePhotoURL && googlePhotoURL !== firestoreData?.photoURL) {
+              try {
+                await setDoc(userDocRef, { photoURL: googlePhotoURL }, { merge: true });
+                console.log(`onAuthStateChanged: Updated photoURL for user ${firebaseUser.uid}`);
+              } catch (error) {
+                console.error(`onAuthStateChanged: Error updating photoURL for user ${firebaseUser.uid}:`, error);
+              }
+            }
+
           } else {
             console.warn(`User ${firebaseUser.uid} (onAuthStateChanged) document exists but role is missing or invalid: "${roleFromDb}". Clearing user session.`);
             await firebaseSignOut(firebaseAuthService); // This will trigger onAuthStateChanged again with firebaseUser = null
@@ -97,6 +111,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       const result = await signInWithPopup(firebaseAuthService, googleAuthProvider);
       const firebaseUser = result.user;
+      const photoURL = firebaseUser.photoURL; // Get photoURL
       
       const userDocRef = doc(firebaseDbService, 'users', firebaseUser.uid);
       const userDocSnap = await getDoc(userDocRef);
@@ -120,31 +135,50 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             } else {
                 console.log(`login successful ${userRole}`);
             }
-             // Ensure Firestore has the latest display name and email
-            if (firestoreData?.email !== userEmail || firestoreData?.displayName !== userDisplayName) {
-              await setDoc(userDocRef, { 
-                email: userEmail, 
-                displayName: userDisplayName 
-              }, { merge: true });
+            
+            // Consolidate Firestore updates for existing users
+            const currentPhotoURL = firebaseUser.photoURL;
+            let needsUpdate = false;
+            const updateData: { photoURL?: string | null, email?: string | null, displayName?: string | null, updatedAt?: any } = { updatedAt: serverTimestamp() };
+
+            if (currentPhotoURL && currentPhotoURL !== firestoreData?.photoURL) {
+                updateData.photoURL = currentPhotoURL;
+                needsUpdate = true;
             }
+            if (userEmail && userEmail !== firestoreData?.email) { // userEmail already prefers firebaseUser.email
+                updateData.email = userEmail;
+                needsUpdate = true;
+            }
+            if (userDisplayName && userDisplayName !== firestoreData?.displayName) { // userDisplayName already prefers firebaseUser.displayName
+                updateData.displayName = userDisplayName;
+                needsUpdate = true;
+            }
+
+            if (needsUpdate) {
+              await setDoc(userDocRef, updateData, { merge: true });
+              console.log(`signInWithGoogle: Updated user profile for ${firebaseUser.uid}`, updateData);
+            }
+
         } else {
             console.warn(`User ${firebaseUser.uid} document exists but role is missing/invalid: "${roleFromDb}". Using selected role: ${selectedRole} and updating Firestore.`);
-            userRole = selectedRole;
+            userRole = selectedRole; // Use the role selected during sign-in
             await setDoc(userDocRef, {
-              uid: firebaseUser.uid, // ensure uid is there
+              uid: firebaseUser.uid, 
               email: userEmail,
               displayName: userDisplayName,
+              photoURL: firebaseUser.photoURL, // Add photoURL here too
               role: userRole,
-              createdAt: firestoreData?.createdAt || serverTimestamp(), // Preserve original createdAt or set new
+              createdAt: firestoreData?.createdAt || serverTimestamp(), 
               updatedAt: serverTimestamp()
-            }, { merge: true });
-            console.log(`prfile update`);
+            }, { merge: true }); // merge: true is good practice here
+            console.log(`signInWithGoogle: Profile updated for user ${firebaseUser.uid} with new role and photoURL.`);
         }
       } else {
         await setDoc(userDocRef, {
           uid: firebaseUser.uid,
           email: userEmail,
           displayName: userDisplayName,
+          photoURL: photoURL, // Add this
           role: userRole, // which is selectedRole here
           createdAt: serverTimestamp(),
         });
@@ -155,6 +189,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         uid: firebaseUser.uid,
         email: userEmail,
         displayName: userDisplayName,
+        photoURL: photoURL, // Add this
         role: userRole,
       });
       router.push('/'); 
