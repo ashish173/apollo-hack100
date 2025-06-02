@@ -2,6 +2,12 @@
 
 import Link from 'next/link';
 import { useEffect } from 'react';
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from "@/components/ui/accordion";
 
 export default function LandingPage() {
 
@@ -409,28 +415,54 @@ export default function LandingPage() {
         }
 
         .faq-item {
+          /* background, border-radius, border, transition are from original .faq-item */
           background: rgba(255, 255, 255, 0.15);
-          border-radius: 15px;
-          padding: 20px;
-          border: 1px solid rgba(255, 255, 255, 0.1);
+          border-radius: 15px !important; /* Ensure this radius is used */
+          border: 1px solid rgba(255, 255, 255, 0.1) !important; /* Ensure this border is used */
+          padding: 0 !important; /* Remove AccordionItem default padding; rely on inner elements or original .faq-item padding */
+          margin-bottom: 20px; /* Add original gap between items, was on .faq-items previously implicitly */
           transition: transform 0.3s ease, background 0.3s ease;
         }
+        /* shadcn AccordionItem has a border-bottom by default, remove it to use the .faq-item's own border */
+        .faq-item[data-state="open"], .faq-item[data-state="closed"] {
+            border-bottom-width: 0px !important;
+        }
+
 
         .faq-item:hover {
           transform: translateY(-3px);
           background: rgba(255, 255, 255, 0.2);
         }
 
-        .faq-question {
+        .faq-question { /* This class is on AccordionTrigger */
           font-weight: 600;
           font-size: 1.1rem;
-          margin-bottom: 10px;
           color: white;
           line-height: 1.4;
+          text-align: left; 
+          width: 100%; 
+          padding: 20px !important; /* Add padding directly to trigger, as it's the clickable area */
+          margin-bottom: 0; /* Remove any margin */
+        }
+        
+        .faq-question[data-state="open"] {
+          padding-bottom: 10px !important; /* Reduce padding when open, answer will add its own top padding */
         }
 
-        .faq-answer {
+
+        /* Style for the chevron icon in AccordionTrigger */
+        .faq-question svg {
+          color: white !important; 
+          stroke: white !important; 
+          min-width: 24px !important; /* Ensure icon has some space */
+          min-height: 24px !important;
+          width: 24px !important;
+          height: 24px !important;
+        }
+
+        .faq-answer { /* This class is on AccordionContent */
           color: rgba(255, 255, 255, 0.9);
+          padding: 0 20px 20px 20px !important; /* Add padding to content (left, right, bottom) */
           line-height: 1.6;
           font-size: 0.95rem;
         }
@@ -620,87 +652,87 @@ export default function LandingPage() {
             <div className="faq-categories">
               <div className="faq-category">
                 <h3 className="category-title">👩‍🏫 For Teachers</h3>
-                <div className="faq-items">
-                  <div className="faq-item">
-                    <div className="faq-question">How does the AI assistant help with my daily workload without replacing me?</div>
-                    <div className="faq-answer">The AI handles routine tasks like attendance tracking, report generation, and project suggestions, freeing you to focus on teaching and mentoring. You remain the central figure in education while AI amplifies your impact.</div>
-                  </div>
+                <Accordion type="single" collapsible className="faq-items">
+                  <AccordionItem value="teacher-item-1" className="faq-item">
+                    <AccordionTrigger className="faq-question">How does the AI assistant help with my daily workload without replacing me?</AccordionTrigger>
+                    <AccordionContent className="faq-answer">The AI handles routine tasks like attendance tracking, report generation, and project suggestions, freeing you to focus on teaching and mentoring. You remain the central figure in education while AI amplifies your impact.</AccordionContent>
+                  </AccordionItem>
                   
-                  <div className="faq-item">
-                    <div className="faq-question">Will I need technical training to use the platform?</div>
-                    <div className="faq-answer">No extensive training required. The platform is designed with an intuitive interface. We provide simple onboarding tutorials and ongoing support to get you started quickly.</div>
-                  </div>
+                  <AccordionItem value="teacher-item-2" className="faq-item">
+                    <AccordionTrigger className="faq-question">Will I need technical training to use the platform?</AccordionTrigger>
+                    <AccordionContent className="faq-answer">No extensive training required. The platform is designed with an intuitive interface. We provide simple onboarding tutorials and ongoing support to get you started quickly.</AccordionContent>
+                  </AccordionItem>
                   
-                  <div className="faq-item">
-                    <div className="faq-question">How does the system track student progress and generate reports?</div>
-                    <div className="faq-answer">The AI conducts weekly check-ins with students, monitors project milestones, and automatically generates comprehensive progress summaries for your review, saving hours of manual tracking.</div>
-                  </div>
+                  <AccordionItem value="teacher-item-3" className="faq-item">
+                    <AccordionTrigger className="faq-question">How does the system track student progress and generate reports?</AccordionTrigger>
+                    <AccordionContent className="faq-answer">The AI conducts weekly check-ins with students, monitors project milestones, and automatically generates comprehensive progress summaries for your review, saving hours of manual tracking.</AccordionContent>
+                  </AccordionItem>
                   
-                  <div className="faq-item">
-                    <div className="faq-question">Can the AI suggest projects that match my curriculum requirements?</div>
-                    <div className="faq-answer">Yes, the AI analyzes your curriculum and suggests industry-relevant projects that align with your learning objectives while building practical skills students need for employment.</div>
-                  </div>
+                  <AccordionItem value="teacher-item-4" className="faq-item">
+                    <AccordionTrigger className="faq-question">Can the AI suggest projects that match my curriculum requirements?</AccordionTrigger>
+                    <AccordionContent className="faq-answer">Yes, the AI analyzes your curriculum and suggests industry-relevant projects that align with your learning objectives while building practical skills students need for employment.</AccordionContent>
+                  </AccordionItem>
                   
-                  <div className="faq-item">
-                    <div className="faq-question">How does the attendance capture with image recognition work?</div>
-                    <div className="faq-answer">Simply take the picture of your attendance register and AI automatically generates a digital version of the register saving you the time needed to convert the register data to digital excel data.</div>
-                  </div>
+                  <AccordionItem value="teacher-item-5" className="faq-item">
+                    <AccordionTrigger className="faq-question">How does the attendance capture with image recognition work?</AccordionTrigger>
+                    <AccordionContent className="faq-answer">Simply take the picture of your attendance register and AI automatically generates a digital version of the register saving you the time needed to convert the register data to digital excel data.</AccordionContent>
+                  </AccordionItem>
                   
-                  <div className="faq-item">
-                    <div className="faq-question">Will this platform integrate with my existing grading systems?</div>
-                    <div className="faq-answer">Yes, we&apos;re designed to work alongside existing systems. Data can be exported to most common formats and integrated with popular learning management systems.</div>
-                  </div>
-                </div>
+                  <AccordionItem value="teacher-item-6" className="faq-item">
+                    <AccordionTrigger className="faq-question">Will this platform integrate with my existing grading systems?</AccordionTrigger>
+                    <AccordionContent className="faq-answer">Yes, we&apos;re designed to work alongside existing systems. Data can be exported to most common formats and integrated with popular learning management systems.</AccordionContent>
+                  </AccordionItem>
+                </Accordion>
               </div>
               
               <div className="faq-category">
                 <h3 className="category-title">👨‍🎓 For Students</h3>
-                <div className="faq-items">
-                  <div className="faq-item">
-                    <div className="faq-question">What kind of real-world projects will I work on?</div>
-                    <div className="faq-answer">Industry-relevant projects based on actual business challenges, from app development and data analysis to marketing campaigns and research studies that build your portfolio.</div>
-                  </div>
+                <Accordion type="single" collapsible className="faq-items">
+                  <AccordionItem value="student-item-1" className="faq-item">
+                    <AccordionTrigger className="faq-question">What kind of real-world projects will I work on?</AccordionTrigger>
+                    <AccordionContent className="faq-answer">Industry-relevant projects based on actual business challenges, from app development and data analysis to marketing campaigns and research studies that build your portfolio.</AccordionContent>
+                  </AccordionItem>
                   
-                  <div className="faq-item">
-                    <div className="faq-question">How often will I get feedback and check-ins?</div>
-                    <div className="faq-answer">The AI assistant conducts weekly check-ins to track your progress, provide guidance, and identify any roadblocks. Your teacher receives detailed summaries to provide additional support when needed.</div>
-                  </div>
+                  <AccordionItem value="student-item-2" className="faq-item">
+                    <AccordionTrigger className="faq-question">How often will I get feedback and check-ins?</AccordionTrigger>
+                    <AccordionContent className="faq-answer">The AI assistant conducts weekly check-ins to track your progress, provide guidance, and identify any roadblocks. Your teacher receives detailed summaries to provide additional support when needed.</AccordionContent>
+                  </AccordionItem>
                   
-                  <div className="faq-item">
-                    <div className="faq-question">Will this replace my professors or work alongside them?</div>
-                    <div className="faq-answer">The platform enhances your professor&apos;s ability to guide you. It provides 24/7 support for project questions while your professor focuses on deeper learning and career mentorship.</div>
-                  </div>
+                  <AccordionItem value="student-item-3" className="faq-item">
+                    <AccordionTrigger className="faq-question">Will this replace my professors or work alongside them?</AccordionTrigger>
+                    <AccordionContent className="faq-answer">The platform enhances your professor&apos;s ability to guide you. It provides 24/7 support for project questions while your professor focuses on deeper learning and career mentorship.</AccordionContent>
+                  </AccordionItem>
                   
-                  <div className="faq-item">
-                    <div className="faq-question">What happens to my project data and progress reports?</div>
-                    <div className="faq-answer">Your data belongs to you. All project work and progress reports can be exported for your portfolio. We maintain strict privacy standards and never share your information without consent.</div>
-                  </div>
-                </div>
+                  <AccordionItem value="student-item-4" className="faq-item">
+                    <AccordionTrigger className="faq-question">What happens to my project data and progress reports?</AccordionTrigger>
+                    <AccordionContent className="faq-answer">Your data belongs to you. All project work and progress reports can be exported for your portfolio. We maintain strict privacy standards and never share your information without consent.</AccordionContent>
+                  </AccordionItem>
+                </Accordion>
               </div>
               
               <div className="faq-category">
                 <h3 className="category-title">🤝 For Both</h3>
-                <div className="faq-items">
-                  <div className="faq-item">
-                    <div className="faq-question">How much does the platform cost?</div>
-                    <div className="faq-answer">The platform is free when in Beta. Once out of beta, the pricing will be based on per user account basis. Your college will pay for it.</div>
-                  </div>
+                <Accordion type="single" collapsible className="faq-items">
+                  <AccordionItem value="both-item-1" className="faq-item">
+                    <AccordionTrigger className="faq-question">How much does the platform cost?</AccordionTrigger>
+                    <AccordionContent className="faq-answer">The platform is free when in Beta. Once out of beta, the pricing will be based on per user account basis. Your college will pay for it.</AccordionContent>
+                  </AccordionItem>
                   
-                  <div className="faq-item">
-                    <div className="faq-question">What technical requirements do I need to use Project Apollo?</div>
-                    <div className="faq-answer">Just a smartphone or computer with internet access. The platform works on any modern web browser - no special software or hardware required.</div>
-                  </div>
+                  <AccordionItem value="both-item-2" className="faq-item">
+                    <AccordionTrigger className="faq-question">What technical requirements do I need to use Project Apollo?</AccordionTrigger>
+                    <AccordionContent className="faq-answer">Just a smartphone or computer with internet access. The platform works on any modern web browser - no special software or hardware required.</AccordionContent>
+                  </AccordionItem>
                   
-                  <div className="faq-item">
-                    <div className="faq-question">How does the platform ensure data privacy and security?</div>
-                    <div className="faq-answer">We use enterprise-grade encryption and follow strict data protection protocols. Your personal information and academic data are secure and never shared with third parties.</div>
-                  </div>
+                  <AccordionItem value="both-item-3" className="faq-item">
+                    <AccordionTrigger className="faq-question">How does the platform ensure data privacy and security?</AccordionTrigger>
+                    <AccordionContent className="faq-answer">We use enterprise-grade encryption and follow strict data protection protocols. Your personal information and academic data are secure and never shared with third parties.</AccordionContent>
+                  </AccordionItem>
                   
-                  <div className="faq-item">
-                    <div className="faq-question">What kind of support is available if I have issues?</div>
-                    <div className="faq-answer">We provide 24/7 technical support via chat, email, and phone. Plus dedicated onboarding assistance and regular training sessions to ensure smooth usage.</div>
-                  </div>
-                </div>
+                  <AccordionItem value="both-item-4" className="faq-item">
+                    <AccordionTrigger className="faq-question">What kind of support is available if I have issues?</AccordionTrigger>
+                    <AccordionContent className="faq-answer">We provide 24/7 technical support via chat, email, and phone. Plus dedicated onboarding assistance and regular training sessions to ensure smooth usage.</AccordionContent>
+                  </AccordionItem>
+                </Accordion>
               </div>
             </div>
           </div>
