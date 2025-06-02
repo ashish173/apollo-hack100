@@ -177,7 +177,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       await firebaseSignOut(firebaseAuthService);
       // setUser(null) will be handled by onAuthStateChanged
       console.log("sign out");
-      router.push('/login'); 
+      router.push('/'); 
     } catch (error: any) {
       console.error("Error during sign-out:", error);
       console.log("sign out error");
