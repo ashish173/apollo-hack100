@@ -1,0 +1,57 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Placeholder for existing user profiles
+    match /users/{userId} {
+      allow read: if request.auth != null;
+      allow write: if request.auth != null && request.auth.uid == userId;
+    }
+
+    // Placeholder for existing projects collection
+    // Assuming projects have studentUid and teacherUid fields
+    match /projects/{projectId} {
+      allow read: if request.auth != null &&
+                    (request.auth.uid == resource.data.studentUid || request.auth.uid == resource.data.teacherUid);
+      // More granular write rules might be needed depending on application logic
+      allow write: if request.auth != null && request.auth.uid == resource.data.teacherUid; // Example: Only teacher can modify project details
+    }
+
+    // Rules for the new projectReports collection
+    match /projectReports/{reportId} {
+      allow read: if request.auth != null &&
+                    (request.auth.uid == resource.data.studentUid || request.auth.uid == resource.data.teacherUid);
+
+      allow create: if request.auth != null &&
+                     request.auth.uid == request.resource.data.studentUid && // Student is creating their own report
+                     request.resource.data.rating >= 1 && request.resource.data.rating <= 10 &&
+                     request.resource.data.textStatus is string &&
+                     request.resource.data.textStatus.size() < 1000 &&
+                     request.resource.data.projectId is string &&
+                     request.resource.data.teacherUid is string &&
+                     // Validate against the projects collection
+                     exists(/databases/$(database)/documents/projects/$(request.resource.data.projectId)) &&
+                     get(/databases/$(database)/documents/projects/$(request.resource.data.projectId)).data.studentUid == request.auth.uid &&
+                     get(/databases/$(database)/documents/projects/$(request.resource.data.projectId)).data.teacherUid == request.resource.data.teacherUid;
+
+      allow update: if request.auth != null &&
+                     request.auth.uid == resource.data.studentUid && // Only student can update their own report
+                     request.resource.data.rating >= 1 && request.resource.data.rating <= 10 &&
+                     request.resource.data.textStatus is string &&
+                     request.resource.data.textStatus.size() < 1000 &&
+                     // Ensure non-updatable fields are not changed by the student
+                     request.resource.data.projectId == resource.data.projectId &&
+                     request.resource.data.studentUid == resource.data.studentUid &&
+                     request.resource.data.teacherUid == resource.data.teacherUid &&
+                     // Allow submittedAt to be updated if using serverTimestamp() on update,
+                     // or lock it down if it should be immutable after creation.
+                     // For simplicity, let's assume submittedAt is set on create and doesn't change.
+                     request.resource.data.submittedAt == resource.data.submittedAt;
+                     // If allowing text/rating updates, this implies a new timestamp might be desired.
+                     // If so, the rule should allow request.resource.data.submittedAt to be request.time.
+
+      allow delete: if false; // Generally, disallow deletion of reports to maintain history
+    }
+  }
+}
