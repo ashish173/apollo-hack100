@@ -518,6 +518,17 @@ export default function LandingPage() {
           font-weight: bold;
           transition: transform 0.3s ease-out;
           margin-left: 10px; /* Space between text and icon */
+
+          /* --- Debugging Styles for Visibility --- */
+          color: yellow !important;
+          min-width: 1em !important;
+          min-height: 1em !important;
+          opacity: 1 !important;
+          display: inline-block !important; /* Or 'block' if it makes more sense in context */
+          border: 1px solid red !important;
+          text-align: center; /* To center the + or - if it appears */
+          line-height: 1em; /* To vertically center if min-height is affecting it */
+          /* --- End Debugging Styles --- */
         }
 
         .faq-icon.open {
