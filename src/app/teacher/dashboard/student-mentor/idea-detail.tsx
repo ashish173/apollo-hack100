@@ -21,6 +21,7 @@ import { cn } from '@/lib/utils';
 import LoadingSpinner from '@/components/ui/loading-spinner';
 import AssignProjectDialog from '@/components/teacher/assign-project-dialog';
 import { useAuth } from '@/context/auth-context';
+import { useToast } from '@/hooks/use-toast';
 import TaskHints, { Task } from './task-hints';
 
 // This interface represents the *raw* data structure coming from your AI's project plan generation.
@@ -71,6 +72,7 @@ export default function IdeaDetail(
     handleAssign: () => void
   }) {
   const { user, loading: authLoading } = useAuth();
+  const { toast } = useToast();
   const [isAssignDialogOpen, setIsAssignDialogOpen] = useState(false);
 
   // projectPlan now holds the *full* AI-generated tasks for *display* in the table
@@ -151,6 +153,10 @@ export default function IdeaDetail(
       });
 
       setProjectPlan(tasksForDisplay); // Set the state with the full DisplayTask array for table display
+      toast({
+        title: "Project Plan Generated!",
+        description: "The project plan has been successfully generated.",
+      });
     } catch (error: any) {
       console.error("Error during project plan generation:", error);
       setProjectPlan([]);

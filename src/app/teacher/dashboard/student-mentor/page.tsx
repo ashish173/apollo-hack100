@@ -121,6 +121,10 @@ export default function StudentMentorPage() {
       const rawResponseText = data.response;
 
       setGeneratedIdeas(rawResponseText.ideas || []); 
+      toast({
+        title: "Project Ideas Generated!",
+        description: "New project ideas have been successfully generated.",
+      });
     } catch (error: any) {
       console.log("error in gen ai query");
     } finally {

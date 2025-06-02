@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Upload, Bot, X, FileImage, Download } from 'lucide-react';
 import * as XLSX from 'xlsx';
+import { useToast } from '@/hooks/use-toast';
 import { storage, app } from '../../../../lib/firebase';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { getAuth } from 'firebase/auth';
@@ -11,6 +12,7 @@ const auth = getAuth(app);
 const db = getFirestore(app);
 
 const AttendanceExtractor = () => {
+  const { toast } = useToast();
   const [results, setResults] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
   const [selectedImage, setSelectedImage] = useState(null);
@@ -176,6 +178,12 @@ const AttendanceExtractor = () => {
         parsedData: parsedJson,
         timestamp: new Date().toLocaleString(),
       }]);
+      if (parsedJson) {
+        toast({
+          title: "Attendance Data Extracted",
+          description: `Successfully extracted attendance data from ${selectedImage.name}.`,
+        });
+      }
       removeImage();
     } catch (error) {
       console.error('Error:', error);
@@ -288,7 +296,10 @@ const AttendanceExtractor = () => {
           const snapshot = await uploadBytes(storageRef, excelBlob);
           const storageLink = await getDownloadURL(snapshot.ref);
 
-          showCustomMessageBox("Excel file downloaded and uploaded to Firebase Storage!");
+          toast({
+            title: "Excel Generated & Saved",
+            description: "Excel file downloaded and uploaded to Firebase Storage!",
+          });
 
           const currentUser = auth.currentUser;
           if (currentUser) {
@@ -300,7 +311,11 @@ const AttendanceExtractor = () => {
               uploadTimestamp: serverTimestamp(),
             });
           } else {
-            showCustomMessageBox("Excel file uploaded, but no user logged in to save record.");
+            toast({
+              title: "Excel Generated",
+              description: "Excel file downloaded. No user logged in to save record to cloud.",
+              variant: "default",
+            });
           }
 
         } catch (uploadError) {
@@ -308,7 +323,11 @@ const AttendanceExtractor = () => {
           showCustomMessageBox(`Excel file downloaded, but there was an error uploading to Firebase Storage: ${uploadError.message}`);
         }
       } else {
-        showCustomMessageBox("Excel file downloaded, but Firebase Storage is not initialized. Upload skipped.");
+        toast({
+          title: "Excel Generated",
+          description: "Excel file downloaded. Firebase Storage not initialized, upload skipped.",
+          variant: "default",
+        });
       }
 
     } catch (error) {

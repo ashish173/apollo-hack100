@@ -12,6 +12,7 @@ import {
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { CardContent } from "@/components/ui/card";
 import BeatLoader from "react-spinners/BeatLoader";
+import { useToast } from '@/hooks/use-toast';
 
 export default function TaskHints(
   {
@@ -23,6 +24,7 @@ export default function TaskHints(
     idea: string,
     onClose: () => void
   }) {
+    const { toast } = useToast();
     const FIREBASE_FUNCTION_URL = 'https://us-central1-role-auth-7bc43.cloudfunctions.net/suggestTaskHintsFn';
     const [taskHints, setTaskHints] = useState<string[]>([]);
     const [loadingHints, setLoadingHints] = useState(false);
@@ -50,10 +52,12 @@ export default function TaskHints(
         const data = await response.json();
         const rawResponseText = data.response;
   
-        setTaskHints(rawResponseText.hints)
-        try {
-        } catch (jsonError: any) {
-          
+        setTaskHints(rawResponseText.hints);
+        if (rawResponseText.hints && rawResponseText.hints.length > 0) {
+          toast({
+            title: "Hints Generated!",
+            description: "Successfully generated hints for the task.",
+          });
         }
 
       } catch (error: any) {
