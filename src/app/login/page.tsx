@@ -9,6 +9,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
+import Link from 'next/link';
 
 export default function LoginPage() {
   const [selectedRole, setSelectedRole] = useState<UserRole>('teacher');
@@ -37,7 +38,86 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="flex min-h-screen flex-col items-center justify-center p-6 bg-background">
+  <>  
+    <style jsx global>{`
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+
+      .topbar {
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        background: rgba(255, 255, 255, 0.95);
+        backdrop-filter: blur(15px);
+        border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+        padding: 15px 20px;
+        z-index: 1000;
+        transition: all 0.3s ease;
+      }
+
+      .topbar-content {
+        max-width: 1200px;
+        margin: 0 auto;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+      }
+
+      .topbar-logo {
+        font-size: 1.5rem;
+        font-weight: 800;
+        color: #2c3e50;
+        text-decoration: none;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        cursor: pointer;
+      }
+
+      .topbar-logo:hover {
+        color: #667eea;
+        transition: color 0.3s ease;
+      }
+
+      .topbar-button {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        padding: 12px 25px;
+        text-decoration: none;
+        border-radius: 25px;
+        font-weight: 600;
+        font-size: 0.9rem;
+        transition: transform 0.3s ease, box-shadow 0.3s ease;
+        box-shadow: 0 5px 15px rgba(102, 126, 234, 0.3);
+        cursor: pointer;
+        border: none;
+      }
+
+      .topbar-button:hover {
+        transform: translateY(-2px) scale(1.05);
+        box-shadow: 0 8px 25px rgba(102, 126, 234, 0.4);
+      }
+    `}</style>    
+
+    <div>
+      <div className="topbar">
+        <div className="topbar-content">
+          <Link href="/" passHref>
+            <div className="topbar-logo">
+              🚀 Project Apollo
+            </div>
+          </Link>
+          <Link href="/login" passHref>
+            <button className="topbar-button">Get Started</button>
+          </Link>
+        </div>
+      </div>
+
+      <div className="flex min-h-screen flex-col items-center justify-center p-6 bg-background">
       <Card className="w-full max-w-md shadow-xl">
         <CardHeader className="text-center">
           <CardTitle className="text-3xl font-bold text-primary">Welcome to Apollo</CardTitle>
@@ -88,5 +168,7 @@ export default function LoginPage() {
         </CardContent>
       </Card>
     </div>
+  </div>
+  </>
   );
 }
