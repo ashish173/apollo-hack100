@@ -25,7 +25,7 @@ service cloud.firestore {
 
       allow create: if request.auth != null &&
                      request.auth.uid == request.resource.data.studentUid && // Student is creating their own report
-                     request.resource.data.rating >= 1 && request.resource.data.rating <= 10 &&
+                     (request.resource.data.studentProjectStatus == 'on-track' || request.resource.data.studentProjectStatus == 'off-track') &&
                      request.resource.data.textStatus is string &&
                      request.resource.data.textStatus.size() < 1000 &&
                      request.resource.data.projectId is string &&
@@ -37,7 +37,7 @@ service cloud.firestore {
 
       allow update: if request.auth != null &&
                      request.auth.uid == resource.data.studentUid && // Only student can update their own report
-                     request.resource.data.rating >= 1 && request.resource.data.rating <= 10 &&
+                     (request.resource.data.studentProjectStatus == 'on-track' || request.resource.data.studentProjectStatus == 'off-track') &&
                      request.resource.data.textStatus is string &&
                      request.resource.data.textStatus.size() < 1000 &&
                      // Ensure non-updatable fields are not changed by the student

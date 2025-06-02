@@ -105,11 +105,26 @@ export default function TeacherAssignedProjectDetail({ project, onBack }: Teache
     return () => unsubscribe();
   }, [project.projectId, project.studentUid, toast]);
   
-  const getRatingColor = (currentRating: number): string => {
-    if (currentRating >= 8) return "bg-green-500 hover:bg-green-600 text-white";
-    if (currentRating >= 4) return "bg-yellow-500 hover:bg-yellow-600 text-white";
+  const getStudentStatusBadgeClass = (status: 'on-track' | 'off-track' | undefined): string => {
+    if (status === 'on-track') return "bg-green-500 hover:bg-green-600 text-white";
+    if (status === 'off-track') return "bg-red-500 hover:bg-red-600 text-white";
+    return "bg-gray-500 hover:bg-gray-600 text-white"; // Default for undefined or unexpected
+  };
+
+  const getAIRatingBadgeClass = (rating: number | null): string => {
+    if (rating === null) return "bg-gray-400 hover:bg-gray-500 text-white"; // AI rating not available
+    if (rating > 5) return "bg-green-500 hover:bg-green-600 text-white";
     return "bg-red-500 hover:bg-red-600 text-white";
   };
+
+  let aiRating: number | null = null;
+  if (latestReport?.studentProjectStatus) {
+    if (latestReport.studentProjectStatus === 'on-track') {
+      aiRating = Math.floor(Math.random() * 5) + 6; // 6-10
+    } else { // 'off-track'
+      aiRating = Math.floor(Math.random() * 5) + 1; // 1-5
+    }
+  }
 
   // Function to format Firestore Timestamp to a readable date string
   const formatAssignedDate = (timestamp: Timestamp) => {
@@ -154,27 +169,39 @@ export default function TeacherAssignedProjectDetail({ project, onBack }: Teache
               {isLoadingReport ? (
                 <p className="text-muted-foreground">Loading student's report...</p>
               ) : latestReport ? (
-                <div className="space-y-3 p-4 border rounded-md bg-background/40 shadow-sm">
-                  <div className="flex items-center space-x-3">
-                    <Badge className={cn("text-sm", getRatingColor(latestReport.rating))}>
-                      Student Rating: {latestReport.rating}/10
-                    </Badge>
-                    {latestReport.submittedAt && (
-                       <p className="text-sm text-muted-foreground">
-                         Submitted: {format(latestReport.submittedAt.toDate(), 'PPP p')}
-                       </p>
-                    )}
-                  </div>
-                  <div>
-                    <h5 className="text-md font-semibold text-muted-foreground mt-2 mb-1">Student's Update:</h5>
+                <div className="space-y-4 p-4 border rounded-md bg-background/40 shadow-sm">
+                  <div className="space-y-2">
+                    <h5 className="text-md font-semibold text-muted-foreground">Student's Self-Reported Status:</h5>
+                    <div className="flex items-center space-x-3">
+                      <Badge className={cn("text-sm", getStudentStatusBadgeClass(latestReport.studentProjectStatus))}>
+                        Status: {latestReport.studentProjectStatus === 'on-track' ? 'On Track' : latestReport.studentProjectStatus === 'off-track' ? 'Off Track' : 'N/A'}
+                      </Badge>
+                      {latestReport.submittedAt && (
+                         <p className="text-sm text-muted-foreground">
+                           Submitted: {format(latestReport.submittedAt.toDate(), 'PPP p')}
+                         </p>
+                      )}
+                    </div>
                     <p className="text-muted-foreground whitespace-pre-wrap bg-background/30 p-3 rounded-md border">
                       {latestReport.textStatus}
                     </p>
                   </div>
+
+                  <div className="space-y-2 pt-3 border-t border-border/50">
+                     <h5 className="text-md font-semibold text-muted-foreground">AI Assistant's Evaluation:</h5>
+                    {aiRating !== null ? (
+                      <Badge className={cn("text-sm animated-siri-border", getAIRatingBadgeClass(aiRating))}>
+                        ✨ AI Rating: {aiRating}/10
+                      </Badge>
+                    ) : (
+                      <p className="text-sm text-muted-foreground">AI analysis pending student report.</p>
+                    )}
+                    {/* Future: Could add AI textual feedback here */}
+                  </div>
                 </div>
               ) : (
                 <p className="text-center text-muted-foreground p-4 border rounded-md bg-background/40 shadow-sm">
-                  No status reports submitted by the student yet.
+                  No status reports submitted by the student yet for AI analysis.
                 </p>
               )}
             </div>

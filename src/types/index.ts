@@ -16,5 +16,5 @@ export interface ProjectReport {
   teacherUid: string; // UID of the teacher overseeing the project
   submittedAt: Timestamp; // from firebase/firestore
   textStatus: string; // student's textual description of the status
-  rating: number; // a rating from 1 to 10
+  studentProjectStatus: 'on-track' | 'off-track'; // Changed from rating
 }

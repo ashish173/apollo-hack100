@@ -82,3 +82,30 @@ body {
     @apply bg-background text-foreground;
   }
 }
+
+@keyframes siri-border-animation {
+  0% {
+    border-color: #FF6B6B; /* Red */
+  }
+  25% {
+    border-color: #FFD166; /* Yellow */
+  }
+  50% {
+    border-color: #06D6A0; /* Green */
+  }
+  75% {
+    border-color: #118AB2; /* Blue */
+  }
+  100% {
+    border-color: #FF6B6B; /* Back to Red */
+  }
+}
+
+.animated-siri-border {
+  border-width: 2px; /* Ensure border is visible */
+  border-style: solid; /* Ensure border is visible */
+  animation: siri-border-animation 4s infinite linear;
+  /* Add some padding if the Badge component doesn't handle it well with border */
+  /* padding: 0.25em 0.5em; */
+  /* The Badge component might already have padding. Adjust if necessary. */
+}

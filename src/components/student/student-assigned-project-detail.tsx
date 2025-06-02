@@ -52,7 +52,7 @@ interface StudentAssignedProjectDetailProps {
 export default function StudentAssignedProjectDetail({ project, onBack }: StudentAssignedProjectDetailProps) {
   const { toast } = useToast();
   const [textStatus, setTextStatus] = useState('');
-  const [rating, setRating] = useState('');
+  const [studentProjectStatus, setStudentProjectStatus] = useState<'on-track' | 'off-track' | ''>('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [latestReport, setLatestReport] = useState<ProjectReport | null>(null);
   const [isLoadingReport, setIsLoadingReport] = useState(true);
@@ -107,17 +107,17 @@ export default function StudentAssignedProjectDetail({ project, onBack }: Studen
     return () => unsubscribe();
   }, [project.projectId, toast]);
 
-  const getRatingColor = (currentRating: number): string => {
-    if (currentRating >= 8) return "bg-green-500 hover:bg-green-600 text-white";
-    if (currentRating >= 4) return "bg-yellow-500 hover:bg-yellow-600 text-white";
-    return "bg-red-500 hover:bg-red-600 text-white";
+  const getStatusBadgeClass = (status: 'on-track' | 'off-track' | undefined): string => {
+    if (status === 'on-track') return "bg-green-500 hover:bg-green-600 text-white";
+    if (status === 'off-track') return "bg-red-500 hover:bg-red-600 text-white";
+    return "bg-gray-500 hover:bg-gray-600 text-white"; // Default or undetermined
   };
 
   const handleSubmitReport = async () => {
-    if (!textStatus.trim() || !rating) {
+    if (!textStatus.trim() || !studentProjectStatus) {
       toast({
         title: "Missing information",
-        description: "Please fill in both status and rating.",
+        description: "Please describe your progress and select a project status.",
         variant: "destructive",
       });
       return;
@@ -125,23 +125,26 @@ export default function StudentAssignedProjectDetail({ project, onBack }: Studen
 
     setIsSubmitting(true);
     try {
-      const newReport: Omit<ProjectReport, 'id' | 'submittedAt'> & { submittedAt: any } = { // Allow any for serverTimestamp()
+      // Ensure studentProjectStatus is one of the allowed literal types for the ProjectReport interface
+      const statusToSubmit = studentProjectStatus as 'on-track' | 'off-track';
+
+      const newReportData: Omit<ProjectReport, 'id'> = {
         projectId: project.projectId,
         studentUid: project.studentUid,
         teacherUid: project.teacherUid,
         textStatus: textStatus,
-        rating: parseInt(rating, 10),
-        submittedAt: serverTimestamp(),
+        studentProjectStatus: statusToSubmit,
+        submittedAt: serverTimestamp() as any, // Cast to any because serverTimestamp is a sentinel
       };
 
-      await addDoc(collection(db, "projectReports"), newReport);
+      await addDoc(collection(db, "projectReports"), newReportData);
 
       toast({
         title: "Report Submitted",
         description: "Your progress report has been submitted successfully!",
       });
       setTextStatus('');
-      setRating('');
+      setStudentProjectStatus('');
     } catch (error) {
       console.error("Error submitting report: ", error);
       toast({
@@ -200,8 +203,8 @@ export default function StudentAssignedProjectDetail({ project, onBack }: Studen
               ) : latestReport ? (
                 <div className="space-y-3">
                   <div className="flex items-center space-x-3">
-                    <Badge className={cn("text-sm", getRatingColor(latestReport.rating))}>
-                      Rating: {latestReport.rating}/10
+                    <Badge className={cn("text-sm", getStatusBadgeClass(latestReport.studentProjectStatus))}>
+                      Status: {latestReport.studentProjectStatus === 'on-track' ? 'On Track' : latestReport.studentProjectStatus === 'off-track' ? 'Off Track' : 'N/A'}
                     </Badge>
                     {latestReport.submittedAt && (
                        <p className="text-sm text-muted-foreground">
@@ -272,17 +275,14 @@ export default function StudentAssignedProjectDetail({ project, onBack }: Studen
             />
           </div>
           <div className="space-y-2">
-            <Label htmlFor="rating">Rate your progress (1=Off Track, 10=On Track):</Label>
-            <Select value={rating} onValueChange={setRating}>
-              <SelectTrigger id="rating" className="w-[180px] shadow-sm">
-                <SelectValue placeholder="Select rating" />
+            <Label htmlFor="studentProjectStatus">Project Status:</Label>
+            <Select value={studentProjectStatus} onValueChange={setStudentProjectStatus}>
+              <SelectTrigger id="studentProjectStatus" className="w-full shadow-sm">
+                <SelectValue placeholder="Select status" />
               </SelectTrigger>
               <SelectContent>
-                {Array.from({ length: 10 }, (_, i) => i + 1).map((num) => (
-                  <SelectItem key={num} value={String(num)}>
-                    {num}
-                  </SelectItem>
-                ))}
+                <SelectItem value="on-track">On Track</SelectItem>
+                <SelectItem value="off-track">Off Track</SelectItem>
               </SelectContent>
             </Select>
           </div>
