@@ -12,12 +12,15 @@ import { Input } from "@/components/ui/input"
 import { Separator } from "@/components/ui/separator"
 import { Sheet, SheetContent } from "@/components/ui/sheet"
 import { Skeleton } from "@/components/ui/skeleton"
+// Tooltip related imports are already present
 import {
   Tooltip,
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip"
+import { useAuth } from '@/context/auth-context'; 
+import LogoutButton from '@/components/auth/logout-button'; 
 
 const SIDEBAR_COOKIE_NAME = "sidebar_state"
 const SIDEBAR_COOKIE_MAX_AGE = 60 * 60 * 24 * 7
@@ -369,16 +372,54 @@ const SidebarFooter = React.forwardRef<
   HTMLDivElement,
   React.ComponentProps<"div">
 >(({ className, ...props }, ref) => {
+  const { user } = useAuth(); 
+  const { state: sidebarState, isMobile } = useSidebar(); 
+
   return (
     <div
       ref={ref}
       data-sidebar="footer"
-      className={cn("flex flex-col gap-2 p-2", className)}
+      className={cn("flex flex-col p-2", className)}
       {...props}
-    />
-  )
-})
-SidebarFooter.displayName = "SidebarFooter"
+    >
+      {user && ( 
+        <div className="mt-auto border-t border-sidebar-border pt-2 space-y-1">
+          <SidebarMenuItem> 
+            <div className="flex items-center w-full p-1">
+              {user.photoURL && (
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <img
+                      src={user.photoURL}
+                      alt={user.displayName || 'Profile'}
+                      className="w-7 h-7 rounded-full mr-2 flex-shrink-0"
+                    />
+                  </TooltipTrigger>
+                  <TooltipContent side="right" align="center" hidden={sidebarState === 'expanded' || isMobile}>
+                    <p>{user.displayName || 'User'}</p>
+                    {user.email && <p className="text-xs text-muted-foreground">{user.email}</p>}
+                  </TooltipContent>
+                </Tooltip>
+              )}
+              <div className="flex flex-col overflow-hidden group-data-[state=collapsed]:hidden">
+                <span className="text-sm font-medium truncate">
+                  {user.displayName || 'User'}
+                </span>
+                {user.email && (
+                  <span className="text-xs text-sidebar-foreground/70 truncate">
+                    {user.email}
+                  </span>
+                )}
+              </div>
+            </div>
+          </SidebarMenuItem>
+          <LogoutButton />
+        </div>
+      )}
+    </div>
+  );
+});
+SidebarFooter.displayName = "SidebarFooter";
 
 const SidebarSeparator = React.forwardRef<
   React.ElementRef<typeof Separator>,
