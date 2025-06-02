@@ -5,11 +5,13 @@ import type { Dispatch, SetStateAction } from 'react';
 import { useEffect, useState } from 'react';
 import { collection, getDocs, query, where, addDoc, serverTimestamp } from 'firebase/firestore';
 import { db as firebaseDbService } from '@/lib/firebase';
-// IMPORT ProjectIdea from idea-detail.tsx now, as that's where the updated type lives
-import type { ProjectIdea } from '@/app/teacher/dashboard/student-mentor/idea-detail'; // <--- UPDATED IMPORT PATH
+// IMPORT ProjectIdea and SavedProjectTask from idea-detail.tsx now, as that's where the updated types live
+import type { ProjectIdea, SavedProjectTask } from '@/app/teacher/dashboard/student-mentor/idea-detail'; // <--- UPDATED IMPORT PATH
 import type { UserProfile } from '@/types';
 import { useToast } from '@/hooks/use-toast';
+import { format as formatDate } from 'date-fns'; // For date formatting, addDays is in calculateTaskDates
 import { Button } from '@/components/ui/button';
+import { calculateTaskDates } from '@/lib/utils'; // Import the new utility function
 import {
   Dialog,
   DialogContent,
@@ -42,6 +44,12 @@ export default function AssignProjectDialog({ project, isOpen, onOpenChange, tea
   const [isComboboxOpen, setIsComboboxOpen] = useState(false);
   const { toast } = useToast();
 
+  // State for project start date, initialized to today's date in YYYY-MM-DD format
+  const [projectStartDate, setProjectStartDate] = useState<string>(formatDate(new Date(), 'yyyy-MM-dd'));
+  // State for tasks with recalculated dates
+  const [processedTasks, setProcessedTasks] = useState<SavedProjectTask[]>([]);
+
+
   useEffect(() => {
     const fetchStudents = async () => {
       if (!isOpen || !firebaseDbService) return;
@@ -72,6 +80,25 @@ export default function AssignProjectDialog({ project, isOpen, onOpenChange, tea
     }
   }, [isOpen, toast]);
 
+  // Effect to recalculate task dates when project or projectStartDate changes
+  useEffect(() => {
+    if (project && project.tasks && projectStartDate) {
+      // Ensure tasks passed to calculateTaskDates have numeric durations as expected by its internal logic if not parsing strings
+      // Since project.tasks are SavedProjectTask[], duration is already number.
+      const processed = calculateTaskDates(project.tasks, projectStartDate);
+      setProcessedTasks(processed);
+    } else if (project && project.tasks) {
+      // Fallback if projectStartDate is not yet set, ensure durations are valid numbers.
+      // This might be redundant if project.tasks always have valid numeric durations.
+      setProcessedTasks(project.tasks.map(task => ({
+        ...task,
+        duration: typeof task.duration === 'number' && task.duration > 0 ? task.duration : 1,
+      })));
+    } else {
+      setProcessedTasks([]);
+    }
+  }, [project, projectStartDate]);
+
   const handleAssignProject = async () => {
     if (!project || !selectedStudentUid || !firebaseDbService) {
       toast({
@@ -95,9 +122,11 @@ export default function AssignProjectDialog({ project, isOpen, onOpenChange, tea
         title: project.title,
         description: project.description,
         difficulty: project.difficulty,
-        duration: project.duration,
-        tasks: project.tasks || [], // This will now correctly receive the tasks array with camelCase fields
+        duration: project.duration, // This is overall project duration, not sum of tasks
+        projectStartDate: projectStartDate, // Add the selected start date
+        tasks: processedTasks, // Use tasks with recalculated dates
         createdAt: serverTimestamp(),
+        // teacherUid: teacherId, // Consider adding teacherId to the project document itself if useful
       };
       // Use addDoc to get an auto-generated ID for the new project document
       const newProjectRef = await addDoc(collection(firebaseDbService, 'projects'), projectDataForDatabase);
@@ -110,7 +139,9 @@ export default function AssignProjectDialog({ project, isOpen, onOpenChange, tea
         studentName: selectedStudent.displayName || selectedStudent.email || 'N/A',
         teacherUid: teacherId,
         assignedAt: serverTimestamp(),
-        status: 'assigned',
+        status: 'assigned', // e.g., 'assigned', 'in-progress', 'completed'
+        // projectTitle: project.title, // Denormalize for easier querying if needed
+        // studentEmail: selectedStudent.email, // Denormalize for easier querying
       };
 
       await addDoc(collection(firebaseDbService, 'assignedProjects'), assignmentData);
@@ -149,17 +180,32 @@ export default function AssignProjectDialog({ project, isOpen, onOpenChange, tea
           <DialogHeader>
             <DialogTitle>Assign Project: <span className="text-primary">{project.title}</span></DialogTitle>
             <DialogDescription>
-              Select a student from the list below to assign this project to. The student will then be able to view the project details and begin working on the tasks.
+              Select the project start date and a student to assign this project to. Task dates will be calculated based on the start date.
             </DialogDescription>
           </DialogHeader>
-          <div className="grid gap-4 py-4">
-          <div className="grid grid-cols-4 items-center gap-4">
-            <Label htmlFor="student-select" className="text-right col-span-1">
-              Student
-            </Label>
-            <div className="col-span-3">
-              {isLoadingStudents ? (
-                <div className="flex items-center">
+          <div className="grid gap-6 py-4"> {/* Increased gap slightly */}
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="project-start-date" className="text-right col-span-1">
+                Start Date
+              </Label>
+              <div className="col-span-3">
+                <input
+                  type="date"
+                  id="project-start-date"
+                  value={projectStartDate}
+                  onChange={(e) => setProjectStartDate(e.target.value)}
+                  className="w-full p-2 border rounded-md text-sm focus-visible:ring-ring focus-visible:ring-2 focus-visible:ring-offset-2"
+                  disabled={isAssigning}
+                />
+              </div>
+            </div>
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="student-select" className="text-right col-span-1">
+                Student
+              </Label>
+              <div className="col-span-3">
+                {isLoadingStudents ? (
+                  <div className="flex items-center">
                   <LoadingSpinner size={20} className="mr-2" /> Loading students...
                 </div>
               ) : students.length === 0 ? (
