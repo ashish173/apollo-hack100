@@ -181,7 +181,7 @@ export default function IdeaDetail(
     } finally {
       setLoadingPlan(false);
     }
-  }, [idea.description, projectStartDateState]); // Changed today to projectStartDateState
+  }, [idea.description]); // Removed projectStartDateState, fetchProjectPlan will use the current state value at call time
 
   const IconComponent = idea.icon || Lightbulb;
 
