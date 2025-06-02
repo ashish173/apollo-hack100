@@ -7,8 +7,9 @@ import { useRouter, usePathname } from 'next/navigation';
 import Link from 'next/link';
 import { useAuth } from '@/context/auth-context';
 import LoadingSpinner from '@/components/ui/loading-spinner';
-import { SidebarProvider, Sidebar, SidebarHeader, SidebarTrigger, SidebarContent, SidebarMenu, SidebarMenuItem, SidebarMenuButton, SidebarInset, SidebarFooter } from '@/components/ui/sidebar';
-import { LayoutDashboard, Users, Briefcase } from 'lucide-react';
+import { SidebarProvider, Sidebar, SidebarHeader, SidebarTrigger, SidebarContent, SidebarMenu, SidebarMenuItem, SidebarMenuButton, SidebarInset, SidebarFooter, useSidebar } from '@/components/ui/sidebar';
+import { Button } from '@/components/ui/button';
+import { LayoutDashboard, Users, Briefcase, PanelLeft } from 'lucide-react';
 import LogoutButton from '@/components/auth/logout-button';
 
 export default function TeacherDashboardLayout({
@@ -19,6 +20,7 @@ export default function TeacherDashboardLayout({
   const { user, loading } = useAuth();
   const router = useRouter();
   const pathname = usePathname();
+  const { isMobile, toggleSidebar } = useSidebar();
 
   useEffect(() => {
     if (loading) return;
@@ -40,9 +42,17 @@ export default function TeacherDashboardLayout({
 
   return (
     <SidebarProvider defaultOpen={true}>
+      {isMobile && (
+        <div className="fixed top-0 left-0 z-50 p-2 md:hidden">
+          <Button variant="ghost" size="icon" onClick={toggleSidebar}>
+            <PanelLeft className="h-6 w-6" />
+            <span className="sr-only">Toggle Sidebar</span>
+          </Button>
+        </div>
+      )}
       <div className="flex min-h-screen bg-background max-w-[1600px] mx-auto px-6">
         <Sidebar collapsible="icon" variant="sidebar" className="border-r">
-          <SidebarHeader className="flex flex-row items-center justify-between px-4 py-3 border-b border-sidebar-border">
+          <SidebarHeader className="flex flex-row items-center justify-start md:justify-between px-4 py-3 border-b border-sidebar-border">
             <Link href="/teacher/dashboard" className="flex items-center gap-2 group-data-[state=collapsed]:hidden overflow-hidden">
               {/* Abstract SVG Logo for EduConnect */}
               <svg width="28" height="28" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" className="text-sidebar-primary flex-shrink-0">
@@ -51,7 +61,9 @@ export default function TeacherDashboardLayout({
               </svg>
               <span className="text-xl font-semibold text-sidebar-foreground whitespace-nowrap">Apollo</span>
             </Link>
-            <SidebarTrigger />
+            <div className="hidden md:flex items-center">
+              <SidebarTrigger />
+            </div>
           </SidebarHeader>
           <SidebarContent>
             <SidebarMenu className="gap-2 p-2"> {/* Increased gap for more spacing */}
