@@ -7,41 +7,30 @@ import { useRouter, usePathname } from 'next/navigation';
 import Link from 'next/link';
 import { useAuth } from '@/context/auth-context';
 import LoadingSpinner from '@/components/ui/loading-spinner';
-import { SidebarProvider, Sidebar, SidebarHeader, SidebarTrigger, SidebarContent, SidebarMenu, SidebarMenuItem, SidebarMenuButton, SidebarInset, SidebarFooter, useSidebar } from '@/components/ui/sidebar';
+import { 
+  SidebarProvider, 
+  Sidebar, 
+  SidebarHeader, 
+  SidebarTrigger, 
+  SidebarContent, 
+  SidebarMenu, 
+  SidebarMenuItem, 
+  SidebarMenuButton, 
+  SidebarInset, 
+  SidebarFooter, 
+  useSidebar 
+} from '@/components/ui/sidebar';
 import { Button } from '@/components/ui/button';
 import { LayoutDashboard, Users, Briefcase, PanelLeft } from 'lucide-react';
 import LogoutButton from '@/components/auth/logout-button';
 
-export default function TeacherDashboardLayout({
-  children,
-}: {
-  children: ReactNode;
-}) {
-  const { user, loading } = useAuth();
-  const router = useRouter();
-  const pathname = usePathname();
-  const { isMobile, toggleSidebar } = useSidebar();
-
-  useEffect(() => {
-    if (loading) return;
-    if (!user) {
-      router.replace('/login');
-    } else if (user.role !== 'teacher') {
-      console.warn(`User ${user.uid} with role ${user.role} attempted to access teacher section. Redirecting.`);
-      router.replace('/'); 
-    }
-  }, [user, loading, router]);
-
-  if (loading || !user || user?.role !== 'teacher') {
-    return (
-      <div className="flex-grow flex items-center justify-center p-6 min-h-screen bg-background">
-        <LoadingSpinner size={64} />
-      </div>
-    );
-  }
+// New internal component
+function TeacherDashboardInternal({ children }: { children: ReactNode }) {
+  const { isMobile, toggleSidebar } = useSidebar(); // Hook called here
+  const pathname = usePathname(); // pathname is needed for SidebarMenuButton isActive
 
   return (
-    <SidebarProvider defaultOpen={true}>
+    <>
       {isMobile && (
         <div className="fixed top-0 left-0 z-50 p-2 md:hidden">
           <Button variant="ghost" size="icon" onClick={toggleSidebar}>
@@ -112,6 +101,41 @@ export default function TeacherDashboardLayout({
           </footer>
         </SidebarInset>
       </div>
+    </>
+  );
+}
+
+export default function TeacherDashboardLayout({
+  children,
+}: {
+  children: ReactNode;
+}) {
+  const { user, loading } = useAuth();
+  const router = useRouter();
+  // const pathname = usePathname(); // Moved to TeacherDashboardInternal
+  // const { isMobile, toggleSidebar } = useSidebar(); // Moved to TeacherDashboardInternal
+
+  useEffect(() => {
+    if (loading) return;
+    if (!user) {
+      router.replace('/login');
+    } else if (user.role !== 'teacher') {
+      console.warn(`User ${user.uid} with role ${user.role} attempted to access teacher section. Redirecting.`);
+      router.replace('/'); 
+    }
+  }, [user, loading, router]);
+
+  if (loading || !user || user?.role !== 'teacher') {
+    return (
+      <div className="flex-grow flex items-center justify-center p-6 min-h-screen bg-background">
+        <LoadingSpinner size={64} />
+      </div>
+    );
+  }
+
+  return (
+    <SidebarProvider defaultOpen={true}>
+      <TeacherDashboardInternal>{children}</TeacherDashboardInternal>
     </SidebarProvider>
   );
 }
