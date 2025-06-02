@@ -1,7 +1,7 @@
 // idea-detail.tsx
 "use client";
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react'; // Added useRef
 import { Lightbulb, UserPlus, ArrowLeft, Trash2 } from 'lucide-react'; // Added Trash2
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -76,7 +76,10 @@ export default function IdeaDetail(
   const { user, loading: authLoading } = useAuth();
   const [isAssignDialogOpen, setIsAssignDialogOpen] = useState(false);
   const [editableDescription, setEditableDescription] = useState(idea.description);
-  const [calculatedOverallDuration, setCalculatedOverallDuration] = useState<string>(idea.duration); // New state
+  const [calculatedOverallDuration, setCalculatedOverallDuration] = useState<string>(idea.duration);
+  const [projectStartDateState, setProjectStartDateState] = useState<Date>(
+    idea.projectStartDate ? new Date(idea.projectStartDate) : new Date() // Initialize with idea.projectStartDate or today
+  );
 
   // projectPlan now holds the *full* AI-generated tasks for *display* in the table
   const [projectPlan, setProjectPlan] = useState<DisplayTask[]>([]); // Use DisplayTask[] here
@@ -84,36 +87,35 @@ export default function IdeaDetail(
 
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
 
-  const [today, setToday] = useState(new Date());
+  const [today, setToday] = useState(new Date()); // today can remain for other non-plan specific uses if any
 
   const FIREBASE_FUNCTION_URL = 'https://us-central1-role-auth-7bc43.cloudfunctions.net/generateProjectPlanFn';
 
 
   useEffect(() => {
-    setToday(new Date());
+    // Initialize or update projectStartDateState if idea.projectStartDate changes
+    setProjectStartDateState(idea.projectStartDate ? new Date(idea.projectStartDate) : new Date(todayRef.current));
+  }, [idea.projectStartDate]);
+  
+  // Keep 'today' date reference stable unless component remounts, to avoid unnecessary recalculations if 'today' was used directly in other effects.
+  const todayRef = useRef(new Date());
+  useEffect(() => {
+    todayRef.current = new Date(); // Update if needed, but today state itself is removed to avoid conflicts
   }, []);
+
 
   const fetchProjectPlan = useCallback(async () => {
     setLoadingPlan(true);
     setProjectPlan([]); // Clear previous plan and show loader
     try {
-      // const result = await generateProjectPlan({ projectIdea: idea.description });
+      let parsedData: DisplayTask[];
 
-      let parsedData: DisplayTask[]; // Parse as DisplayTask
-
-
-      const requestBody = {
-        projectIdea: idea.description,
-      };
-
+      const requestBody = { projectIdea: idea.description };
       const response = await fetch(FIREBASE_FUNCTION_URL, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(requestBody)
       });
-
       const data = await response.json();
       const rawResponseText = data.response;
 
@@ -121,13 +123,11 @@ export default function IdeaDetail(
         parsedData = JSON.parse(rawResponseText.projectPlan);
       } catch (jsonError: any) {
         console.error("Failed to parse project plan JSON:", jsonError);
-        setProjectPlan([]);
-        setLoadingPlan(false);
-        return;
+        setProjectPlan([]); setLoadingPlan(false); return;
       }
 
-      // Align initial date calculation with recalculateTaskDates logic
-      let currentDate = idea.projectStartDate ? new Date(idea.projectStartDate) : new Date(today);
+      // Use projectStartDateState for initial calculation
+      let currentDate = new Date(projectStartDateState);
 
       const tasksForDisplay: DisplayTask[] = parsedData.map((item) => {
         // item.Duration is the raw duration from AI (e.g., "2 days", "1 week")
@@ -181,16 +181,18 @@ export default function IdeaDetail(
     } finally {
       setLoadingPlan(false);
     }
-  }, [idea.description, today]);
+  }, [idea.description, projectStartDateState]); // Changed today to projectStartDateState
 
   const IconComponent = idea.icon || Lightbulb;
 
   useEffect(() => {
     if (idea) {
-      fetchProjectPlan();
-      setEditableDescription(idea.description); // Reset editable description if idea object itself changes
+      // When idea changes, re-fetch plan. Initial dates will be set based on projectStartDateState.
+      fetchProjectPlan(); 
+      setEditableDescription(idea.description);
+      // projectStartDateState is already initialized/updated from idea.projectStartDate by its own useEffect
     }
-  }, [fetchProjectPlan, idea]);
+  }, [fetchProjectPlan, idea]); // Removed idea.description from deps as fetchProjectPlan depends on it.
 
   const handleTaskNameChange = (taskId: number, newName: string) => {
     setProjectPlan(prevPlan =>
@@ -231,34 +233,43 @@ export default function IdeaDetail(
       task.TaskID === taskId ? { ...task, Duration: newDuration } : task
     );
 
-    const baseStartDate = idea.projectStartDate ? new Date(idea.projectStartDate) : new Date(today);
-    const recalculatedPlan = recalculateTaskDates(updatedOncePlan, baseStartDate);
+    // Use projectStartDateState for recalculation
+    const recalculatedPlan = recalculateTaskDates(updatedOncePlan, new Date(projectStartDateState));
     setProjectPlan(recalculatedPlan);
   };
 
   const handleAddTask = () => {
     const newTask: DisplayTask = {
-      TaskID: Math.max(0, ...projectPlan.map(t => t.TaskID)) + 1, // Generate new ID
+      TaskID: Math.max(0, ...projectPlan.map(t => t.TaskID)) + 1,
       TaskName: "New Task - Edit Me",
       Duration: 1,
-      StartDate: "", // Will be set by recalculateTaskDates
-      EndDate: "",   // Will be set by recalculateTaskDates
-      PercentageComplete: 0,
-      Dependencies: "",
-      Milestone: false,
+      StartDate: "", EndDate: "", // Will be set by recalculateTaskDates
+      PercentageComplete: 0, Dependencies: "", Milestone: false,
     };
     const updatedPlan = [...projectPlan, newTask];
-    const baseStartDate = idea.projectStartDate ? new Date(idea.projectStartDate) : new Date(today);
-    const recalculatedPlan = recalculateTaskDates(updatedPlan, baseStartDate);
+    // Use projectStartDateState for recalculation
+    const recalculatedPlan = recalculateTaskDates(updatedPlan, new Date(projectStartDateState));
     setProjectPlan(recalculatedPlan);
   };
 
   const handleRemoveTask = (taskIdToRemove: number) => {
     const updatedPlan = projectPlan.filter(task => task.TaskID !== taskIdToRemove);
-    const baseStartDate = idea.projectStartDate ? new Date(idea.projectStartDate) : new Date(today);
-    const recalculatedPlan = recalculateTaskDates(updatedPlan, baseStartDate);
+    // Use projectStartDateState for recalculation
+    const recalculatedPlan = recalculateTaskDates(updatedPlan, new Date(projectStartDateState));
     setProjectPlan(recalculatedPlan);
   };
+
+  // Effect to recalculate all task dates if projectStartDateState changes
+  useEffect(() => {
+    if (projectPlan.length > 0) { // Only run if there are tasks to recalculate
+      const recalculatedPlan = recalculateTaskDates([...projectPlan], new Date(projectStartDateState));
+      setProjectPlan(recalculatedPlan);
+    }
+    // Adding projectPlan as a dependency could cause loop if recalculateTaskDates always creates new array.
+    // However, setProjectPlan should handle this. For safety, could compare stringified plans.
+    // For now, this ensures dates update when start date changes.
+  }, [projectStartDateState]); // projectPlan removed to prevent potential loops, recalculation is explicit on change.
+
 
   useEffect(() => {
     if (projectPlan && projectPlan.length > 0) {
@@ -287,9 +298,15 @@ export default function IdeaDetail(
   // Construct the ProjectIdea object with *simplified* tasks for the dialog
   const projectIdeaWithTasks: ProjectIdea = {
     ...idea, // Copy existing properties
-    description: editableDescription, // Use edited description
-    duration: calculatedOverallDuration, // Use calculated duration
-    tasks: tasksForFirestore, // Assign the *simplified* tasks array here
+    description: editableDescription,
+    duration: calculatedOverallDuration,
+    // Pass the current projectStartDateState to the dialog, formatted as string
+    projectStartDate: projectStartDateState.toISOString().slice(0,10), 
+    tasks: tasksForFirestore,
+  };
+  
+  const formatDateForInput = (date: Date): string => {
+    return date.toISOString().split('T')[0];
   };
 
   return (
@@ -308,10 +325,31 @@ export default function IdeaDetail(
             </div>
             <div className="flex flex-wrap gap-2 pt-1">
               <Badge variant="secondary">Difficulty: {idea.difficulty}</Badge>
-              <Badge variant="outline">Duration: {calculatedOverallDuration}</Badge> {/* Use calculatedOverallDuration */}
+              <Badge variant="outline">Duration: {calculatedOverallDuration}</Badge>
             </div>
           </CardHeader>
           <CardContent>
+            {/* Project Start Date Picker */}
+            <div className="mb-4">
+              <label htmlFor="projectStartDate" className="block text-sm font-medium text-gray-700 mb-1">
+                Project Start Date:
+              </label>
+              <Input
+                type="date"
+                id="projectStartDate"
+                value={formatDateForInput(projectStartDateState)}
+                onChange={(e) => {
+                  const newDate = new Date(e.target.value);
+                  // Ensure newDate is valid and not in the past if needed, though HTML input handles some of this
+                  // For time zone issues, ensure date is parsed correctly (e.g. new Date(e.target.value + 'T00:00:00') if needed)
+                  if (!isNaN(newDate.getTime())) {
+                    setProjectStartDateState(newDate);
+                  }
+                }}
+                className="w-full sm:w-auto p-2 border rounded-md"
+              />
+            </div>
+
             <Textarea
               value={editableDescription}
               onChange={(e) => setEditableDescription(e.target.value)}
