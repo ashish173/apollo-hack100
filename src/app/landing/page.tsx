@@ -70,7 +70,29 @@ export default function LandingPage() {
             currentIcon.classList.remove('open');
           }
         } else {
-          currentAnswer.style.maxHeight = currentAnswer.scrollHeight + 'px';
+          // --- Start of potential fix for scrollHeight calculation ---
+          // 1. Temporarily make it visible in layout but hidden from user to calculate scrollHeight
+          currentAnswer.style.visibility = 'hidden';
+          currentAnswer.style.display = 'block'; // Ensure it's block for scrollHeight calculation
+          currentAnswer.style.maxHeight = 'auto'; // Temporarily remove max-height restriction
+
+          // 2. Calculate scrollHeight
+          const height = currentAnswer.scrollHeight;
+
+          // 3. Reset temporary styles (back to initial hidden state for transition)
+          currentAnswer.style.visibility = ''; // Reset to default (or 'visible' if needed, but CSS default is fine)
+          currentAnswer.style.display = '';   // Reset display, will be controlled by max-height logic or CSS default
+          currentAnswer.style.maxHeight = '0px'; // Ensure it's starting from 0 for the transition
+          
+          // Force a reflow to ensure the "max-height: 0px" is applied before transitioning to new height
+          // Reading a property like offsetHeight forces a reflow.
+          // Using currentAnswer.offsetHeight also works here.
+          void currentAnswer.offsetWidth; 
+
+          // --- End of potential fix ---
+
+          // Now, set the actual maxHeight to trigger the transition
+          currentAnswer.style.maxHeight = height + 'px';
           currentAnswer.classList.add('open');
           if (currentIcon) {
             currentIcon.textContent = '-'; // Change to minus when open
@@ -511,11 +533,12 @@ export default function LandingPage() {
           max-height: 0;
           overflow: hidden;
           transition: max-height 0.3s ease-out;
-          margin-top: 10px; /* Add margin when open */
+          /* margin-top: 10px; */ /* Removed: Will be applied only when open */
         }
 
         .faq-answer.open {
           /* max-height will be set by JS */
+          margin-top: 10px; /* Apply margin only when open */
         }
 
         @media (max-width: 768px) {
