@@ -35,8 +35,57 @@ export default function LandingPage() {
       }, index * 200);
     });
 
+    // FAQ Accordion Logic
+    const faqQuestions = document.querySelectorAll<HTMLButtonElement>('.faq-question');
+    const allFaqAnswers = document.querySelectorAll<HTMLElement>('.faq-answer');
+
+    faqQuestions.forEach(questionButton => {
+      questionButton.addEventListener('click', (event) => {
+        event.preventDefault(); // Good practice for buttons
+
+        const currentAnswer = questionButton.nextElementSibling as HTMLElement;
+        const currentIcon = questionButton.querySelector('.faq-icon') as HTMLElement;
+
+        const isCurrentlyOpen = currentAnswer.style.maxHeight && currentAnswer.style.maxHeight !== '0px';
+
+        // Close all other answers and reset icons
+        allFaqAnswers.forEach(answer => {
+          if (answer !== currentAnswer) {
+            answer.style.maxHeight = '0px';
+            answer.classList.remove('open');
+            const otherIcon = answer.previousElementSibling?.querySelector('.faq-icon') as HTMLElement | null;
+            if (otherIcon) {
+              otherIcon.textContent = '+';
+              otherIcon.classList.remove('open');
+            }
+          }
+        });
+        
+        // Toggle current answer
+        if (isCurrentlyOpen) {
+          currentAnswer.style.maxHeight = '0px';
+          currentAnswer.classList.remove('open');
+          if (currentIcon) {
+            currentIcon.textContent = '+';
+            currentIcon.classList.remove('open');
+          }
+        } else {
+          currentAnswer.style.maxHeight = currentAnswer.scrollHeight + 'px';
+          currentAnswer.classList.add('open');
+          if (currentIcon) {
+            currentIcon.textContent = '-'; // Change to minus when open
+            currentIcon.classList.add('open'); // Add open class for CSS rotation if preferred
+          }
+        }
+      });
+    });
+
+
     return () => {
       window.removeEventListener('scroll', handleScroll);
+      // TODO: Consider removing FAQ event listeners if component can unmount and remount frequently,
+      // though for a landing page, this might be less critical.
+      // faqQuestions.forEach(button => button.removeEventListener('click', ...));
     };
   }, []);
 
@@ -424,15 +473,49 @@ export default function LandingPage() {
         .faq-question {
           font-weight: 600;
           font-size: 1.1rem;
-          margin-bottom: 10px;
+          /* margin-bottom: 10px; */ /* Removed as button will handle spacing */
           color: white;
           line-height: 1.4;
+          /* Added for button styling */
+          background: transparent;
+          border: none;
+          text-align: left;
+          width: 100%;
+          padding: 0; /* Remove default button padding */
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          cursor: pointer;
+        }
+
+        .faq-question:hover {
+          /* Optional: Add hover effect if desired */
+          /* color: rgba(255, 255, 255, 0.8); */
+        }
+
+        .faq-icon {
+          font-size: 1.2rem;
+          font-weight: bold;
+          transition: transform 0.3s ease-out;
+          margin-left: 10px; /* Space between text and icon */
+        }
+
+        .faq-icon.open {
+          transform: rotate(45deg); /* Rotates '+' to 'x' or similar for close */
         }
 
         .faq-answer {
           color: rgba(255, 255, 255, 0.9);
           line-height: 1.6;
           font-size: 0.95rem;
+          max-height: 0;
+          overflow: hidden;
+          transition: max-height 0.3s ease-out;
+          margin-top: 10px; /* Add margin when open */
+        }
+
+        .faq-answer.open {
+          /* max-height will be set by JS */
         }
 
         @media (max-width: 768px) {
@@ -622,32 +705,50 @@ export default function LandingPage() {
                 <h3 className="category-title">👩‍🏫 For Teachers</h3>
                 <div className="faq-items">
                   <div className="faq-item">
-                    <div className="faq-question">How does the AI assistant help with my daily workload without replacing me?</div>
+                    <button className="faq-question">
+                      How does the AI assistant help with my daily workload without replacing me?
+                      <span className="faq-icon">+</span>
+                    </button>
                     <div className="faq-answer">The AI handles routine tasks like attendance tracking, report generation, and project suggestions, freeing you to focus on teaching and mentoring. You remain the central figure in education while AI amplifies your impact.</div>
                   </div>
                   
                   <div className="faq-item">
-                    <div className="faq-question">Will I need technical training to use the platform?</div>
+                    <button className="faq-question">
+                      Will I need technical training to use the platform?
+                      <span className="faq-icon">+</span>
+                    </button>
                     <div className="faq-answer">No extensive training required. The platform is designed with an intuitive interface. We provide simple onboarding tutorials and ongoing support to get you started quickly.</div>
                   </div>
                   
                   <div className="faq-item">
-                    <div className="faq-question">How does the system track student progress and generate reports?</div>
+                    <button className="faq-question">
+                      How does the system track student progress and generate reports?
+                      <span className="faq-icon">+</span>
+                    </button>
                     <div className="faq-answer">The AI conducts weekly check-ins with students, monitors project milestones, and automatically generates comprehensive progress summaries for your review, saving hours of manual tracking.</div>
                   </div>
                   
                   <div className="faq-item">
-                    <div className="faq-question">Can the AI suggest projects that match my curriculum requirements?</div>
+                    <button className="faq-question">
+                      Can the AI suggest projects that match my curriculum requirements?
+                      <span className="faq-icon">+</span>
+                    </button>
                     <div className="faq-answer">Yes, the AI analyzes your curriculum and suggests industry-relevant projects that align with your learning objectives while building practical skills students need for employment.</div>
                   </div>
                   
                   <div className="faq-item">
-                    <div className="faq-question">How does the attendance capture with image recognition work?</div>
+                    <button className="faq-question">
+                      How does the attendance capture with image recognition work?
+                      <span className="faq-icon">+</span>
+                    </button>
                     <div className="faq-answer">Simply take the picture of your attendance register and AI automatically generates a digital version of the register saving you the time needed to convert the register data to digital excel data.</div>
                   </div>
                   
                   <div className="faq-item">
-                    <div className="faq-question">Will this platform integrate with my existing grading systems?</div>
+                    <button className="faq-question">
+                      Will this platform integrate with my existing grading systems?
+                      <span className="faq-icon">+</span>
+                    </button>
                     <div className="faq-answer">Yes, we&apos;re designed to work alongside existing systems. Data can be exported to most common formats and integrated with popular learning management systems.</div>
                   </div>
                 </div>
@@ -657,22 +758,34 @@ export default function LandingPage() {
                 <h3 className="category-title">👨‍🎓 For Students</h3>
                 <div className="faq-items">
                   <div className="faq-item">
-                    <div className="faq-question">What kind of real-world projects will I work on?</div>
+                    <button className="faq-question">
+                      What kind of real-world projects will I work on?
+                      <span className="faq-icon">+</span>
+                    </button>
                     <div className="faq-answer">Industry-relevant projects based on actual business challenges, from app development and data analysis to marketing campaigns and research studies that build your portfolio.</div>
                   </div>
                   
                   <div className="faq-item">
-                    <div className="faq-question">How often will I get feedback and check-ins?</div>
+                    <button className="faq-question">
+                      How often will I get feedback and check-ins?
+                      <span className="faq-icon">+</span>
+                    </button>
                     <div className="faq-answer">The AI assistant conducts weekly check-ins to track your progress, provide guidance, and identify any roadblocks. Your teacher receives detailed summaries to provide additional support when needed.</div>
                   </div>
                   
                   <div className="faq-item">
-                    <div className="faq-question">Will this replace my professors or work alongside them?</div>
+                    <button className="faq-question">
+                      Will this replace my professors or work alongside them?
+                      <span className="faq-icon">+</span>
+                    </button>
                     <div className="faq-answer">The platform enhances your professor&apos;s ability to guide you. It provides 24/7 support for project questions while your professor focuses on deeper learning and career mentorship.</div>
                   </div>
                   
                   <div className="faq-item">
-                    <div className="faq-question">What happens to my project data and progress reports?</div>
+                    <button className="faq-question">
+                      What happens to my project data and progress reports?
+                      <span className="faq-icon">+</span>
+                    </button>
                     <div className="faq-answer">Your data belongs to you. All project work and progress reports can be exported for your portfolio. We maintain strict privacy standards and never share your information without consent.</div>
                   </div>
                 </div>
@@ -682,22 +795,34 @@ export default function LandingPage() {
                 <h3 className="category-title">🤝 For Both</h3>
                 <div className="faq-items">
                   <div className="faq-item">
-                    <div className="faq-question">How much does the platform cost?</div>
+                    <button className="faq-question">
+                      How much does the platform cost?
+                      <span className="faq-icon">+</span>
+                    </button>
                     <div className="faq-answer">The platform is free when in Beta. Once out of beta, the pricing will be based on per user account basis. Your college will pay for it.</div>
                   </div>
                   
                   <div className="faq-item">
-                    <div className="faq-question">What technical requirements do I need to use Project Apollo?</div>
+                    <button className="faq-question">
+                      What technical requirements do I need to use Project Apollo?
+                      <span className="faq-icon">+</span>
+                    </button>
                     <div className="faq-answer">Just a smartphone or computer with internet access. The platform works on any modern web browser - no special software or hardware required.</div>
                   </div>
                   
                   <div className="faq-item">
-                    <div className="faq-question">How does the platform ensure data privacy and security?</div>
+                    <button className="faq-question">
+                      How does the platform ensure data privacy and security?
+                      <span className="faq-icon">+</span>
+                    </button>
                     <div className="faq-answer">We use enterprise-grade encryption and follow strict data protection protocols. Your personal information and academic data are secure and never shared with third parties.</div>
                   </div>
                   
                   <div className="faq-item">
-                    <div className="faq-question">What kind of support is available if I have issues?</div>
+                    <button className="faq-question">
+                      What kind of support is available if I have issues?
+                      <span className="faq-icon">+</span>
+                    </button>
                     <div className="faq-answer">We provide 24/7 technical support via chat, email, and phone. Plus dedicated onboarding assistance and regular training sessions to ensure smooth usage.</div>
                   </div>
                 </div>
