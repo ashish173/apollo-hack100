@@ -82,33 +82,16 @@ const AttendanceExtractor = () => {
     }
   };
 
-  const handleDownloadSampleImage = async () => {
+  const handleDownloadSampleImage = () => {
     const imageUrl = 'https://firebasestorage.googleapis.com/v0/b/role-auth-7bc43.firebasestorage.app/o/sample%2Fsample%20attedence%20register%20capture.jpeg?alt=media&token=de925fe9-7c26-46fd-9210-1b86f76f7061';
-    let objectUrl = null;
-
-    try {
-      const response = await fetch(imageUrl);
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-      const blob = await response.blob();
-      objectUrl = URL.createObjectURL(blob);
-
-      const link = document.createElement('a');
-      link.href = objectUrl;
-      link.download = "sample_attendance_register.jpeg";
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-
-    } catch (error) {
-      console.error("Error downloading sample image:", error);
-      showCustomMessageBox("Failed to download sample image. Please check the console for details.", true);
-    } finally {
-      if (objectUrl) {
-        URL.revokeObjectURL(objectUrl);
-      }
-    }
+    const link = document.createElement('a');
+    link.href = imageUrl;
+    link.download = "sample_attendance_register.jpeg";
+    link.target = "_blank";
+    link.rel = "noopener noreferrer";
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
   };
 
   const convertImageToBase64 = (file) => {
