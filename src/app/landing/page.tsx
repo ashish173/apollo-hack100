@@ -41,6 +41,7 @@ export default function LandingPage() {
 
     faqQuestions.forEach(questionButton => {
       questionButton.addEventListener('click', (event) => {
+        console.log("FAQ question clicked:", event.currentTarget); // Added for debugging
         event.preventDefault(); // Good practice for buttons
 
         const currentAnswer = questionButton.nextElementSibling as HTMLElement;
