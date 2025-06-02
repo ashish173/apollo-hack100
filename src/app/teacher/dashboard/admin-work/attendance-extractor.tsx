@@ -16,6 +16,7 @@ const AttendanceExtractor = () => {
   const [selectedImage, setSelectedImage] = useState(null);
   const [imagePreview, setImagePreview] = useState(null);
   const [dragActive, setDragActive] = useState(false);
+  const [isBlinking, setIsBlinking] = useState(false);
   const resultsEndRef = useRef(null);
   const fileInputRef = useRef(null);
 
@@ -28,6 +29,14 @@ const AttendanceExtractor = () => {
   useEffect(() => {
     scrollToBottom();
   }, [results]);
+
+  useEffect(() => {
+    const intervalId = setInterval(() => {
+      setIsBlinking(prev => !prev);
+    }, 500);
+
+    return () => clearInterval(intervalId);
+  }, []);
 
   const handleImageSelect = (file) => {
     if (file && file.type.startsWith('image/')) {
@@ -71,6 +80,16 @@ const AttendanceExtractor = () => {
     if (fileInputRef.current) {
       fileInputRef.current.value = '';
     }
+  };
+
+  const handleDownloadSampleImage = () => {
+    const imageUrl = 'https://firebasestorage.googleapis.com/v0/b/role-auth-7bc43.firebasestorage.app/o/sample%2Fsample%20attedence%20register%20capture.jpeg?alt=media&token=de925fe9-7c26-46fd-9210-1b86f76f7061';
+    const link = document.createElement('a');
+    link.href = imageUrl;
+    link.download = "sample_attendance_register.jpeg";
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
   };
 
   const convertImageToBase64 = (file) => {
@@ -363,6 +382,15 @@ const AttendanceExtractor = () => {
                 >
                   <Upload className="w-4 h-4 inline mr-2" />
                   Choose File
+                </button>
+                <button
+                  onClick={handleDownloadSampleImage}
+                  className={`mt-4 px-4 py-2 rounded-lg transition-colors flex items-center justify-center text-white ${
+                    isBlinking ? 'bg-red-700' : 'bg-red-500'
+                  } hover:bg-red-600`}
+                >
+                  <Download className="w-4 h-4 inline mr-2" />
+                  Download Sample Image
                 </button>
                 <p className="text-xs text-gray-500 mt-2">Supports JPG, PNG, GIF, WebP</p>
               </div>
