@@ -44,10 +44,17 @@ export default function AssignProjectDialog({ project, isOpen, onOpenChange, tea
   const [isComboboxOpen, setIsComboboxOpen] = useState(false);
   const { toast } = useToast();
 
-  // State for project start date, initialized to today's date in YYYY-MM-DD format
-  const [projectStartDate, setProjectStartDate] = useState<string>(formatDate(new Date(), 'yyyy-MM-dd'));
+  // State for project start date
+  const [projectStartDate, setProjectStartDate] = useState<string>(''); 
   // State for tasks with recalculated dates
   const [processedTasks, setProcessedTasks] = useState<SavedProjectTask[]>([]);
+
+  useEffect(() => {
+    if (isOpen && project) {
+      // Initialize projectStartDate state from prop when dialog opens or project changes
+      setProjectStartDate(project.projectStartDate ? project.projectStartDate : formatDate(new Date(), 'yyyy-MM-dd'));
+    }
+  }, [isOpen, project]);
 
 
   useEffect(() => {
