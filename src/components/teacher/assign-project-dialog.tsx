@@ -19,6 +19,7 @@ import {
   DialogTitle,
   DialogClose,
 } from '@/components/ui/dialog';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { Label } from '@/components/ui/label';
 import LoadingSpinner from '@/components/ui/loading-spinner';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
@@ -143,14 +144,15 @@ export default function AssignProjectDialog({ project, isOpen, onOpenChange, tea
         setIsComboboxOpen(false);
       }
     }}>
-      <DialogContent className="sm:max-w-[425px]">
-        <DialogHeader>
-          <DialogTitle>Assign Project: <span className="text-primary">{project.title}</span></DialogTitle>
-          <DialogDescription>
-            Select a student from the list below to assign this project to.
-          </DialogDescription>
-        </DialogHeader>
-        <div className="grid gap-4 py-4">
+      <TooltipProvider>
+        <DialogContent className="sm:max-w-[425px]">
+          <DialogHeader>
+            <DialogTitle>Assign Project: <span className="text-primary">{project.title}</span></DialogTitle>
+            <DialogDescription>
+              Select a student from the list below to assign this project to. The student will then be able to view the project details and begin working on the tasks.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
           <div className="grid grid-cols-4 items-center gap-4">
             <Label htmlFor="student-select" className="text-right col-span-1">
               Student
@@ -215,15 +217,23 @@ export default function AssignProjectDialog({ project, isOpen, onOpenChange, tea
           <DialogClose asChild>
             <Button variant="outline" disabled={isAssigning}>Cancel</Button>
           </DialogClose>
-          <Button
-            type="button"
-            onClick={handleAssignProject}
-            disabled={!selectedStudentUid || isAssigning || isLoadingStudents || students.length === 0}
-          >
-            {isAssigning ? <LoadingSpinner size={20} iconClassName="text-primary-foreground" /> : 'Assign Project'}
-          </Button>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                type="button"
+                onClick={handleAssignProject}
+                disabled={!selectedStudentUid || isAssigning || isLoadingStudents || students.length === 0}
+              >
+                {isAssigning ? <LoadingSpinner size={20} iconClassName="text-primary-foreground" /> : 'Assign Project'}
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>
+              <p>Click to assign this project to the selected student.</p>
+            </TooltipContent>
+          </Tooltip>
         </DialogFooter>
-      </DialogContent>
+        </DialogContent>
+      </TooltipProvider>
     </Dialog>
   );
 }

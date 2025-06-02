@@ -41,6 +41,7 @@ export default function LoginPage() {
       <Card className="w-full max-w-md shadow-xl">
         <CardHeader className="text-center">
           <CardTitle className="text-3xl font-bold text-primary">Welcome to Apollo</CardTitle>
+          <p className="text-sm text-muted-foreground pb-2">Your platform for managing and collaborating on educational projects.</p>
           <CardDescription className="text-muted-foreground pt-2">
             Please select your role and Sign In.
           </CardDescription>
@@ -52,15 +53,21 @@ export default function LoginPage() {
               id="role-selection"
               defaultValue="teacher"
               onValueChange={(value: UserRole) => setSelectedRole(value)}
-              className="flex space-x-4 justify-center"
+              className="flex space-x-6 justify-center" // Increased spacing
             >
-              <div className="flex items-center space-x-2">
-                <RadioGroupItem value="teacher" id="role-teacher" />
-                <Label htmlFor="role-teacher" className="text-md cursor-pointer">Teacher</Label>
+              <div className="flex flex-col items-center space-y-1"> {/* Modified for vertical alignment of label and description */}
+                <div className="flex items-center space-x-2">
+                  <RadioGroupItem value="teacher" id="role-teacher" />
+                  <Label htmlFor="role-teacher" className="text-md cursor-pointer">Teacher</Label>
+                </div>
+                <p className="text-xs text-muted-foreground pt-1">Manage projects, assign tasks, and track student progress.</p>
               </div>
-              <div className="flex items-center space-x-2">
-                <RadioGroupItem value="student" id="role-student" />
-                <Label htmlFor="role-student" className="text-md cursor-pointer">Student</Label>
+              <div className="flex flex-col items-center space-y-1"> {/* Modified for vertical alignment of label and description */}
+                <div className="flex items-center space-x-2">
+                  <RadioGroupItem value="student" id="role-student" />
+                  <Label htmlFor="role-student" className="text-md cursor-pointer">Student</Label>
+                </div>
+                <p className="text-xs text-muted-foreground pt-1">View assigned projects, submit your work, and collaborate.</p>
               </div>
             </RadioGroup>
           </div>
