@@ -41,65 +41,62 @@ export default function LandingPage() {
 
     faqQuestions.forEach(questionButton => {
       questionButton.addEventListener('click', (event) => {
-        console.log("FAQ question clicked:", event.currentTarget); // Added for debugging
+        console.log("FAQ question clicked:", event.currentTarget); // Existing debug log
         event.preventDefault(); // Good practice for buttons
 
-        const currentAnswer = questionButton.nextElementSibling as HTMLElement;
-        const currentIcon = questionButton.querySelector('.faq-icon') as HTMLElement;
+        const buttonElement = event.currentTarget as HTMLButtonElement; // More specific type
+        const currentIcon = buttonElement.querySelector('.faq-icon') as HTMLElement;
 
-        const isCurrentlyOpen = currentAnswer.style.maxHeight && currentAnswer.style.maxHeight !== '0px';
-
-        // Close all other answers and reset icons
-        allFaqAnswers.forEach(answer => {
-          if (answer !== currentAnswer) {
-            answer.style.maxHeight = '0px';
-            answer.classList.remove('open');
-            const otherIcon = answer.previousElementSibling?.querySelector('.faq-icon') as HTMLElement | null;
-            if (otherIcon) {
-              otherIcon.textContent = '+';
-              otherIcon.classList.remove('open');
-            }
+        if (currentIcon) {
+          let newIconText = '';
+          if (currentIcon.textContent === '+') {
+            newIconText = '-';
+            currentIcon.textContent = newIconText;
+            // currentIcon.classList.add('open'); // Also ensure class for CSS rotation is handled if needed
+          } else {
+            newIconText = '+';
+            currentIcon.textContent = newIconText;
+            // currentIcon.classList.remove('open'); 
           }
-        });
-        
-        // Toggle current answer
-        if (isCurrentlyOpen) {
-          currentAnswer.style.maxHeight = '0px';
-          currentAnswer.classList.remove('open');
-          if (currentIcon) {
-            currentIcon.textContent = '+';
-            currentIcon.classList.remove('open');
-          }
-        } else {
-          // --- Start of potential fix for scrollHeight calculation ---
-          // 1. Temporarily make it visible in layout but hidden from user to calculate scrollHeight
-          currentAnswer.style.visibility = 'hidden';
-          currentAnswer.style.display = 'block'; // Ensure it's block for scrollHeight calculation
-          currentAnswer.style.maxHeight = 'auto'; // Temporarily remove max-height restriction
-
-          // 2. Calculate scrollHeight
-          const height = currentAnswer.scrollHeight;
-
-          // 3. Reset temporary styles (back to initial hidden state for transition)
-          currentAnswer.style.visibility = ''; // Reset to default (or 'visible' if needed, but CSS default is fine)
-          currentAnswer.style.display = '';   // Reset display, will be controlled by max-height logic or CSS default
-          currentAnswer.style.maxHeight = '0px'; // Ensure it's starting from 0 for the transition
-          
-          // Force a reflow to ensure the "max-height: 0px" is applied before transitioning to new height
-          // Reading a property like offsetHeight forces a reflow.
-          // Using currentAnswer.offsetHeight also works here.
-          void currentAnswer.offsetWidth; 
-
-          // --- End of potential fix ---
-
-          // Now, set the actual maxHeight to trigger the transition
-          currentAnswer.style.maxHeight = height + 'px';
-          currentAnswer.classList.add('open');
-          if (currentIcon) {
-            currentIcon.textContent = '-'; // Change to minus when open
-            currentIcon.classList.add('open'); // Add open class for CSS rotation if preferred
-          }
+          console.log("Icon should change to:", newIconText);
         }
+
+        // const currentAnswer = questionButton.nextElementSibling as HTMLElement;
+        // const isCurrentlyOpen = currentAnswer.style.maxHeight && currentAnswer.style.maxHeight !== '0px';
+
+        // // Close all other answers and reset icons
+        // allFaqAnswers.forEach(answer => {
+        //   if (answer !== currentAnswer) {
+        //     answer.style.maxHeight = '0px';
+        //     answer.classList.remove('open');
+        //     const otherIcon = answer.previousElementSibling?.querySelector('.faq-icon') as HTMLElement | null;
+        //     if (otherIcon) {
+        //       // otherIcon.textContent = '+'; // Logic was here previously
+        //       // otherIcon.classList.remove('open');
+        //     }
+        //   }
+        // });
+        
+        // // Toggle current answer
+        // if (isCurrentlyOpen) {
+        //   currentAnswer.style.maxHeight = '0px';
+        //   currentAnswer.classList.remove('open');
+        //   // Icon logic was here
+        // } else {
+        //   // --- Start of potential fix for scrollHeight calculation ---
+        //   currentAnswer.style.visibility = 'hidden';
+        //   currentAnswer.style.display = 'block'; 
+        //   currentAnswer.style.maxHeight = 'auto'; 
+        //   const height = currentAnswer.scrollHeight;
+        //   currentAnswer.style.visibility = ''; 
+        //   currentAnswer.style.display = '';   
+        //   currentAnswer.style.maxHeight = '0px'; 
+        //   void currentAnswer.offsetWidth; 
+        //   // --- End of potential fix ---
+        //   currentAnswer.style.maxHeight = height + 'px';
+        //   currentAnswer.classList.add('open');
+        //   // Icon logic was here
+        // }
       });
     });
 
