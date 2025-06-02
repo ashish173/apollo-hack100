@@ -64,6 +64,8 @@ export default function StudentAssignedProjectDetail({ project, onBack }: Studen
     }
 
     setIsLoadingReport(true);
+    console.log("db: ", db);
+    window.db_ = db;
     const reportsRef = collection(db, "projectReports");
     const q = query(
       reportsRef,
