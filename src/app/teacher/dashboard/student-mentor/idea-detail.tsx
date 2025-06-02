@@ -43,7 +43,7 @@ export interface SavedProjectTask { // Exported for use in assign-project-dialog
   taskName: string;
   startDate: string;
   endDate: string;
-  duration: string;
+  duration: number; // Represent duration in days
 }
 
 // Updated ProjectIdea interface:
@@ -51,6 +51,7 @@ export interface SavedProjectTask { // Exported for use in assign-project-dialog
 // And now, its `tasks` array will conform to the `SavedProjectTask` structure for saving.
 export interface ProjectIdea { // Exported for use in page.tsx
   id?: string;
+  projectStartDate?: string; // Optional: ISO format (YYYY-MM-DD)
   title: string;
   description: string;
   difficulty: string;
@@ -174,7 +175,30 @@ export default function IdeaDetail(
     taskName: task.TaskName, // camelCase
     startDate: task.StartDate || '', // camelCase (ensure string, fallback)
     endDate: task.EndDate || '',     // camelCase (ensure string, fallback)
-    duration: String(task.Duration), // camelCase (ensure string)
+    duration: (() => {
+      let durationInDays = 1; // Default duration
+      if (typeof task.Duration === 'number') {
+        durationInDays = Math.max(1, Math.floor(task.Duration)); // Ensure positive integer
+      } else if (typeof task.Duration === 'string') {
+        const durationStr = task.Duration.toLowerCase();
+        const weekMatch = durationStr.match(/(\d+)\s*week/);
+        const dayMatch = durationStr.match(/(\d+)\s*day/);
+
+        if (weekMatch && weekMatch[1]) {
+          durationInDays = parseInt(weekMatch[1], 10) * 7;
+        } else if (dayMatch && dayMatch[1]) {
+          durationInDays = parseInt(dayMatch[1], 10);
+        } else {
+          // Fallback for strings that don't match "week" or "day" but contain a number
+          const genericMatch = durationStr.match(/(\d+)/);
+          if (genericMatch && genericMatch[1]) {
+            durationInDays = parseInt(genericMatch[1], 10);
+          }
+        }
+        durationInDays = Math.max(1, Math.floor(durationInDays)); // Ensure positive integer
+      }
+      return durationInDays;
+    })(),
   }));
   // -----------------------------------------------------------------
 
