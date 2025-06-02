@@ -49,7 +49,7 @@ export default function TeacherDashboardLayout({
                 <rect x="20" y="20" width="50" height="50" rx="10" ry="10" fill="currentColor" />
                 <rect x="40" y="40" width="50" height="50" rx="10" ry="10" fill="currentColor" opacity="0.7" />
               </svg>
-              <span className="text-xl font-semibold text-sidebar-foreground whitespace-nowrap">EduConnect</span>
+              <span className="text-xl font-semibold text-sidebar-foreground whitespace-nowrap">Apollo</span>
             </Link>
             <SidebarTrigger />
           </SidebarHeader>
@@ -93,7 +93,7 @@ export default function TeacherDashboardLayout({
             {children}
           </main>
           <footer className="text-center p-4 mt-auto text-muted-foreground text-sm border-t">
-            EduConnect App &copy; {new Date().getFullYear()}
+            Apollo {new Date().getFullYear()}
             {/* <div className="mt-2">
               <LogoutButton /> // REMOVED from here
             </div> */}

@@ -44,12 +44,9 @@ export default function StudentDashboardLayout({
         <Sidebar collapsible="icon" variant="sidebar" className="border-r">
           <SidebarHeader className="flex flex-row items-center justify-between px-4 py-3 border-b border-sidebar-border">
             <Link href="/student/dashboard" className="flex items-center gap-2 group-data-[state=collapsed]:hidden overflow-hidden">
-              {/* EduConnect SVG Logo */}
-              <svg width="28" height="28" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" className="text-sidebar-primary flex-shrink-0">
-                <rect x="20" y="20" width="50" height="50" rx="10" ry="10" fill="currentColor" />
-                <rect x="40" y="40" width="50" height="50" rx="10" ry="10" fill="currentColor" opacity="0.7" />
-              </svg>
-              <span className="text-xl font-semibold text-sidebar-foreground whitespace-nowrap">EduConnect</span>
+              {/* SVG Logo */}
+              
+              <span className="text-xl font-semibold text-sidebar-foreground whitespace-nowrap">Apollo</span>
             </Link>
             <SidebarTrigger />
           </SidebarHeader>
@@ -77,7 +74,7 @@ export default function StudentDashboardLayout({
             {children}
           </main>
           <footer className="text-center p-4 mt-auto text-muted-foreground text-sm border-t">
-            EduConnect App &copy; {new Date().getFullYear()}
+            Apollo &copy; {new Date().getFullYear()}
             {/* <div className="mt-2">
               <LogoutButton /> // REMOVED from here
             </div> */}
