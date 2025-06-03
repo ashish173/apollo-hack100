@@ -2,7 +2,6 @@ import type {Metadata} from 'next';
 import { Geist, Geist_Mono } from 'next/font/google';
 import { AuthProvider } from '@/context/auth-context';
 import Analytics from '@/components/analytics'; // Import Analytics component
-import ClarityScript from '@/components/clarity-script'; // Import ClarityScript component
 import './globals.css';
 
 const geistSans = Geist({
@@ -32,7 +31,6 @@ export default function RootLayout({
           {children}
         </AuthProvider>
         <Analytics /> {/* Add Analytics component */}
-        <ClarityScript /> {/* Add ClarityScript component */}
       </body>
     </html>
   );

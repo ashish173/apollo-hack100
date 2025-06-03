@@ -33,7 +33,7 @@ export default function Analytics() {
     <>
       <noscript>
         <iframe
-          src={`https://www.googletagmanager.com/ns.html?id=GTM-W2W2N2N`}
+          src={`https://www.googletagmanager.com/ns.html?id=GT-WRHDSGK7`}
           height="0"
           width="0"
           style={{ display: "none", visibility: "hidden" }}
@@ -48,7 +48,7 @@ export default function Analytics() {
     new Date().getTime(),event:'gtm.js'});var f=d.getElementsByTagName(s)[0],
     j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
     'https://www.googletagmanager.com/gtm.js?id='+i+dl;f.parentNode.insertBefore(j,f);
-    })(window,document,'script','dataLayer','GTM-W2W2N2N');
+    })(window,document,'script','dataLayer','GT-WRHDSGK7');
   `,
         }}
       />
