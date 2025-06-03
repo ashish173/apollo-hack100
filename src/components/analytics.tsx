@@ -19,6 +19,7 @@ function TrackPageViews() {
   const pathname = usePathname();
   const searchParams = useSearchParams(); // This hook causes the component to suspend
 
+
   useEffect(() => {
     if (pathname) {
       pageview(pathname);
@@ -29,6 +30,7 @@ function TrackPageViews() {
 }
 
 export default function Analytics() {
+
   return (
     <>
       <noscript>
