@@ -1,21 +1,23 @@
-// src/components/analytics.tsx
 "use client";
 
 import { usePathname, useSearchParams } from "next/navigation";
 import Script from "next/script";
-import { useEffect } from "react";
+import React, { useEffect, Suspense } from "react"; // Import React and Suspense
 
 const pageview = (url: string) => {
   // @ts-ignore
-  window.dataLayer.push({
-    event: "pageview",
-    page: url,
-  });
+  if (typeof window.dataLayer !== 'undefined') {
+    window.dataLayer.push({
+      event: "pageview",
+      page: url,
+    });
+  }
 };
 
-export default function Analytics() {
+// New internal component for tracking page views
+function TrackPageViews() {
   const pathname = usePathname();
-  const searchParams = useSearchParams();
+  const searchParams = useSearchParams(); // This hook causes the component to suspend
 
   useEffect(() => {
     if (pathname) {
@@ -23,6 +25,10 @@ export default function Analytics() {
     }
   }, [pathname, searchParams]);
 
+  return null; // This component does not render anything
+}
+
+export default function Analytics() {
   return (
     <>
       <noscript>
@@ -46,6 +52,10 @@ export default function Analytics() {
   `,
         }}
       />
+      {/* Wrap TrackPageViews with Suspense */}
+      <Suspense fallback={null}>
+        <TrackPageViews />
+      </Suspense>
     </>
   );
 }
