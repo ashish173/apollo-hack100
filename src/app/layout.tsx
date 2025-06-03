@@ -1,5 +1,7 @@
 import type {Metadata} from 'next';
+import { useEffect } from 'react';
 import { Geist, Geist_Mono } from 'next/font/google';
+import { clarity } from "@microsoft/clarity";
 import { AuthProvider } from '@/context/auth-context';
 import Analytics from '@/components/analytics'; // Import Analytics component
 import './globals.css';
@@ -24,6 +26,10 @@ export default function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  useEffect(() => {
+    clarity.init("rthng3a4s4");
+  }, []);
+
   return (
     <html lang="en">
       <body className={`${geistSans.variable} ${geistMono.variable} antialiased min-h-screen flex flex-col`}>
