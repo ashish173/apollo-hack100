@@ -1,4 +1,3 @@
-
 "use client";
 
 import type { User } from 'firebase/auth';
@@ -14,8 +13,12 @@ import type { UserProfile, UserRole } from '@/types';
 interface AuthContextType {
   user: UserProfile | null;
   loading: boolean;
+  authError: string | null;
+  roleMismatchError: string | null;
   signInWithGoogle: (role: UserRole) => Promise<void>;
   signOutUser: () => Promise<void>;
+  clearAuthError: () => void;
+  clearRoleMismatchError: () => void;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -23,8 +26,18 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
+  const [authError, setAuthError] = useState<string | null>(null);
+  const [roleMismatchError, setRoleMismatchError] = useState<string | null>(null);
   const [initializationErrorMsg, setInitializationErrorMsg] = useState<string | null>(null);
   const router = useRouter();
+
+  const clearAuthError = () => {
+    setAuthError(null);
+  };
+
+  const clearRoleMismatchError = () => {
+    setRoleMismatchError(null);
+  };
 
   useEffect(() => {
     if (firebaseInitializationError) {
@@ -102,16 +115,37 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []); 
 
   const signInWithGoogle = async (selectedRole: UserRole) => {
+    clearAuthError();
+    clearRoleMismatchError();
+
     if (initializationErrorMsg || !firebaseAuthService || !firebaseDbService) {
-      console.log("failed");
+      console.log("Firebase service initialization failed or not available.");
+      setAuthError("Authentication service is currently unavailable. Please try again later.");
       setLoading(false);
       return;
     }
+
+    if (user && user.role !== selectedRole) {
+      setRoleMismatchError(
+        `You are trying to login with ${selectedRole} role. You are already Signed in with Role ${user.role}, please login with the same.`
+      );
+      try {
+        await firebaseSignOut(firebaseAuthService);
+        setUser(null);
+      } catch (error) {
+        console.error("Error signing out existing user during role mismatch:", error);
+        setAuthError("Could not sign out existing session. Please try again.");
+      }
+      router.push('/login');
+      setLoading(false);
+      return;
+    }
+    
     setLoading(true);
     try {
       const result = await signInWithPopup(firebaseAuthService, googleAuthProvider);
       const firebaseUser = result.user;
-      const photoURL = firebaseUser.photoURL; // Get photoURL
+      const photoURL = firebaseUser.photoURL; 
       
       const userDocRef = doc(firebaseDbService, 'users', firebaseUser.uid);
       const userDocSnap = await getDoc(userDocRef);
@@ -124,19 +158,25 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         const firestoreData = userDocSnap.data();
         const roleFromDb = firestoreData?.role as UserRole | undefined;
         
-        userEmail = firebaseUser.email || firestoreData?.email; // Prefer fresh auth email, fallback to DB
-        userDisplayName = firebaseUser.displayName || firestoreData?.displayName; // Prefer fresh auth name, fallback to DB
+        userEmail = firebaseUser.email || firestoreData?.email;
+        userDisplayName = firebaseUser.displayName || firestoreData?.displayName;
 
         if (roleFromDb && (roleFromDb === 'teacher' || roleFromDb === 'student')) {
             userRole = roleFromDb;
             if (userRole !== selectedRole) {
-                console.log("role mismatch");
-                
+                console.warn(`Role mismatch: DB role is "${userRole}", selected role was "${selectedRole}".`);
+                setRoleMismatchError(
+                   `You are trying to login with ${selectedRole} role. You are already Signed in with Role ${userRole}, please login with the same.`
+                );
+                await firebaseSignOut(firebaseAuthService);
+                setUser(null);
+                router.push('/login');
+                setLoading(false);
+                return;
             } else {
-                console.log(`login successful ${userRole}`);
+                console.log(`Login successful. Role: ${userRole}`);
             }
             
-            // Consolidate Firestore updates for existing users
             const currentPhotoURL = firebaseUser.photoURL;
             let needsUpdate = false;
             const updateData: { photoURL?: string | null, email?: string | null, displayName?: string | null, updatedAt?: any } = { updatedAt: serverTimestamp() };
@@ -145,11 +185,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                 updateData.photoURL = currentPhotoURL;
                 needsUpdate = true;
             }
-            if (userEmail && userEmail !== firestoreData?.email) { // userEmail already prefers firebaseUser.email
+            if (userEmail && userEmail !== firestoreData?.email) { 
                 updateData.email = userEmail;
                 needsUpdate = true;
             }
-            if (userDisplayName && userDisplayName !== firestoreData?.displayName) { // userDisplayName already prefers firebaseUser.displayName
+            if (userDisplayName && userDisplayName !== firestoreData?.displayName) { 
                 updateData.displayName = userDisplayName;
                 needsUpdate = true;
             }
@@ -161,41 +201,49 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
         } else {
             console.warn(`User ${firebaseUser.uid} document exists but role is missing/invalid: "${roleFromDb}". Using selected role: ${selectedRole} and updating Firestore.`);
-            userRole = selectedRole; // Use the role selected during sign-in
+            userRole = selectedRole; 
             await setDoc(userDocRef, {
               uid: firebaseUser.uid, 
               email: userEmail,
               displayName: userDisplayName,
-              photoURL: firebaseUser.photoURL, // Add photoURL here too
+              photoURL: firebaseUser.photoURL,
               role: userRole,
               createdAt: firestoreData?.createdAt || serverTimestamp(), 
               updatedAt: serverTimestamp()
-            }, { merge: true }); // merge: true is good practice here
-            console.log(`signInWithGoogle: Profile updated for user ${firebaseUser.uid} with new role and photoURL.`);
+            }, { merge: true });
+            console.log(`signInWithGoogle: Profile updated for user ${firebaseUser.uid} with new role ${userRole} and photoURL.`);
         }
       } else {
         await setDoc(userDocRef, {
           uid: firebaseUser.uid,
           email: userEmail,
           displayName: userDisplayName,
-          photoURL: photoURL, // Add this
-          role: userRole, // which is selectedRole here
+          photoURL: photoURL,
+          role: userRole,
           createdAt: serverTimestamp(),
+          updatedAt: serverTimestamp()
         });
-        console.log("Account create");
+        console.log("New account created in Firestore with role:", userRole);
       }
       
        setUser({
         uid: firebaseUser.uid,
         email: userEmail,
         displayName: userDisplayName,
-        photoURL: photoURL, // Add this
+        photoURL: photoURL,
         role: userRole,
       });
       router.push('/'); 
     } catch (error: any) {
       console.error("Error during Google sign-in:", error);
-      console.log("sign in error");
+      if (error.code === 'auth/popup-closed-by-user' || error.code === 'auth/cancelled-popup-request') {
+        setAuthError("Sign-in was cancelled. Please try again.");
+      } else if (error.code === 'auth/network-request-failed') {
+        setAuthError("Network error. Please check your connection and try again.");
+      } else {
+        setAuthError("An error occurred during sign-in. Please try again.");
+      }
+      console.log("sign in error details:", error);
     } finally {
       setLoading(false);
     }
@@ -205,19 +253,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (initializationErrorMsg || !firebaseAuthService) {
       console.log("config error");
       setLoading(false);
+      // Potentially set an error message here if desired
+      // setAuthError("Cannot sign out due to configuration issues.");
       return;
     }
     setLoading(true);
     try {
       await firebaseSignOut(firebaseAuthService);
       // setUser(null) will be handled by onAuthStateChanged
-      console.log("sign out");
-      router.push('/'); 
+      console.log("User signed out successfully.");
+      router.push('/login'); // Changed from '/' to '/login'
     } catch (error: any) {
       console.error("Error during sign-out:", error);
-      console.log("sign out error");
+      // It's good practice to provide feedback to the user.
+      setAuthError("An error occurred during sign-out. Please try again.");
     } finally {
-      // setLoading(false) will be handled by onAuthStateChanged
+      // setLoading(false) will be handled by onAuthStateChanged when setUser(null) is called
     }
   };
 
@@ -240,7 +291,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   return (
-    <AuthContext.Provider value={{ user, loading, signInWithGoogle, signOutUser }}>
+    <AuthContext.Provider value={{ user, loading, authError, roleMismatchError, signInWithGoogle, signOutUser, clearAuthError, clearRoleMismatchError }}>
       {children}
     </AuthContext.Provider>
   );
