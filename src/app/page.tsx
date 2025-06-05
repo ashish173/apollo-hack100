@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useEffect } from 'react';
@@ -20,9 +19,9 @@ export default function HomePage() {
       // User is authenticated
       const role = user.role; // Access role from the user object
       if (role === 'teacher') {
-        router.push('/teacher/dashboard');
+        router.replace('/teacher/dashboard');
       } else if (role === 'student') {
-        router.push('/student/dashboard');
+        router.replace('/student/dashboard');
       } else {
         // Handle cases where role is not 'teacher' or 'student',
         // or if role is not defined on the user object yet.
@@ -40,9 +39,16 @@ export default function HomePage() {
         // If role is not one of the two, perhaps they should not be on a dashboard.
         // For now, let's assume if user exists and role is not teacher/student, they see landing page.
         // This can be refined based on more specific requirements for other roles.
+
+        // User is authenticated but has an unexpected role.
+        // Redirect to login or a generic error page, or let them stay if desired.
+        // For now, consistent with redirecting unauth users to login:
+        router.replace('/login'); 
       }
+    } else {
+      // User is not authenticated, and loading is false.
+      router.replace('/login');
     }
-    // If !user (and not loading), they will see the LandingPage as per render logic below.
   }, [user, loading, router]);
 
   // Render logic:

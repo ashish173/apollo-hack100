@@ -13,22 +13,36 @@ import Link from 'next/link';
 
 export default function LoginPage() {
   const [selectedRole, setSelectedRole] = useState<UserRole>('teacher');
-  const { user, signInWithGoogle, loading: authLoading } = useAuth();
+  const {
+    user,
+    signInWithGoogle,
+    loading: authLoading,
+    authError,
+    roleMismatchError,
+    clearAuthError,
+    clearRoleMismatchError,
+  } = useAuth();
   const router = useRouter();
 
   useEffect(() => {
-    if (!authLoading && user) {
-      router.replace('/'); // User is already logged in, redirect to home/dashboard
+    if (roleMismatchError) {
+      return;
     }
-  }, [user, authLoading, router]);
+
+    if (!authLoading && user) {
+      router.replace('/');
+    }
+  }, [user, authLoading, router, roleMismatchError]);
 
   const handleSignIn = async () => {
+    if (clearAuthError) clearAuthError();
+    if (clearRoleMismatchError) clearRoleMismatchError();
     if (selectedRole) {
       await signInWithGoogle(selectedRole);
     }
   };
 
-  if (authLoading || (!authLoading && user)) {
+  if (authLoading || (!authLoading && user && !roleMismatchError)) {
     // Show loader if auth is loading or if user exists (and redirection is in progress)
     return (
       <div className="flex min-h-screen flex-col items-center justify-center p-6 bg-background">
@@ -151,6 +165,21 @@ export default function LoginPage() {
               </div>
             </RadioGroup>
           </div>
+          
+          {/* Display Auth Error Message */}
+          {authError && (
+            <div className="my-4 p-3 bg-red-100 border border-red-400 text-red-700 rounded-md text-center">
+              <p>{authError}</p>
+            </div>
+          )}
+
+          {/* Display Role Mismatch Error Message */}
+          {roleMismatchError && (
+            <div className="my-4 p-3 bg-orange-100 border border-orange-400 text-orange-700 rounded-md text-center">
+              <p>{roleMismatchError}</p>
+            </div>
+          )}
+
           <Button 
             onClick={handleSignIn} 
             disabled={authLoading}
