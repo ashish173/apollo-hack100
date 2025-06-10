@@ -10,11 +10,22 @@ import { attendanceExtractionPrompt } from './prompt';
 const auth = getAuth(app);
 const db = getFirestore(app);
 
+// Add types for result items
+interface AttendanceResult {
+  id: number;
+  imageName: string;
+  imagePreview: string | null;
+  rawResponse: string;
+  parsedData?: any;
+  timestamp: string;
+  error?: boolean;
+}
+
 const AttendanceExtractor = () => {
-  const [results, setResults] = useState([]);
+  const [results, setResults] = useState<AttendanceResult[]>([]);
   const [isLoading, setIsLoading] = useState(false);
-  const [selectedImage, setSelectedImage] = useState(null);
-  const [imagePreview, setImagePreview] = useState(null);
+  const [selectedImage, setSelectedImage] = useState<File | null>(null);
+  const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [dragActive, setDragActive] = useState(false);
   const [isBlinking, setIsBlinking] = useState(false);
   const resultsEndRef = useRef(null);
@@ -23,7 +34,9 @@ const AttendanceExtractor = () => {
   const FIREBASE_FUNCTION_URL = 'https://us-central1-role-auth-7bc43.cloudfunctions.net/claudeChat';
 
   const scrollToBottom = () => {
-    resultsEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    if (resultsEndRef.current && typeof resultsEndRef.current.scrollIntoView === 'function') {
+      resultsEndRef.current.scrollIntoView({ behavior: 'smooth' });
+    }
   };
 
   useEffect(() => {
@@ -38,23 +51,25 @@ const AttendanceExtractor = () => {
     return () => clearInterval(intervalId);
   }, []);
 
-  const handleImageSelect = (file) => {
+  const handleImageSelect = (file: File) => {
     if (file && file.type.startsWith('image/')) {
       setSelectedImage(file);
       const reader = new FileReader();
-      reader.onload = (e) => {
-        setImagePreview(e.target.result);
+      reader.onload = (e: ProgressEvent<FileReader>) => {
+        if (e.target && typeof e.target.result === 'string') {
+          setImagePreview(e.target.result);
+        }
       };
       reader.readAsDataURL(file);
     }
   };
 
-  const handleFileInput = (event) => {
-    const file = event.target.files[0];
-    handleImageSelect(file);
+  const handleFileInput = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files && event.target.files[0];
+    if (file) handleImageSelect(file);
   };
 
-  const handleDrag = (e) => {
+  const handleDrag = (e: React.DragEvent<HTMLDivElement>) => {
     e.preventDefault();
     e.stopPropagation();
     if (e.type === 'dragenter' || e.type === 'dragover') {
@@ -64,7 +79,7 @@ const AttendanceExtractor = () => {
     }
   };
 
-  const handleDrop = (e) => {
+  const handleDrop = (e: React.DragEvent<HTMLDivElement>) => {
     e.preventDefault();
     e.stopPropagation();
     setDragActive(false);
@@ -94,49 +109,125 @@ const AttendanceExtractor = () => {
     document.body.removeChild(link);
   };
 
-  const convertImageToBase64 = (file) => {
+  const convertImageToBase64 = (file: File): Promise<string> => {
     return new Promise((resolve, reject) => {
       const reader = new FileReader();
       reader.onload = () => {
-        const base64 = reader.result.split(',')[1];
-        resolve(base64);
+        if (typeof reader.result === 'string') {
+          const base64 = reader.result.split(',')[1];
+          resolve(base64);
+        } else {
+          reject(new Error('Failed to read file as base64 string.'));
+        }
       };
       reader.onerror = reject;
       reader.readAsDataURL(file);
     });
   };
 
-  const extractJsonFromString = (text) => {
+  // Utility to attempt to fix common JSON issues
+  function cleanAndFixJsonString(jsonString: string): string {
+    let cleaned = jsonString
+      .replace(/\xA0/g, ' ')
+      .replace(/[\u200B-\u200D\uFEFF]/g, '')
+      .replace(/\n/g, ' ')
+      .replace(/\s+/g, ' ')
+      .replace(/,\s*([}\]])/g, '$1') // Remove trailing commas
+      .replace(/\"\s*:\s*\"/g, '": "') // Normalize key-value
+      .trim();
+
+    // Try to auto-close brackets if obviously truncated
+    const openBraces = (cleaned.match(/\{/g) || []).length;
+    const closeBraces = (cleaned.match(/\}/g) || []).length;
+    const openBrackets = (cleaned.match(/\[/g) || []).length;
+    const closeBrackets = (cleaned.match(/\]/g) || []).length;
+    if (openBraces > closeBraces) cleaned += '}'.repeat(openBraces - closeBraces);
+    if (openBrackets > closeBrackets) cleaned += ']'.repeat(openBrackets - closeBrackets);
+
+    return cleaned;
+  }
+
+  const extractJsonFromString = (text: string) => {
     try {
       let jsonString = '';
-      const jsonMatch = text.match(/```json\n([\s\S]*?)\n```/);
-
+      // First try to find JSON in code blocks
+      const jsonMatch = text.match(/```(?:json)?\n([\s\S]*?)\n```/);
       if (jsonMatch && jsonMatch[1]) {
         jsonString = jsonMatch[1];
       } else {
+        // Try to find any JSON object in the text
         const objectMatch = text.match(/\{[\s\S]*\}/);
         if (objectMatch && objectMatch[0]) {
           jsonString = objectMatch[0];
         } else {
+          // If no JSON object found, try to parse the entire text
           jsonString = text;
         }
       }
 
-      const cleanJsonString = jsonString.replace(/\xA0/g, ' ');
+      // Clean and attempt to fix JSON string
+      const cleanJsonString = cleanAndFixJsonString(jsonString);
       const parsed = JSON.parse(cleanJsonString);
 
-      if (parsed && (parsed.employees || parsed.attendance_data || parsed.entries)) {
-        return parsed;
+      // Validate the parsed JSON structure
+      if (!parsed || typeof parsed !== 'object') {
+        throw new Error("Invalid JSON structure: not an object");
       }
 
-      throw new Error("No recognized JSON structure found or invalid JSON format.");
+      // Check for any of the supported data structures
+      const hasValidStructure = 
+        (parsed.employees && Array.isArray(parsed.employees)) ||
+        (parsed.attendance_data && Array.isArray(parsed.attendance_data)) ||
+        (parsed.entries && Array.isArray(parsed.entries)) ||
+        (parsed.students && Array.isArray(parsed.students)) ||
+        (parsed.attendance && Array.isArray(parsed.attendance));
 
-    } catch (e) {
+      if (!hasValidStructure) {
+        throw new Error("No recognized attendance data structure found");
+      }
+
+      return parsed;
+    } catch (e: unknown) {
       console.error("Could not parse JSON from response:", e);
-      showCustomMessageBox(`Failed to parse AI response as JSON. Raw response start: ${text.substring(0, 150)}...`, true);
+      // Show a textarea for manual correction
+      showManualJsonCorrectionBox(text, e instanceof Error ? e.message : 'Unknown error');
       return null;
     }
   };
+
+  // Show a textarea for manual correction if JSON parsing fails
+  function showManualJsonCorrectionBox(rawText: string, errorMsg: string) {
+    const messageBox = document.createElement('div');
+    messageBox.className = 'fixed inset-0 bg-gray-600 bg-opacity-50 flex items-center justify-center z-50';
+    messageBox.innerHTML = `
+      <div class="bg-white p-6 rounded-lg shadow-xl text-center max-w-2xl w-full">
+        <p class="text-lg font-semibold mb-4 text-red-600">Failed to parse AI response as JSON: ${errorMsg}</p>
+        <p class="text-sm text-gray-700 mb-2">You can manually correct the JSON below and click 'Try Again'.</p>
+        <textarea id="manual-json-textarea" class="w-full h-40 border rounded p-2 mb-4 text-xs" style="font-family:monospace;">${rawText.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</textarea>
+        <div class="flex justify-center space-x-2">
+          <button id="manual-json-try-again" class="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700">Try Again</button>
+          <button id="manual-json-cancel" class="bg-gray-400 text-white px-4 py-2 rounded hover:bg-gray-500">Cancel</button>
+        </div>
+      </div>
+    `;
+    document.body.appendChild(messageBox);
+
+    (document.getElementById('manual-json-cancel') as HTMLButtonElement).onclick = () => {
+      document.body.removeChild(messageBox);
+    };
+    (document.getElementById('manual-json-try-again') as HTMLButtonElement).onclick = () => {
+      const textarea = document.getElementById('manual-json-textarea') as HTMLTextAreaElement;
+      let value = textarea.value;
+      try {
+        const fixed = JSON.parse(value);
+        // Optionally, you could trigger a re-processing here
+        showCustomMessageBox('JSON parsed successfully! Please re-upload the image to process again.', false);
+        document.body.removeChild(messageBox);
+      } catch (err: any) {
+        alert('Still not valid JSON: ' + (err instanceof Error ? err.message : String(err)));
+      }
+    };
+  }
 
   const processImage = async () => {
     if (!selectedImage) return;
@@ -192,18 +283,15 @@ const AttendanceExtractor = () => {
     }
   };
 
-  const downloadJSON = (result) => {
+  const downloadJSON = (result: AttendanceResult) => {
     const dataToDownload = result.parsedData || extractJsonFromString(result.rawResponse);
-
     if (!dataToDownload) {
       showCustomMessageBox("No valid JSON data to download.");
       return;
     }
-
     const dataStr = JSON.stringify(dataToDownload, null, 2);
     const dataUri = 'data:application/json;charset=utf-8,' + encodeURIComponent(dataStr);
     const exportFileDefaultName = `attendance_${result.imageName.split('.')[0]}_${Date.now()}.json`;
-
     const linkElement = document.createElement('a');
     linkElement.setAttribute('href', dataUri);
     linkElement.setAttribute('download', exportFileDefaultName);
@@ -212,67 +300,83 @@ const AttendanceExtractor = () => {
     document.body.removeChild(linkElement);
   };
 
-  const downloadExcel = async (result) => {
+  const downloadExcel = async (result: AttendanceResult) => {
     const dataToProcess = result.parsedData || extractJsonFromString(result.rawResponse);
-    console.log("Data for Excel processing:", dataToProcess); // TEMPORARY DEBUG LOG
-
+    console.log("Data for Excel processing:", dataToProcess);
+    if (!dataToProcess) {
+      showCustomMessageBox("No valid data to process for Excel generation.", true);
+      return;
+    }
     let flattenedData = [];
     let exportFileDefaultName = `attendance_${result.imageName.split('.')[0]}_${Date.now()}.xlsx`;
-
     // Determine the correct data array based on the parsed JSON structure
     let attendanceRecords = null;
-    if (dataToProcess?.attendance_data && Array.isArray(dataToProcess.attendance_data) && dataToProcess.attendance_data.length > 0) {
-      attendanceRecords = dataToProcess.attendance_data;
-    } else if (dataToProcess?.employees && Array.isArray(dataToProcess.employees) && dataToProcess.employees.length > 0) {
-      attendanceRecords = dataToProcess.employees;
-    } else if (dataToProcess?.entries && Array.isArray(dataToProcess.entries) && dataToProcess.entries.length > 0) {
-      attendanceRecords = dataToProcess.entries;
-    }
-
-    if (!attendanceRecords || attendanceRecords.length === 0) {
-      showCustomMessageBox("No valid attendance entries found in the extracted data to convert to Excel. Please ensure the AI response contains 'attendance_data', 'employees', or 'entries' arrays.", true);
+    const possibleArrays = [
+      dataToProcess.attendance_data,
+      dataToProcess.employees,
+      dataToProcess.entries,
+      dataToProcess.students,
+      dataToProcess.attendance
+    ];
+    attendanceRecords = possibleArrays.find(arr => Array.isArray(arr) && arr.length > 0);
+    if (!attendanceRecords) {
+      showCustomMessageBox("No valid attendance entries found in the extracted data.", true);
       return;
     }
-
-    // Process data based on identified structure
-    if (attendanceRecords[0]?.student_name !== undefined && attendanceRecords[0]?.status !== undefined) {
-      // Structure: {"student_name": "ADITI", "status": "P"}
-      flattenedData = attendanceRecords.map(record => ({
-        "Name": record.student_name || '',
-        "Status": record.status || ''
-      }));
-    } else if (attendanceRecords[0]?.attendance !== undefined) {
-      // Structure: {"name": "Employee Name", "attendance": {"1": "P", "2": "A"}}
-      let allDates = new Set();
-      attendanceRecords.forEach(record => {
-        if (record.attendance && typeof record.attendance === 'object') {
-          Object.keys(record.attendance).forEach(date => allDates.add(date));
-        }
-      });
-      const sortedDates = Array.from(allDates).sort((a, b) => parseInt(a) - parseInt(b));
-
-      flattenedData = attendanceRecords.map(record => {
-        const flattenedRecord = {
-          "Name": record.name || record.student_name || '',
-        };
-        sortedDates.forEach(date => {
-          flattenedRecord[`Day ${date}`] = record.attendance?.[date] || '';
-        });
-        return flattenedRecord;
-      });
-    } else {
-      showCustomMessageBox("An unexpected data structure was encountered for Excel conversion.", true);
-      return;
-    }
-
     try {
+      // Process data based on identified structure
+      if (attendanceRecords[0]?.student_name !== undefined && attendanceRecords[0]?.status !== undefined) {
+        flattenedData = attendanceRecords.map((record: any) => ({
+          "Name": record.student_name || '',
+          "Status": record.status || ''
+        }));
+      } else if (attendanceRecords[0]?.attendance !== undefined) {
+        let allDates = new Set();
+        attendanceRecords.forEach((record: any) => {
+          if (record.attendance && typeof record.attendance === 'object') {
+            Object.keys(record.attendance).forEach(date => allDates.add(date));
+          }
+        });
+        const sortedDates = Array.from(allDates).sort((a, b) => parseInt(a as string) - parseInt(b as string));
+        flattenedData = attendanceRecords.map((record: any) => {
+          const flattenedRecord: { [key: string]: string } = {
+            "Name": record.name || record.student_name || '',
+          };
+          sortedDates.forEach(date => {
+            flattenedRecord[`Day ${date}`] = record.attendance?.[date] || '';
+          });
+          return flattenedRecord;
+        });
+      } else if (attendanceRecords[0]?.date !== undefined) {
+        flattenedData = attendanceRecords.map((record: any) => ({
+          "Date": record.date || '',
+          "Name": record.name || record.student_name || '',
+          "Status": record.status || ''
+        }));
+      } else {
+        flattenedData = attendanceRecords.map((record: any) => {
+          const row: { [key: string]: string | number } = {};
+          Object.entries(record).forEach(([key, value]) => {
+            if (typeof value === 'string' || typeof value === 'number') {
+              row[key.charAt(0).toUpperCase() + key.slice(1)] = value;
+            }
+          });
+          return row;
+        });
+      }
       const ws = XLSX.utils.json_to_sheet(flattenedData);
       const wb = XLSX.utils.book_new();
       XLSX.utils.book_append_sheet(wb, ws, "Attendance");
-
+      if (dataToProcess.legend) {
+        const legendData = Object.entries(dataToProcess.legend).map(([code, meaning]) => ({
+          "Code": code,
+          "Meaning": meaning
+        }));
+        const legendWs = XLSX.utils.json_to_sheet(legendData);
+        XLSX.utils.book_append_sheet(wb, legendWs, "Legend");
+      }
       const excelBuffer = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
       const excelBlob = new Blob([excelBuffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
-
       const url = URL.createObjectURL(excelBlob);
       const a = document.createElement('a');
       a.href = url;
@@ -281,15 +385,12 @@ const AttendanceExtractor = () => {
       a.click();
       document.body.removeChild(a);
       URL.revokeObjectURL(url);
-
       if (storage) {
         try {
           const storageRef = ref(storage, `excel_sheets/${exportFileDefaultName}`);
           const snapshot = await uploadBytes(storageRef, excelBlob);
           const storageLink = await getDownloadURL(snapshot.ref);
-
           showCustomMessageBox("Excel file downloaded and uploaded to Firebase Storage!");
-
           const currentUser = auth.currentUser;
           if (currentUser) {
             await addDoc(collection(db, 'Attendance-records'), {
@@ -299,21 +400,15 @@ const AttendanceExtractor = () => {
               fileName: exportFileDefaultName,
               uploadTimestamp: serverTimestamp(),
             });
-          } else {
-            showCustomMessageBox("Excel file uploaded, but no user logged in to save record.");
           }
-
-        } catch (uploadError) {
+        } catch (uploadError: any) {
           console.error('Error uploading to Firebase Storage:', uploadError);
           showCustomMessageBox(`Excel file downloaded, but there was an error uploading to Firebase Storage: ${uploadError.message}`);
         }
-      } else {
-        showCustomMessageBox("Excel file downloaded, but Firebase Storage is not initialized. Upload skipped.");
       }
-
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error creating Excel file:', error);
-      showCustomMessageBox(`Failed to generate Excel file: ${error.message}`);
+      showCustomMessageBox(`Failed to generate Excel file: ${error.message}`, true);
     }
   };
 
