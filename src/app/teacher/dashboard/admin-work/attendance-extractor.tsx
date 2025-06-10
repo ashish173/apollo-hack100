@@ -6,6 +6,7 @@ import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { getAuth } from 'firebase/auth';
 import { getFirestore, collection, addDoc, serverTimestamp } from 'firebase/firestore';
 import { attendanceExtractionPrompt } from './prompt';
+import { calculateAttendanceSummary } from './utils/attendanceCalculation';
 
 const auth = getAuth(app);
 const db = getFirestore(app);
@@ -149,31 +150,62 @@ const AttendanceExtractor = () => {
 
   const extractJsonFromString = (text: string) => {
     try {
-      let jsonString = '';
-      // First try to find JSON in code blocks
-      const jsonMatch = text.match(/```(?:json)?\n([\s\S]*?)\n```/);
-      if (jsonMatch && jsonMatch[1]) {
-        jsonString = jsonMatch[1];
-      } else {
-        // Try to find any JSON object in the text
-        const objectMatch = text.match(/\{[\s\S]*\}/);
-        if (objectMatch && objectMatch[0]) {
-          jsonString = objectMatch[0];
-        } else {
-          // If no JSON object found, try to parse the entire text
-          jsonString = text;
-        }
+      let jsonString = text;
+      // Remove all code block markers (```json, ```) globally
+      jsonString = jsonString.replace(/```json|```/gi, '');
+      // Remove all lines before the first { or [
+      const firstCurly = jsonString.indexOf('{');
+      const firstSquare = jsonString.indexOf('[');
+      let startIdx = -1;
+      if (firstCurly !== -1 && (firstCurly < firstSquare || firstSquare === -1)) {
+        startIdx = firstCurly;
+      } else if (firstSquare !== -1) {
+        startIdx = firstSquare;
       }
-
-      // Clean and attempt to fix JSON string
-      const cleanJsonString = cleanAndFixJsonString(jsonString);
-      const parsed = JSON.parse(cleanJsonString);
-
+      if (startIdx > 0) {
+        jsonString = jsonString.slice(startIdx);
+      }
+      // Remove all text after the last } or ]
+      let lastCurly = jsonString.lastIndexOf('}');
+      let lastSquare = jsonString.lastIndexOf(']');
+      let endIdx = Math.max(lastCurly, lastSquare);
+      if (endIdx !== -1) {
+        jsonString = jsonString.slice(0, endIdx + 1);
+      }
+      // Remove trailing commas before } or ]
+      jsonString = jsonString.replace(/,\s*([}\]])/g, '$1');
+      // Auto-close brackets if obviously truncated
+      const openBraces = (jsonString.match(/\{/g) || []).length;
+      const closeBraces = (jsonString.match(/\}/g) || []).length;
+      const openBrackets = (jsonString.match(/\[/g) || []).length;
+      const closeBrackets = (jsonString.match(/\]/g) || []).length;
+      if (openBraces > closeBraces) jsonString += '}'.repeat(openBraces - closeBraces);
+      if (openBrackets > closeBrackets) jsonString += ']'.repeat(openBrackets - closeBrackets);
+      // Remove non-breaking and zero-width spaces
+      jsonString = jsonString.replace(/\xA0/g, ' ').replace(/[\u200B-\u200D\uFEFF]/g, '');
+      // Normalize whitespace
+      jsonString = jsonString.replace(/\s+/g, ' ');
+      let parsed;
+      try {
+        parsed = JSON.parse(jsonString);
+      } catch (e) {
+        // Fallback: try to extract the largest valid JSON substring
+        const curlyStart = jsonString.indexOf('{');
+        const curlyEnd = jsonString.lastIndexOf('}');
+        const squareStart = jsonString.indexOf('[');
+        const squareEnd = jsonString.lastIndexOf(']');
+        let fallback = '';
+        if (curlyStart !== -1 && curlyEnd !== -1 && curlyEnd > curlyStart) {
+          fallback = jsonString.slice(curlyStart, curlyEnd + 1);
+        } else if (squareStart !== -1 && squareEnd !== -1 && squareEnd > squareStart) {
+          fallback = jsonString.slice(squareStart, squareEnd + 1);
+        }
+        parsed = JSON.parse(fallback);
+      }
       // Validate the parsed JSON structure
       if (!parsed || typeof parsed !== 'object') {
         throw new Error("Invalid JSON structure: not an object");
       }
-
       // Check for any of the supported data structures
       const hasValidStructure = 
         (parsed.employees && Array.isArray(parsed.employees)) ||
@@ -181,15 +213,12 @@ const AttendanceExtractor = () => {
         (parsed.entries && Array.isArray(parsed.entries)) ||
         (parsed.students && Array.isArray(parsed.students)) ||
         (parsed.attendance && Array.isArray(parsed.attendance));
-
       if (!hasValidStructure) {
         throw new Error("No recognized attendance data structure found");
       }
-
       return parsed;
     } catch (e: unknown) {
       console.error("Could not parse JSON from response:", e);
-      // Show a textarea for manual correction
       showManualJsonCorrectionBox(text, e instanceof Error ? e.message : 'Unknown error');
       return null;
     }
@@ -367,6 +396,35 @@ const AttendanceExtractor = () => {
       const ws = XLSX.utils.json_to_sheet(flattenedData);
       const wb = XLSX.utils.book_new();
       XLSX.utils.book_append_sheet(wb, ws, "Attendance");
+
+      // --- New: Attendance Sorting Tab ---
+      // Only add if attendanceRecords have attendance object (multi-day)
+      if (attendanceRecords[0]?.attendance !== undefined) {
+        const summary = calculateAttendanceSummary(attendanceRecords);
+        // Sort by attendancePercent (lowest to highest), blanks at the end
+        const sortedSummary = summary.slice().sort((a, b) => {
+          if (a.attendancePercent === '' && b.attendancePercent === '') return 0;
+          if (a.attendancePercent === '') return 1;
+          if (b.attendancePercent === '') return -1;
+          return (a.attendancePercent as number) - (b.attendancePercent as number);
+        });
+        const sortingData = sortedSummary.map(s => ({
+          'Student name': s.studentName,
+          'Total Present': s.totalPresent,
+          'Total Absent': s.totalAbsent,
+          'Attendance %': s.attendancePercent
+        }));
+        const sortingWs = XLSX.utils.json_to_sheet(sortingData);
+        sortingWs['!cols'] = [
+          { wch: 20 }, // Student name
+          { wch: 14 }, // Total Present
+          { wch: 13 }, // Total Absent
+          { wch: 15 }, // Attendance %
+        ];
+        XLSX.utils.book_append_sheet(wb, sortingWs, 'attendance sorting');
+      }
+      // --- End New ---
+
       if (dataToProcess.legend) {
         const legendData = Object.entries(dataToProcess.legend).map(([code, meaning]) => ({
           "Code": code,
