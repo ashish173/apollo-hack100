@@ -82,7 +82,7 @@ export default function CurriculumPage() {
               setCurrentSuggestion(suggestion);
               setCurrentView('editor');
             }}
-            // onBack={handleBackToHome}
+            onBack={handleBackToHome}
           />
         );
       
