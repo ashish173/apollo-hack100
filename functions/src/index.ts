@@ -4,6 +4,7 @@ import { generateProjectIdeas } from "./ai/flows/generate-project-ideas";
 import { logger } from "firebase-functions/v2";
 import { generateProjectPlan } from "./ai/flows/generate-project-plan";
 import { suggestTaskHints } from "./ai/flows/suggest-task-hints";
+import { generateCurriculumSuggestions } from "./ai/flows/generate-curriculum-suggestions";
 
 // functions/index.js
 const { onRequest } = require("firebase-functions/v2/https");
@@ -176,3 +177,23 @@ exports.suggestTaskHintsFn = onRequest({ cors: true }, async (req, res) => {
     };
   }
 });
+
+exports.generateCurriculumSuggestionsFn = onRequest(
+  { cors: true },
+  async (req, res) => {
+    try {
+      const response = await generateCurriculumSuggestions(req.body);
+      logger.info("inside generateCurriculumSuggestionsFn response ", response);
+
+      return res.status(200).json({
+        response: response,
+      });
+
+      return;
+    } catch (error) {
+      return {
+        error: "Firebase error",
+      };
+    }
+  }
+);

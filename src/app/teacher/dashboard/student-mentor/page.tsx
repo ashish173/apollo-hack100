@@ -102,6 +102,7 @@ export default function StudentMentorPage() {
     try {
       setLoadingProjectIdeas(true);
       // const result = await generateProjectIdeas({ topic: projectKeywords, difficulty: difficulty, duration: duration });
+      // console.log(result);
 
       const requestBody = {
         topic: projectKeywords,

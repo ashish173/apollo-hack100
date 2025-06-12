@@ -21,7 +21,7 @@ import {
   useSidebar 
 } from '@/components/ui/sidebar';
 import { Button } from '@/components/ui/button';
-import { LayoutDashboard, Users, Briefcase, PanelLeft } from 'lucide-react';
+import { LayoutDashboard, Users, Briefcase, PanelLeft, Book } from 'lucide-react';
 import LogoutButton from '@/components/auth/logout-button';
 
 // New internal component
@@ -69,6 +69,14 @@ function TeacherDashboardInternal({ children }: { children: ReactNode }) {
                   <SidebarMenuButton isActive={pathname === '/teacher/dashboard/student-mentor'} tooltip="Student Mentor">
                     <Users />
                     <span>Student Mentor</span>
+                  </SidebarMenuButton>
+                </Link>
+              </SidebarMenuItem>
+              <SidebarMenuItem>
+                <Link href="/teacher/dashboard/curriculum-suggestor" passHref legacyBehavior>
+                  <SidebarMenuButton isActive={pathname === '/teacher/dashboard/curriculum-suggestor'} tooltip="Curriculum Suggestor">
+                    <Book />
+                    <span>Curriculum Suggestor</span>
                   </SidebarMenuButton>
                 </Link>
               </SidebarMenuItem>
