@@ -30,7 +30,7 @@ const AttendanceExtractor = () => {
   const [dragActive, setDragActive] = useState(false);
   const [isBlinking, setIsBlinking] = useState(false);
   const resultsEndRef = useRef(null);
-  const fileInputRef = useRef(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const FIREBASE_FUNCTION_URL = 'https://us-central1-role-auth-7bc43.cloudfunctions.net/claudeChat';
 
@@ -98,16 +98,41 @@ const AttendanceExtractor = () => {
     }
   };
 
-  const handleDownloadSampleImage = () => {
-    const imageUrl = 'https://firebasestorage.googleapis.com/v0/b/role-auth-7bc43.firebasestorage.app/o/sample%2Fsample%20attedence%20register%20capture.jpeg?alt=media&token=de925fe9-7c26-46fd-9210-1b86f76f7061';
-    const link = document.createElement('a');
-    link.href = imageUrl;
-    link.download = "sample_attendance_register.jpeg";
-    link.target = "_blank";
-    link.rel = "noopener noreferrer";
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+  const sampleImages = [
+    {
+      url: 'https://firebasestorage.googleapis.com/v0/b/role-auth-7bc43.firebasestorage.app/o/sample%2Fsample%20attedence%20register%20capture.jpeg?alt=media&token=de925fe9-7c26-46fd-9210-1b86f76f7061',
+      filename: 'sample_attendance_register_1.jpeg'
+    },
+    {
+      url: 'https://firebasestorage.googleapis.com/v0/b/role-auth-7bc43.firebasestorage.app/o/sample%2FChatGPT%20Image%20Jun%2010%2C%202025%2C%2004_23_23%20PM.png?alt=media&token=5534ccb4-ca75-421a-b2f3-1b915f2cb353',
+      filename: 'sample_attendance_register_2.png'
+    },
+    {
+      url: 'https://firebasestorage.googleapis.com/v0/b/role-auth-7bc43.firebasestorage.app/o/sample%2FWhatsApp%20Image%202025-06-10%20at%2013.06.41_bae22a34.jpg?alt=media&token=03e7b57c-46c5-492f-ab8a-1f5a211d3166',
+      filename: 'sample_attendance_register_3.jpg'
+    },
+    {
+      url: 'https://firebasestorage.googleapis.com/v0/b/role-auth-7bc43.firebasestorage.app/o/sample%2Fgenerate.jpg?alt=media&token=e8494db1-2466-4065-b893-a3412fdc3bab',
+      filename: 'sample_attendance_register_4.jpg'
+    }
+  ];
+
+  const handleDownloadAllSampleImages = async () => {
+    for (const { url, filename } of sampleImages) {
+      try {
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = filename;
+        link.target = "_blank";
+        link.rel = "noopener noreferrer";
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        await new Promise(resolve => setTimeout(resolve, 500)); // Small delay to prevent browser blocking
+      } catch (error) {
+        console.error(`Error downloading ${filename}:`, error);
+      }
+    }
   };
 
   const convertImageToBase64 = (file: File): Promise<string> => {
@@ -539,13 +564,13 @@ const AttendanceExtractor = () => {
                   Choose File
                 </button>
                 <button
-                  onClick={handleDownloadSampleImage}
+                  onClick={handleDownloadAllSampleImages}
                   className={`mt-4 px-4 py-2 rounded-lg transition-colors flex items-center justify-center text-white ${
                     isBlinking ? 'bg-red-700' : 'bg-red-500'
                   } hover:bg-red-600`}
                 >
                   <Download className="w-4 h-4 inline mr-2" />
-                  Download Sample Image
+                  Download Sample Images
                 </button>
                 <p className="text-xs text-gray-500 mt-2">Supports JPG, PNG, GIF, WebP</p>
               </div>
