@@ -73,11 +73,16 @@ export default function CurriculumSuggestor({ onEdit, onBack }: { onEdit: (sugge
         body: JSON.stringify(requestBody)
       });
       const data = await response.json();
-      const rawResponseText = data.response;
-
+      const rawResponseText = data?.response?.curriculumSuggestions;
 
       try {
-      const parsedData = JSON.parse(rawResponseText.curriculumSuggestions);
+      // sometimes the response is not a valid object, instead it's an array of objects, so we need to parse the first object
+      let parsedData = null;
+      if (Array.isArray(rawResponseText)) {
+        parsedData = JSON.parse(rawResponseText[0]);
+      } else {
+        parsedData = JSON.parse(rawResponseText);
+      }
       setGeneratedSuggestion(parsedData);
 
       } catch (jsonError: any) {
