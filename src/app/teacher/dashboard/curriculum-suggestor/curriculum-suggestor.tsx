@@ -76,14 +76,14 @@ export default function CurriculumSuggestor({ onEdit, onBack }: { onEdit: (sugge
       const rawResponseText = data?.response?.curriculumSuggestions;
 
       try {
-      // sometimes the response is not a valid object, instead it's an array of objects, so we need to parse the first object
-      let parsedData = null;
-      if (Array.isArray(rawResponseText)) {
-        parsedData = JSON.parse(rawResponseText[0]);
+        const parsedData = JSON.parse(rawResponseText);
+        
+      // sometimes the parsedData is not an object, instead it's an array of objects.
+      if (Array.isArray(parsedData)) {
+        setGeneratedSuggestion(parsedData[0]);
       } else {
-        parsedData = JSON.parse(rawResponseText);
+        setGeneratedSuggestion(parsedData);
       }
-      setGeneratedSuggestion(parsedData);
 
       } catch (jsonError: any) {
         console.error("Failed to parse project plan JSON:", jsonError);
