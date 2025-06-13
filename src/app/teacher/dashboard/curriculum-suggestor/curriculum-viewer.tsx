@@ -10,7 +10,9 @@ import {
   Play,
   Save,
   BookmarkPlus,
-  Loader2
+  Loader2,
+  Download,
+  Share
 } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -114,7 +116,7 @@ export default function CurriculumViewer({ suggestion, onBack, onEdit }: Curricu
   return (
     <div className="flex-grow flex flex-col p-6 space-y-6 w-full bg-white mx-auto">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col justify-between">
         <div>
           <h1 className="text-3xl font-bold text-primary mb-2">
             {suggestion.lessonStructure.title}
@@ -130,12 +132,12 @@ export default function CurriculumViewer({ suggestion, onBack, onEdit }: Curricu
             </div>
           </div>
         </div>
-        <div className="flex gap-2">
+        <div className="flex gap-2 mt-6">
           <Button 
             variant={getSaveButtonVariant()}
             onClick={handleSavePlan}
             disabled={isSaving || saveStatus === 'saved'}
-            className={saveStatus === 'saved' ? 'bg-green-600 hover:bg-green-700 text-white' : ''}
+            className={saveStatus === 'saved' ? 'bg-green-600 hover:bg-green-700 text-white' : 'bg-blue-600 hover:bg-blue-700 text-white'}
           >
             {isSaving ? (
               <Loader2 size={16} className="mr-2 animate-spin" />
@@ -146,9 +148,19 @@ export default function CurriculumViewer({ suggestion, onBack, onEdit }: Curricu
             )}
             {getSaveButtonText()}
           </Button>
-          <Button variant="outline" onClick={onEdit}>
+          <Button variant="outline" onClick={onEdit} className="bg-blue-600 hover:bg-blue-700 text-white">
             <Edit3 size={16} className="mr-2" />
             Edit This Plan
+          </Button>
+          <Button variant="outline" size="sm" disabled>
+            <Download size={16} className="mr-2" />
+            Export
+            <span className="ml-2 text-xs bg-yellow-100 text-yellow-800 px-2 py-0.5 rounded">Coming Soon</span>
+          </Button>
+          <Button variant="outline" size="sm" disabled>
+            <Share size={16} className="mr-2" />
+            Share
+            <span className="ml-2 text-xs bg-yellow-100 text-yellow-800 px-2 py-0.5 rounded">Coming Soon</span>
           </Button>
         </div>
       </div>

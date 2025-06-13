@@ -262,9 +262,15 @@ export default function CurriculumEditor({
         {/* Header with controls */}
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-4">
+            <Button
+              size="sm"
+              onClick={onBack}
+              className="bg-blue-600 hover:bg-blue-700 text-white flex items-center gap-2"
+            >
+              <ArrowLeft size={16} />
+              Back to Viewer
+            </Button>
             <div className="flex items-center gap-2">
-              <BookOpen size={20} className="text-primary" />
-              <h1 className="text-2xl font-bold text-primary">Lesson Plan Editor</h1>
               {hasChanges && (
                 <Badge variant="secondary" className="text-xs">
                   Unsaved Changes
@@ -282,14 +288,6 @@ export default function CurriculumEditor({
             >
               <Save size={16} className="mr-2" />
               Save Changes
-            </Button>
-            <Button variant="outline" size="sm" onClick={handleExport}>
-              <Download size={16} className="mr-2" />
-              Export
-            </Button>
-            <Button variant="outline" size="sm">
-              <Share size={16} className="mr-2" />
-              Share
             </Button>
           </div>
         </div>

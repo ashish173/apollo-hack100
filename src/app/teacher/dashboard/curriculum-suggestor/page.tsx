@@ -101,7 +101,7 @@ export default function CurriculumPage() {
             initialData={currentSuggestion}
             onSave={handleSaveCurriculum}
             onExport={handleExportCurriculum}
-            onBack={handleBackToHome}
+            onBack={() => setCurrentView('viewer')}
           />
         ) : null;
 
@@ -155,6 +155,7 @@ export default function CurriculumPage() {
                   {currentView === 'generator' && 'Curriculum Generator'}
                   {currentView === 'viewer' && 'Lesson Plan Viewer'}
                   {currentView === 'editor' && 'Lesson Plan Editor'}
+                  {currentView === 'history' && 'Curriculum History'}
                 </span>
               </div>
             </div>

@@ -128,25 +128,7 @@ export default function CurriculumHistory({
   const uniqueSubjects = [...new Set(curriculums.map(c => c.metadata.subject))];
 
   return (
-    <div className="flex-grow flex flex-col p-6 space-y-6 w-full max-w-6xl mx-auto">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-4">
-          <Button variant="ghost" onClick={onBack} className="p-2">
-            <ArrowLeft size={20} />
-          </Button>
-          <div className="flex items-center gap-3">
-            <History size={28} className="text-primary" />
-            <div>
-              <h1 className="text-3xl font-bold text-primary">Curriculum History</h1>
-              <p className="text-muted-foreground">
-                {curriculums.length} saved lesson plans
-              </p>
-            </div>
-          </div>
-        </div>
-      </div>
-
+    <div className="flex-grow flex flex-col p-6 space-y-6 w-full bg-white mx-auto">
       {/* Filters and Search */}
       <div className="flex flex-col md:flex-row gap-4 bg-muted/30 p-4 rounded-lg">
         <div className="flex-1">
