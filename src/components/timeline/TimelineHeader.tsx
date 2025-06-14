@@ -1,79 +1,136 @@
-import React from 'react';
-import { format, addDays, isSameDay } from 'date-fns';
+import React, { useMemo } from 'react';
+import { format, eachDayOfInterval, eachWeekOfInterval, eachMonthOfInterval, eachQuarterOfInterval, eachYearOfInterval, endOfWeek } from 'date-fns';
+import { TimelineView } from '@/types/timeline';
 
 interface TimelineHeaderProps {
   startDate: Date;
   endDate: Date;
+  view: TimelineView;
 }
 
-const TimelineHeader: React.FC<TimelineHeaderProps> = ({ startDate, endDate }) => {
-  // Generate an array of dates from start to end
-  const dates = React.useMemo(() => {
-    const days = [];
-    let currentDate = new Date(startDate);
-    
-    while (currentDate <= endDate) {
-      days.push(new Date(currentDate));
-      currentDate = addDays(currentDate, 1);
+const TimelineHeader: React.FC<TimelineHeaderProps> = ({ startDate, endDate, view }) => {
+  // Generate headers based on the current view
+  const headers = useMemo(() => {
+    switch (view) {
+      case 'week':
+        return eachDayOfInterval({ start: startDate, end: endDate });
+      case 'month':
+        return eachWeekOfInterval(
+          { start: startDate, end: endDate },
+          { weekStartsOn: 0 }
+        );
+      case 'quarter':
+        return eachMonthOfInterval({ start: startDate, end: endDate });
+      case 'year':
+        return eachQuarterOfInterval({ start: startDate, end: endDate });
+      default:
+        return eachDayOfInterval({ start: startDate, end: endDate });
     }
-    
-    return days;
-  }, [startDate, endDate]);
+  }, [view, startDate, endDate]);
 
-  // Group dates by week
-  const weeks = React.useMemo(() => {
-    const grouped: Date[][] = [];
-    let currentWeek: Date[] = [];
-    
-    dates.forEach((date, index) => {
-      currentWeek.push(date);
-      
-      // If it's Sunday or the last date, start a new week
-      if (date.getDay() === 0 || index === dates.length - 1) {
-        grouped.push([...currentWeek]);
-        currentWeek = [];
-      }
-    });
-    
-    return grouped;
-  }, [dates]);
+  // Format header label based on view
+  const formatHeaderLabel = (date: Date) => {
+    switch (view) {
+      case 'week':
+        return (
+          <>
+            <div className="text-xs text-muted-foreground">{format(date, 'EEE')}</div>
+            <div className={`text-sm ${
+              date.toDateString() === new Date().toDateString() 
+                ? 'text-primary font-bold' 
+                : 'text-foreground'
+            }`}>
+              {date.getDate()}
+            </div>
+          </>
+        );
+      case 'month':
+        return (
+          <div className="text-center">
+            <div className="text-xs text-muted-foreground">
+              {format(date, 'MMM d')}
+            </div>
+            <div className="text-sm">
+              {format(date, 'd')} - {format(endOfWeek(date), 'MMM d')}
+            </div>
+          </div>
+        );
+      case 'quarter':
+        return (
+          <div className="text-center">
+            <div className="text-sm">{format(date, 'MMM yyyy')}</div>
+          </div>
+        );
+      case 'year':
+        return (
+          <div className="text-center">
+            <div className="text-sm">
+              Q{Math.floor(date.getMonth() / 3) + 1} {format(date, 'yyyy')}
+            </div>
+          </div>
+        );
+      default:
+        return format(date, 'MMM d');
+    }
+  };
+
+  // Check if a date is today
+  const isToday = (date: Date) => {
+    const today = new Date();
+    if (view === 'week') {
+      return date.toDateString() === today.toDateString();
+    } else if (view === 'month') {
+      return (
+        date.getMonth() === today.getMonth() &&
+        date.getFullYear() === today.getFullYear()
+      );
+    } else if (view === 'quarter') {
+      return (
+        Math.floor(date.getMonth() / 3) === Math.floor(today.getMonth() / 3) &&
+        date.getFullYear() === today.getFullYear()
+      );
+    } else if (view === 'year') {
+      return date.getFullYear() === today.getFullYear();
+    }
+    return false;
+  };
+
+  // Check if a date is in the current period
+  const isCurrentPeriod = (date: Date) => {
+    const today = new Date();
+    if (view === 'week') {
+      return date.toDateString() === today.toDateString();
+    } else if (view === 'month') {
+      return date.getMonth() === today.getMonth() && date.getFullYear() === today.getFullYear();
+    } else if (view === 'quarter') {
+      return (
+        Math.floor(date.getMonth() / 3) === Math.floor(today.getMonth() / 3) &&
+        date.getFullYear() === today.getFullYear()
+      );
+    } else if (view === 'year') {
+      return date.getFullYear() === today.getFullYear();
+    }
+    return false;
+  };
 
   return (
     <div className="relative">
-      {/* Week numbers */}
       <div className="flex">
-        {weeks.map((week, weekIndex) => {
-          const weekStart = week[0];
-          const weekEnd = week[week.length - 1];
-          const weekNumber = Math.floor(weekStart.getTime() / (7 * 24 * 60 * 60 * 1000));
+        {headers.map((date, index) => {
+          const isWeekend = view === 'week' && (date.getDay() === 0 || date.getDay() === 6);
+          const isTodayHighlighted = isToday(date);
+          const isCurrent = isCurrentPeriod(date);
           
           return (
             <div 
-              key={`week-${weekIndex}`} 
-              className="flex-1 text-center text-xs font-medium text-muted-foreground border-b py-1"
-              style={{ minWidth: '100px' }}
+              key={index}
+              className={`flex-1 text-center py-2 border-r border-b ${
+                isWeekend ? 'bg-muted/50' : 'bg-background'
+              } ${
+                isTodayHighlighted ? 'border-t-2 border-t-primary' : ''
+              }`}
             >
-              Week {weekNumber}
-            </div>
-          );
-        })}
-      </div>
-      
-      {/* Days */}
-      <div className="flex border-b">
-        {dates.map((date, index) => {
-          const isWeekend = date.getDay() === 0 || date.getDay() === 6;
-          const isToday = isSameDay(date, new Date());
-          
-          return (
-            <div 
-              key={`day-${index}`}
-              className={`flex-1 text-center text-xs py-1 ${isWeekend ? 'bg-muted/30' : ''} ${isToday ? 'font-bold text-primary' : 'text-muted-foreground'}`}
-              style={{ minWidth: '40px' }}
-            >
-              <div>{format(date, 'd')}</div>
-              <div className="text-[10px] opacity-70">{format(date, 'EEE')}</div>
-              {isToday && <div className="h-1 w-1 mx-auto mt-1 rounded-full bg-primary"></div>}
+              {formatHeaderLabel(date)}
             </div>
           );
         })}

@@ -1,3 +1,5 @@
+export type TimelineView = 'week' | 'month' | 'quarter' | 'year';
+
 export interface TimelineTask {
   id: string;
   title: string;
@@ -9,14 +11,15 @@ export interface TimelineTask {
   projectId?: string;
 }
 
-export interface TimelineView {
-  startDate: Date;
-  endDate: Date;
-  zoomLevel: 'day' | 'week' | 'month';
+export interface TaskDependency {
+  fromId: string;
+  toId: string;
+  type: 'finish_to_start' | 'start_to_start' | 'finish_to_finish' | 'start_to_finish';
 }
 
-export interface TaskDependency {
-  fromTaskId: string;
-  toTaskId: string;
-  type: 'finish_to_start' | 'start_to_start' | 'finish_to_finish' | 'start_to_finish';
+export interface TimelineControlsProps {
+  view: TimelineView;
+  onViewChange: (view: TimelineView) => void;
+  onNavigate: (direction: 'prev' | 'next' | 'today') => void;
+  currentDate: Date;
 }

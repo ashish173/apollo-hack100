@@ -1,22 +1,79 @@
 import React, { useState, useCallback, useMemo } from 'react';
-import { TimelineTask } from '@/types/timeline';
+import { 
+  TimelineTask, 
+  TimelineView 
+} from '@/types/timeline';
+import { 
+  addWeeks, 
+  addMonths, 
+  addQuarters, 
+  addYears, 
+  startOfWeek, 
+  endOfWeek, 
+  startOfMonth, 
+  endOfMonth, 
+  startOfQuarter, 
+  endOfQuarter, 
+  startOfYear, 
+  endOfYear, 
+  isWithinInterval 
+} from 'date-fns';
 import TaskBar from './TaskBar';
 import TimelineHeader from './TimelineHeader';
 import TaskDetails from './TaskDetails';
+import TimelineControls from './TimelineControls';
 
 interface TimelineProps {
   tasks: TimelineTask[];
 }
 
 const Timeline: React.FC<TimelineProps> = ({ tasks }) => {
-  // Calculate the date range for the timeline
-  const startDate = useMemo(() => {
-    return new Date(Math.min(...tasks.map(task => task.startDate.getTime())));
-  }, [tasks]);
-
-  const endDate = useMemo(() => {
-    return new Date(Math.max(...tasks.map(task => task.endDate.getTime())));
-  }, [tasks]);
+  // View state
+  const [view, setView] = useState<TimelineView>('week');
+  const [currentDate, setCurrentDate] = useState<Date>(new Date());
+  
+  // Calculate the visible date range based on current view and date
+  const { startDate, endDate, visibleTasks } = useMemo(() => {
+    let rangeStart: Date;
+    let rangeEnd: Date;
+    
+    switch (view) {
+      case 'week':
+        rangeStart = startOfWeek(currentDate, { weekStartsOn: 0 });
+        rangeEnd = endOfWeek(currentDate, { weekStartsOn: 0 });
+        break;
+      case 'month':
+        rangeStart = startOfMonth(currentDate);
+        rangeEnd = endOfMonth(currentDate);
+        break;
+      case 'quarter':
+        rangeStart = startOfQuarter(currentDate);
+        rangeEnd = endOfQuarter(currentDate);
+        break;
+      case 'year':
+        rangeStart = startOfYear(currentDate);
+        rangeEnd = endOfYear(currentDate);
+        break;
+      default:
+        rangeStart = startOfWeek(currentDate);
+        rangeEnd = endOfWeek(currentDate);
+    }
+    
+    // Filter tasks that are within or overlap with the current view
+    const filteredTasks = tasks.filter(task => {
+      return (
+        isWithinInterval(task.startDate, { start: rangeStart, end: rangeEnd }) ||
+        isWithinInterval(task.endDate, { start: rangeStart, end: rangeEnd }) ||
+        (task.startDate <= rangeStart && task.endDate >= rangeEnd)
+      );
+    });
+    
+    return {
+      startDate: rangeStart,
+      endDate: rangeEnd,
+      visibleTasks: filteredTasks,
+    };
+  }, [view, currentDate, tasks]);
 
   // Calculate the total days in the timeline
   const totalDays = useMemo(() => {
@@ -35,7 +92,7 @@ const Timeline: React.FC<TimelineProps> = ({ tasks }) => {
   const getDatePosition = useCallback((date: Date) => {
     const diffTime = date.getTime() - startDate.getTime();
     const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-    return (diffDays / totalDays) * 100;
+    return Math.max(0, Math.min(100, (diffDays / totalDays) * 100));
   }, [startDate, totalDays]);
 
   // Handle task click
@@ -44,30 +101,68 @@ const Timeline: React.FC<TimelineProps> = ({ tasks }) => {
     setSelectedTaskId(prevId => prevId === taskId ? null : taskId);
   }, []);
 
+  // Handle navigation
+  const handleNavigate = useCallback((direction: 'prev' | 'next' | 'today') => {
+    if (direction === 'today') {
+      setCurrentDate(new Date());
+      return;
+    }
+    
+    setCurrentDate(prevDate => {
+      switch (view) {
+        case 'week':
+          return direction === 'prev' ? addWeeks(prevDate, -1) : addWeeks(prevDate, 1);
+        case 'month':
+          return direction === 'prev' ? addMonths(prevDate, -1) : addMonths(prevDate, 1);
+        case 'quarter':
+          return direction === 'prev' ? addQuarters(prevDate, -1) : addQuarters(prevDate, 1);
+        case 'year':
+          return direction === 'prev' ? addYears(prevDate, -1) : addYears(prevDate, 1);
+        default:
+          return prevDate;
+      }
+    });
+  }, [view]);
+
+  // Handle view change
+  const handleViewChange = useCallback((newView: TimelineView) => {
+    setView(newView);
+  }, []);
+
   // Handle click outside tasks
   const handleBackgroundClick = useCallback(() => {
     setSelectedTaskId(null);
   }, []);
 
   return (
-    <div className="w-full overflow-x-auto" onClick={handleBackgroundClick}>
-      <div className="min-w-max">
-        {/* Timeline Header */}
-        <TimelineHeader startDate={startDate} endDate={endDate} />
-        
-        {/* Timeline Rows */}
-        <div className="mt-8 space-y-4">
-          {tasks.map((task) => (
-            <div key={task.id} className="relative h-12">
-              <TaskBar 
-                task={task} 
-                getDatePosition={getDatePosition}
-                totalDays={totalDays}
-                isSelected={selectedTaskId === task.id}
-                onClick={handleTaskClick}
-              />
-            </div>
-          ))}
+    <div className="w-full" onClick={handleBackgroundClick}>
+      {/* Timeline Controls */}
+      <TimelineControls
+        view={view}
+        onViewChange={handleViewChange}
+        onNavigate={handleNavigate}
+        currentDate={currentDate}
+      />
+      
+      <div className="w-full overflow-x-auto">
+        <div className="min-w-max">
+          {/* Timeline Header */}
+          <TimelineHeader startDate={startDate} endDate={endDate} view={view} />
+          
+          {/* Timeline Rows */}
+          <div className="mt-4 space-y-4">
+            {visibleTasks.map((task) => (
+              <div key={task.id} className="relative h-12">
+                <TaskBar 
+                  task={task} 
+                  getDatePosition={getDatePosition}
+                  totalDays={totalDays}
+                  isSelected={selectedTaskId === task.id}
+                  onClick={handleTaskClick}
+                />
+              </div>
+            ))}
+          </div>
         </div>
       </div>
       
