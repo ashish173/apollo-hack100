@@ -8,7 +8,7 @@ import Link from 'next/link';
 import { useAuth } from '@/context/auth-context';
 import LoadingSpinner from '@/components/ui/loading-spinner';
 import { SidebarProvider, Sidebar, SidebarHeader, SidebarTrigger, SidebarContent, SidebarMenu, SidebarMenuItem, SidebarMenuButton, SidebarInset, SidebarFooter } from '@/components/ui/sidebar';
-import { LayoutDashboard } from 'lucide-react';
+import { LayoutDashboard, Calendar } from 'lucide-react';
 import LogoutButton from '@/components/auth/logout-button';
 
 export default function StudentDashboardLayout({
@@ -54,9 +54,25 @@ export default function StudentDashboardLayout({
             <SidebarMenu className="gap-2 p-2">
               <SidebarMenuItem>
                 <Link href="/student/dashboard" passHref legacyBehavior>
-                  <SidebarMenuButton isActive={pathname === '/student/dashboard' || pathname.startsWith('/student/dashboard/project')} tooltip="Dashboard">
-                    <LayoutDashboard />
+                  <SidebarMenuButton 
+                    isActive={pathname === '/student/dashboard' || pathname.startsWith('/student/dashboard/project')} 
+                    tooltip="Dashboard"
+                    className="flex items-center gap-2"
+                  >
+                    <LayoutDashboard className="h-5 w-5" />
                     <span>Dashboard</span>
+                  </SidebarMenuButton>
+                </Link>
+              </SidebarMenuItem>
+              <SidebarMenuItem>
+                <Link href="/student/timeline" passHref legacyBehavior>
+                  <SidebarMenuButton 
+                    isActive={pathname === '/student/timeline'} 
+                    tooltip="Project Timeline"
+                    className="flex items-center gap-2"
+                  >
+                    <Calendar className="h-5 w-5" />
+                    <span>Project Timeline</span>
                   </SidebarMenuButton>
                 </Link>
               </SidebarMenuItem>
