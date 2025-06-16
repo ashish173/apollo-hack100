@@ -5,12 +5,12 @@ import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '@/context/auth-context';
 import { collection, query, where, getDocs, doc, getDoc, Timestamp } from 'firebase/firestore';
 import { db as firebaseDbService } from '@/lib/firebase';
-import LoadingSpinner from '@/components/ui/loading-spinner';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { GraduationCap, BookOpen, AlertTriangle } from 'lucide-react'; // Removed ArrowLeft as it's for detail page
 import { Button } from '@/components/ui/button';
-import { format } from 'date-fns'; // For date formatting on cards
+import { LoadingSpinner } from '@/components/ui/loading-spinner';
+import { GraduationCap, BookOpen, AlertTriangle, User, Calendar, Clock, Target, Sparkles, CheckCircle } from 'lucide-react';
+import { format } from 'date-fns';
 
 // Import the new detail component
 import StudentAssignedProjectDetail from '@/components/student/student-assigned-project-detail';
@@ -19,12 +19,11 @@ import StudentAssignedProjectDetail from '@/components/student/student-assigned-
 import { ProjectIdea, SavedProjectTask } from '@/app/teacher/dashboard/student-mentor/idea-detail';
 
 // Define an interface that combines data from 'assignedProjects' and 'projects' collections
-// This is the full structure that will be passed to the detail component
 interface AssignedProjectWithDetails {
-  assignedProjectId: string; // The ID of the document in assignedProjects
-  projectId: string;         // The ID of the document in projects
+  assignedProjectId: string;
+  projectId: string;
   studentUid: string;
-  studentName: string;      // Will likely be same as logged-in user, but useful
+  studentName: string;
   teacherUid: string;
   assignedAt: Timestamp;
   status: string;
@@ -32,9 +31,8 @@ interface AssignedProjectWithDetails {
   description: string;
   difficulty: string;
   duration: string;
-  tasks?: SavedProjectTask[]; // The detailed tasks array from the 'projects' document (camelCase)
+  tasks?: SavedProjectTask[];
 }
-
 
 export default function StudentDashboardPage() {
   const { user, loading: authLoading } = useAuth();
@@ -51,10 +49,10 @@ export default function StudentDashboardPage() {
     if (!user || !firebaseDbService || !user.uid) return;
 
     setLoadingProjects(true);
-    setFetchError(null); // Clear previous errors
+    setFetchError(null);
     try {
       const assignmentsRef = collection(firebaseDbService, 'assignedProjects');
-      const q = query(assignmentsRef, where('studentUid', '==', user.uid)); // Query by studentUid
+      const q = query(assignmentsRef, where('studentUid', '==', user.uid));
       const querySnapshot = await getDocs(q);
 
       const fetchedAssignedProjects: AssignedProjectWithDetails[] = [];
@@ -63,17 +61,16 @@ export default function StudentDashboardPage() {
         const assignedData = assignedDoc.data();
         const projectId = assignedData.projectId;
 
-        // Fetch the corresponding project details from the 'projects' collection
         const projectRef = doc(firebaseDbService, 'projects', projectId);
         const projectDoc = await getDoc(projectRef);
 
         if (projectDoc.exists()) {
-          const projectData = projectDoc.data() as ProjectIdea; // Cast to ProjectIdea type
+          const projectData = projectDoc.data() as ProjectIdea;
           fetchedAssignedProjects.push({
             assignedProjectId: assignedDoc.id,
             projectId: projectId,
             studentUid: assignedData.studentUid,
-            studentName: assignedData.studentName || user.displayName || user.email || 'N/A', // Use student name from assignment or user profile
+            studentName: assignedData.studentName || user.displayName || user.email || 'N/A',
             teacherUid: assignedData.teacherUid,
             assignedAt: assignedData.assignedAt as Timestamp,
             status: assignedData.status,
@@ -81,7 +78,7 @@ export default function StudentDashboardPage() {
             description: projectData.description,
             difficulty: projectData.difficulty,
             duration: projectData.duration,
-            tasks: projectData.tasks || [], // Crucial: Include the tasks array
+            tasks: projectData.tasks || [],
           });
         } else {
           console.warn(`Project document with ID ${projectId} not found for student ${user.uid}. Skipping this assignment.`);
@@ -94,7 +91,7 @@ export default function StudentDashboardPage() {
     } finally {
       setLoadingProjects(false);
     }
-  }, [user, user?.displayName, user?.email]); // Add user dependencies for useCallback
+  }, [user, user?.displayName, user?.email]);
 
   useEffect(() => {
     if (!authLoading && user) {
@@ -112,26 +109,65 @@ export default function StudentDashboardPage() {
   const handleBackToList = () => {
     setSelectedProject(null);
     setViewMode('list');
-    // Optional: Re-fetch projects here if you anticipate changes might happen
-    // while on the detail page and want the list to be fresh.
-    // fetchAssignedProjects();
   };
 
+  // Helper function to get status badge variant and color
+  const getStatusBadgeProps = (status: string) => {
+    switch (status.toLowerCase()) {
+      case 'completed':
+        return { variant: 'success' as const, icon: CheckCircle };
+      case 'assigned':
+        return { variant: 'soft-primary' as const, icon: BookOpen };
+      case 'in-progress':
+        return { variant: 'warning' as const, icon: Clock };
+      default:
+        return { variant: 'secondary' as const, icon: AlertTriangle };
+    }
+  };
+
+  // Helper function to get difficulty badge variant
+  const getDifficultyBadgeVariant = (difficulty: string) => {
+    switch (difficulty.toLowerCase()) {
+      case 'easy':
+        return 'success' as const;
+      case 'medium':
+        return 'warning' as const;
+      case 'hard':
+        return 'destructive' as const;
+      default:
+        return 'secondary' as const;
+    }
+  };
 
   if (authLoading) {
     return (
-      <div className="flex-grow flex items-center justify-center p-6">
-        <LoadingSpinner size={64} />
+      <div className="flex-grow flex items-center justify-center p-6 bg-neutral-50 dark:bg-neutral-900">
+        <LoadingSpinner 
+          layout="centered"
+          size="xl"
+          variant="primary"
+          label="Loading your dashboard"
+          description="Please wait while we fetch your assigned projects..."
+          showLabel
+        />
       </div>
     );
   }
 
-  // If user is not logged in after authLoading, redirect or show message
   if (!user) {
     return (
-      <div className="flex-grow flex items-center justify-center p-6">
-        <p className="text-muted-foreground">Please sign in to view your dashboard.</p>
-        {/* Potentially add a login button or direct to login page */}
+      <div className="flex-grow flex items-center justify-center p-6 bg-neutral-50 dark:bg-neutral-900">
+        <Card variant="ghost" className="text-center py-16 max-w-md">
+          <CardContent size="xl">
+            <div className="w-24 h-24 bg-neutral-100 dark:bg-neutral-800 rounded-2xl flex items-center justify-center mx-auto mb-6">
+              <User size={48} className="text-neutral-400 dark:text-neutral-500" />
+            </div>
+            <h3 className="heading-3 text-neutral-900 dark:text-neutral-100 mb-2">Authentication Required</h3>
+            <p className="body-text text-neutral-600 dark:text-neutral-400">
+              Please sign in to view your student dashboard and assigned projects.
+            </p>
+          </CardContent>
+        </Card>
       </div>
     );
   }
@@ -140,7 +176,7 @@ export default function StudentDashboardPage() {
   if (viewMode === 'detail' && selectedProject) {
     return (
       <StudentAssignedProjectDetail
-        project={selectedProject} // Pass the full project object
+        project={selectedProject}
         onBack={handleBackToList}
       />
     );
@@ -148,67 +184,193 @@ export default function StudentDashboardPage() {
 
   // Otherwise, render the list of assigned projects
   return (
-    <div className="flex-grow flex flex-col p-6 space-y-8 mx-auto max-w-4xl"> {/* Adjusted max-width for better layout */}
-      <div className="text-center">
-        <GraduationCap size={56} className="mx-auto mb-5 text-primary" />
-        <h1 className="text-4xl font-bold tracking-tight text-primary">Student Dashboard</h1>
-        <p className="mt-3 text-lg text-muted-foreground">
-          Welcome, {user.displayName || user.email || 'Student'}! Here are your assigned projects.
-        </p>
+    <div className="flex-grow flex flex-col p-6 space-y-8 mx-auto max-w-6xl bg-neutral-50 dark:bg-neutral-900">
+      {/* Hero Section */}
+      <div className="text-center space-y-6">
+        <div className="flex items-center justify-center gap-4 mb-8">
+          <div className="w-20 h-20 rounded-2xl bg-gradient-to-br from-blueberry-100 to-blueberry-200 dark:from-blueberry-900 dark:to-blueberry-800 flex items-center justify-center shadow-lg">
+            <GraduationCap size={48} className="text-blueberry-600 dark:text-blueberry-400" />
+          </div>
+          <div className="w-12 h-12 rounded-full bg-gradient-to-br from-blueberry-400 to-blueberry-600 flex items-center justify-center animate-pulse">
+            <Sparkles size={24} className="text-white" />
+          </div>
+        </div>
+        
+        <div className="space-y-4">
+          <p className="heading-3 text-neutral-600 dark:text-neutral-400 max-w-3xl mx-auto font-normal leading-relaxed">
+            Welcome back, {user.displayName || user.email || 'Student'}! Here are your assigned projects and learning opportunities.
+          </p>
+        </div>
       </div>
 
+      {/* Stats Summary */}
+      {assignedProjects.length > 0 && (
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <Card variant="interactive" className="text-center group hover:shadow-lg transition-shadow duration-300">
+            <CardContent className="flex flex-col items-center space-y-3 pt-6">
+              <div className="w-12 h-12 bg-blueberry-100 dark:bg-blueberry-900 rounded-xl flex items-center justify-center group-hover:scale-110 transition-transform duration-300">
+                <BookOpen size={24} className="text-blueberry-600 dark:text-blueberry-400" />
+              </div>
+              <div className="space-y-1">
+                <div className="heading-2 text-blueberry-600 dark:text-blueberry-400">{assignedProjects.length}</div>
+                <div className="body-text text-neutral-600 dark:text-neutral-400 text-sm">Total Projects</div>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card variant="interactive" className="text-center group hover:shadow-lg transition-shadow duration-300">
+            <CardContent className="flex flex-col items-center space-y-3 pt-6">
+              <div className="w-12 h-12 bg-success-100 dark:bg-success-900 rounded-xl flex items-center justify-center group-hover:scale-110 transition-transform duration-300">
+                <CheckCircle size={24} className="text-success-600 dark:text-success-400" />
+              </div>
+              <div className="space-y-1">
+                <div className="heading-2 text-success-600 dark:text-success-400">
+                  {assignedProjects.filter(p => p.status.toLowerCase() === 'completed').length}
+                </div>
+                <div className="body-text text-neutral-600 dark:text-neutral-400 text-sm">Completed</div>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card variant="interactive" className="text-center group hover:shadow-lg transition-shadow duration-300">
+            <CardContent className="flex flex-col items-center space-y-3 pt-6">
+              <div className="w-12 h-12 bg-warning-100 dark:bg-warning-900 rounded-xl flex items-center justify-center group-hover:scale-110 transition-transform duration-300">
+                <Clock size={24} className="text-warning-600 dark:text-warning-400" />
+              </div>
+              <div className="space-y-1">
+                <div className="heading-2 text-warning-600 dark:text-warning-400">
+                  {assignedProjects.filter(p => p.status.toLowerCase() === 'in-progress').length}
+                </div>
+                <div className="body-text text-neutral-600 dark:text-neutral-400 text-sm">In Progress</div>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card variant="interactive" className="text-center group hover:shadow-lg transition-shadow duration-300">
+            <CardContent className="flex flex-col items-center space-y-3 pt-6">
+              <div className="w-12 h-12 bg-error-100 dark:bg-error-900 rounded-xl flex items-center justify-center group-hover:scale-110 transition-transform duration-300">
+                <Target size={24} className="text-error-600 dark:text-error-400" />
+              </div>
+              <div className="space-y-1">
+                <div className="heading-2 text-error-600 dark:text-error-400">
+                  {assignedProjects.filter(p => p.status.toLowerCase() === 'assigned').length}
+                </div>
+                <div className="body-text text-neutral-600 dark:text-neutral-400 text-sm">New Assignments</div>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
+      {/* Main Content */}
       <div className="w-full">
         {loadingProjects ? (
-          <div className="flex justify-center items-center h-64">
-            <LoadingSpinner size={48} />
-          </div>
+          <LoadingSpinner 
+            layout="centered"
+            size="lg"
+            variant="primary"
+            label="Loading your projects"
+            description="Fetching your assigned projects and tasks..."
+            showLabel
+          />
         ) : fetchError ? (
-          <div className="text-destructive flex flex-col items-center space-y-2 py-8">
-            <AlertTriangle size={40} />
-            <p>{fetchError}</p>
-          </div>
+          <Card variant="ghost" className="text-center py-16">
+            <CardContent>
+              <div className="w-24 h-24 bg-error-100 dark:bg-error-900 rounded-2xl flex items-center justify-center mx-auto mb-6">
+                <AlertTriangle size={48} className="text-error-600 dark:text-error-400" />
+              </div>
+              <div className="space-y-4">
+                <h3 className="heading-3 text-error-800 dark:text-error-200">Unable to Load Projects</h3>
+                <p className="body-text text-error-700 dark:text-error-300 max-w-md mx-auto">{fetchError}</p>
+                <Button 
+                  variant="outline" 
+                  onClick={fetchAssignedProjects}
+                  className="border-error-300 text-error-700 hover:bg-error-50 dark:border-error-600 dark:text-error-400 dark:hover:bg-error-950"
+                >
+                  Try Again
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
         ) : assignedProjects.length === 0 ? (
-          <Card className="shadow-lg">
-            <CardContent className="pt-6">
-              <p className="text-muted-foreground text-center">
-                You don't have any projects assigned to you yet.
-              </p>
+          <Card variant="ghost" className="text-center py-16">
+            <CardContent>
+              <div className="w-24 h-24 bg-neutral-100 dark:bg-neutral-800 rounded-2xl flex items-center justify-center mx-auto mb-6">
+                <BookOpen size={48} className="text-neutral-400 dark:text-neutral-500" />
+              </div>
+              <div className="space-y-2">
+                <h3 className="heading-3 text-neutral-900 dark:text-neutral-100">No Projects Assigned Yet</h3>
+                <p className="body-text text-neutral-600 dark:text-neutral-400 max-w-md mx-auto">
+                  You don't have any projects assigned to you yet. Check back later or contact your instructor for assignments.
+                </p>
+              </div>
             </CardContent>
           </Card>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {assignedProjects.map((project) => (
-              <Card
-                key={project.assignedProjectId}
-                className="shadow-lg hover:shadow-xl transition-shadow duration-300 cursor-pointer flex flex-col"
-                onClick={() => handleViewDetails(project)} // Make the whole card clickable
-              >
-                <CardHeader>
-                  <CardTitle className="text-xl text-primary mb-2">{project.title}</CardTitle>
-                  <CardDescription className="flex items-center text-sm">
-                    Assigned on: {project.assignedAt ? format(project.assignedAt.toDate(), 'PPP') : 'Date not available'}
-                  </CardDescription>
-                  <div className="flex flex-wrap gap-2 pt-2">
-                    <Badge variant="secondary">Difficulty: {project.difficulty}</Badge>
-                    <Badge variant="outline">Duration: {project.duration}</Badge>
-                    <Badge
-                       variant={project.status === 'completed' ? 'default' : project.status === 'assigned' ? 'secondary' : 'destructive'}
-                       className={
-                         project.status === 'completed' ? 'bg-green-500 hover:bg-green-600 text-white' :
-                         project.status === 'assigned' ? 'bg-blue-500 hover:bg-blue-600 text-white' :
-                         'bg-yellow-500 hover:bg-yellow-600 text-white'
-                       }
-                    >
-                      Status: {project.status.charAt(0).toUpperCase() + project.status.slice(1)}
-                    </Badge>
-                  </div>
-                </CardHeader>
-                <CardContent className="flex-grow">
-                  <p className="text-sm text-muted-foreground line-clamp-3">{project.description}</p>
-                </CardContent>
-                {/* No explicit CardFooter with "View Details" button needed here since the whole card is clickable */}
-              </Card>
-            ))}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {assignedProjects.map((project) => {
+              const statusProps = getStatusBadgeProps(project.status);
+              const StatusIcon = statusProps.icon;
+              
+              return (
+                <Card
+                  key={project.assignedProjectId}
+                  variant="elevated"
+                  className="group hover:shadow-2xl hover:-translate-y-1 transition-all duration-300 cursor-pointer flex flex-col"
+                  onClick={() => handleViewDetails(project)}
+                >
+                  <CardHeader>
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="flex-1">
+                        <CardTitle size="default" className="text-neutral-900 dark:text-neutral-100 group-hover:text-blueberry-700 dark:group-hover:text-blueberry-300 transition-colors line-clamp-2">
+                          {project.title}
+                        </CardTitle>
+                        <div className="flex items-center gap-2 mt-2 text-neutral-500 dark:text-neutral-400">
+                          <Calendar size={14} />
+                          <span className="body-text text-sm">
+                            {project.assignedAt ? format(project.assignedAt.toDate(), 'PPP') : 'Date not available'}
+                          </span>
+                        </div>
+                      </div>
+                      <div className="w-10 h-10 bg-blueberry-100 dark:bg-blueberry-900 rounded-lg flex items-center justify-center group-hover:scale-110 transition-transform duration-300">
+                        <StatusIcon size={20} className="text-blueberry-600 dark:text-blueberry-400" />
+                      </div>
+                    </div>
+                    
+                    <div className="flex flex-wrap gap-2 pt-3">
+                      <Badge variant={getDifficultyBadgeVariant(project.difficulty)} size="sm">
+                        {project.difficulty}
+                      </Badge>
+                      <Badge variant="outline" size="sm">
+                        <Clock size={12} className="mr-1" />
+                        {project.duration}
+                      </Badge>
+                      <Badge variant={statusProps.variant} size="sm">
+                        <StatusIcon size={12} className="mr-1" />
+                        {project.status.charAt(0).toUpperCase() + project.status.slice(1)}
+                      </Badge>
+                    </div>
+                  </CardHeader>
+                  
+                  <CardContent className="flex-grow">
+                    <p className="body-text text-neutral-600 dark:text-neutral-400 line-clamp-3 leading-relaxed">
+                      {project.description}
+                    </p>
+                    
+                    {project.tasks && project.tasks.length > 0 && (
+                      <div className="mt-4 pt-3 border-t border-neutral-200 dark:border-neutral-700">
+                        <div className="flex items-center gap-2">
+                          <Target size={14} className="text-blueberry-600 dark:text-blueberry-400" />
+                          <span className="body-text text-neutral-700 dark:text-neutral-300 font-medium text-sm">
+                            {project.tasks.length} Task{project.tasks.length !== 1 ? 's' : ''} Available
+                          </span>
+                        </div>
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              );
+            })}
           </div>
         )}
       </div>

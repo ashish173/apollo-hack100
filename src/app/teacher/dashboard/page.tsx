@@ -5,29 +5,41 @@ import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useAuth } from '@/context/auth-context';
 import { collection, query, where, getDocs, doc, getDoc, Timestamp, orderBy, limit } from 'firebase/firestore';
 import { db as firebaseDbService } from '@/lib/firebase';
-import LoadingSpinner from '@/components/ui/loading-spinner';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
+import { 
+  BookOpen, 
+  UserRound, 
+  Lightbulb, 
+  TrendingUp,
+  TrendingDown,
+  Clock,
+  Star,
+  Filter,
+  BarChart3,
+  Users,
+  CheckCircle,
+  AlertTriangle,
+  Sparkles
+} from 'lucide-react';
+
+// Apollo Design System Components
+import { LoadingSpinner } from '@/components/ui/loading-spinner';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Lightbulb, UserRound, BookOpen, ArrowLeft } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Separator } from '@/components/ui/separator';
+
 import TeacherAssignedProjectDetail from '@/components/teacher/teacher-assigned-project-detail';
-import { ProjectIdea, SavedProjectTask } from './student-mentor/idea-detail'; // Import types from idea-detail
-import { cn } from '@/lib/utils'; // Import cn for conditional classnames
-import { ProjectReport } from '@/types'; // Import ProjectReport type
-import { generateAIReview, AIReviewResult } from '@/services/aiReviewService'; // Import AI review generation
-import { updateAssignedProjectAIReview } from '@/services/firestoreService'; // Import Firestore service for updating AI review
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import { ProjectIdea, SavedProjectTask } from './student-mentor/idea-detail';
+import { cn } from '@/lib/utils';
+import { ProjectReport } from '@/types';
+import { generateAIReview, AIReviewResult } from '@/services/aiReviewService';
+import { updateAssignedProjectAIReview } from '@/services/firestoreService';
 
 // Define an interface that combines data from 'assignedProjects' and 'projects' collections
 interface AssignedProjectWithDetails {
-  assignedProjectId: string; // The ID of the document in 'assignedProjects'
-  projectId: string;         // The ID of the document in 'projects'
+  assignedProjectId: string;
+  projectId: string;
   studentUid: string;
   studentName: string;
   teacherUid: string;
@@ -36,10 +48,279 @@ interface AssignedProjectWithDetails {
   description: string;
   difficulty: string;
   duration: string;
-  tasks?: SavedProjectTask[]; // The detailed tasks array from the 'projects' document
-  latestReport?: ProjectReport | null; // Add latest report for direct access
-  aiReview?: AIReviewResult | null; // Add AI review directly to assigned project
+  tasks?: SavedProjectTask[];
+  latestReport?: ProjectReport | null;
+  aiReview?: AIReviewResult | null;
 }
+
+// Enhanced Dashboard Header Component
+const DashboardHeader = ({ 
+  totalProjects, 
+  onTrackCount, 
+  offTrackCount 
+}: { 
+  totalProjects: number;
+  onTrackCount: number;
+  offTrackCount: number;
+}) => (
+  <Card variant="gradient" className="mb-8">
+    <CardHeader className="text-center pb-6">
+      <div className="mx-auto mb-4 w-16 h-16 bg-gradient-to-br from-blueberry-500 to-blueberry-600 rounded-2xl flex items-center justify-center shadow-lg">
+        <BookOpen className="w-8 h-8 text-white" />
+      </div>
+      <CardTitle size="lg" gradient className="mb-2">
+        My Assigned Projects
+      </CardTitle>
+      <p className="body-text text-neutral-600 dark:text-neutral-400 max-w-2xl mx-auto">
+        Monitor student progress, review AI insights, and provide guidance for optimal learning outcomes
+      </p>
+    </CardHeader>
+    
+    <CardContent>
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div className="text-center space-y-2">
+          <div className="w-12 h-12 bg-blueberry-100 dark:bg-blueberry-950 rounded-xl flex items-center justify-center mx-auto">
+            <BarChart3 className="w-6 h-6 text-blueberry-600 dark:text-blueberry-400" />
+          </div>
+          <div>
+            <p className="heading-2 text-neutral-900 dark:text-neutral-100">{totalProjects}</p>
+            <p className="body-text text-neutral-600 dark:text-neutral-400">Total Projects</p>
+          </div>
+        </div>
+        
+        <div className="text-center space-y-2">
+          <div className="w-12 h-12 bg-success-100 dark:bg-success-950 rounded-xl flex items-center justify-center mx-auto">
+            <CheckCircle className="w-6 h-6 text-success-600 dark:text-success-400" />
+          </div>
+          <div>
+            <p className="heading-2 text-success-600 dark:text-success-400">{onTrackCount}</p>
+            <p className="body-text text-neutral-600 dark:text-neutral-400">On Track</p>
+          </div>
+        </div>
+        
+        <div className="text-center space-y-2">
+          <div className="w-12 h-12 bg-error-100 dark:bg-error-950 rounded-xl flex items-center justify-center mx-auto">
+            <AlertTriangle className="w-6 h-6 text-error-600 dark:text-error-400" />
+          </div>
+          <div>
+            <p className="heading-2 text-error-600 dark:text-error-400">{offTrackCount}</p>
+            <p className="body-text text-neutral-600 dark:text-neutral-400">Need Attention</p>
+          </div>
+        </div>
+      </div>
+    </CardContent>
+  </Card>
+);
+
+// Enhanced Filter Component
+const ProjectFilter = ({ 
+  value, 
+  onChange 
+}: { 
+  value: string; 
+  onChange: (value: string) => void;
+}) => (
+  <Card variant="outlined" className="mb-6">
+    <CardContent className="p-4">
+      <div className="flex items-center justify-between gap-4">
+        <div className="flex items-center gap-2">
+          <Filter className="w-4 h-4 text-blueberry-600 dark:text-blueberry-400" />
+          <span className="subtitle text-neutral-700 dark:text-neutral-300">Filter & Sort Projects</span>
+        </div>
+        
+        <Select onValueChange={onChange} value={value}>
+          <SelectTrigger className="w-64">
+            <SelectValue placeholder="Select filter option" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All Projects</SelectItem>
+            <Separator />
+            <SelectItem value="on-track">
+              <div className="flex items-center gap-2">
+                <CheckCircle className="w-4 h-4 text-success-600" />
+                Status: On Track
+              </div>
+            </SelectItem>
+            <SelectItem value="off-track">
+              <div className="flex items-center gap-2">
+                <AlertTriangle className="w-4 h-4 text-error-600" />
+                Status: Off Track
+              </div>
+            </SelectItem>
+            <Separator />
+            <SelectItem value="review-high">
+              <div className="flex items-center gap-2">
+                <TrendingUp className="w-4 h-4 text-success-600" />
+                Rating: High (6-10)
+              </div>
+            </SelectItem>
+            <SelectItem value="review-low">
+              <div className="flex items-center gap-2">
+                <TrendingDown className="w-4 h-4 text-error-600" />
+                Rating: Low (0-5)
+              </div>
+            </SelectItem>
+            <Separator />
+            <SelectItem value="ai-asc">Rating: Low to High</SelectItem>
+            <SelectItem value="ai-desc">Rating: High to Low</SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
+    </CardContent>
+  </Card>
+);
+
+// Enhanced Project Card Component
+const ProjectCard = ({ 
+  project, 
+  onClick 
+}: { 
+  project: AssignedProjectWithDetails; 
+  onClick: () => void;
+}) => {
+  const getStatusVariant = (status?: string) => {
+    switch (status) {
+      case 'on-track': return 'success';
+      case 'off-track': return 'destructive';
+      default: return 'secondary';
+    }
+  };
+
+  const getRatingVariant = (rating: number) => {
+    if (rating >= 8) return 'success';
+    if (rating >= 6) return 'default';
+    if (rating >= 4) return 'warning';
+    return 'destructive';
+  };
+
+  const getDifficultyVariant = (difficulty: string) => {
+    switch (difficulty.toLowerCase()) {
+      case 'easy': return 'success';
+      case 'medium': return 'warning';
+      case 'hard': return 'destructive';
+      default: return 'secondary';
+    }
+  };
+
+  return (
+    <Card 
+      variant="interactive"
+      className="group cursor-pointer h-full flex flex-col hover:shadow-2xl transition-all duration-300"
+      onClick={onClick}
+    >
+      <CardHeader className="pb-4">
+        <div className="flex items-start justify-between gap-2 mb-3">
+          <CardTitle className="heading-3 text-neutral-900 dark:text-neutral-100 line-clamp-2 group-hover:text-blueberry-600 dark:group-hover:text-blueberry-400 transition-colors">
+            {project.title}
+          </CardTitle>
+          <div className="flex items-center gap-1 flex-shrink-0">
+            <Star className="w-4 h-4 text-warning-500" />
+            <span className="body-text text-neutral-600 dark:text-neutral-400">
+              {project.aiReview?.rating || 'N/A'}
+            </span>
+          </div>
+        </div>
+        
+        <div className="flex items-center gap-2 mb-3">
+          <UserRound className="w-4 h-4 text-neutral-500 dark:text-neutral-400" />
+          <span className="body-text text-neutral-700 dark:text-neutral-300">
+            {project.studentName}
+          </span>
+        </div>
+        
+        <div className="flex flex-wrap gap-2">
+          <Badge variant={getDifficultyVariant(project.difficulty)} size="sm">
+            {project.difficulty}
+          </Badge>
+          <Badge variant="outline" size="sm">
+            <Clock className="w-3 h-3 mr-1" />
+            {project.duration}
+          </Badge>
+          {project.aiReview?.studentProjectStatus && (
+            <Badge variant={getStatusVariant(project.aiReview.studentProjectStatus)} size="sm">
+              {project.aiReview.studentProjectStatus === 'on-track' ? (
+                <CheckCircle className="w-3 h-3 mr-1" />
+              ) : (
+                <AlertTriangle className="w-3 h-3 mr-1" />
+              )}
+              {project.aiReview.studentProjectStatus.replace('-', ' ')}
+            </Badge>
+          )}
+        </div>
+      </CardHeader>
+      
+      <CardContent className="pt-0 flex-1 flex flex-col">
+        <p className="body-text text-neutral-600 dark:text-neutral-400 line-clamp-2 mb-4 flex-1">
+          {project.description}
+        </p>
+        
+        {project.aiReview && (
+          <Card variant="feature" size="sm" className="mt-auto">
+            <CardContent className="p-3">
+              <div className="flex items-start gap-3">
+                <div className="w-8 h-8 bg-gradient-to-br from-blueberry-500 to-blueberry-600 rounded-lg flex items-center justify-center flex-shrink-0">
+                  <Sparkles className="w-4 h-4 text-white" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 mb-1">
+                    <span className="subtitle text-blueberry-900 dark:text-blueberry-100">
+                      AI Insights
+                    </span>
+                    <Badge variant={getRatingVariant(project.aiReview.rating)} size="sm">
+                      {project.aiReview.rating}/10
+                    </Badge>
+                  </div>
+                  <p className="body-text text-blueberry-800 dark:text-blueberry-200 text-sm line-clamp-2">
+                    {project.aiReview.note}
+                  </p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+      </CardContent>
+    </Card>
+  );
+};
+
+// Empty State Component
+const EmptyState = ({ hasFilter }: { hasFilter: boolean }) => (
+  <Card variant="ghost" className="text-center py-12">
+    <CardContent>
+      <div className="mx-auto mb-6 w-20 h-20 bg-neutral-100 dark:bg-neutral-800 rounded-2xl flex items-center justify-center">
+        <BookOpen className="w-10 h-10 text-neutral-400" />
+      </div>
+      <CardTitle size="default" className="mb-2">
+        {hasFilter ? 'No projects match your filter' : 'No projects assigned yet'}
+      </CardTitle>
+      <p className="body-text text-neutral-600 dark:text-neutral-400 mb-6 max-w-md mx-auto">
+        {hasFilter 
+          ? 'Try adjusting your filter settings to see more projects.'
+          : 'Start by visiting the Student Mentor section to assign your first project to a student.'
+        }
+      </p>
+      {!hasFilter && (
+        <Button variant="default" className="shadow-button">
+          <Users className="w-4 h-4 mr-2" />
+          Go to Student Mentor
+        </Button>
+      )}
+    </CardContent>
+  </Card>
+);
+
+// Loading State Component
+const LoadingState = () => (
+  <div className="flex justify-center items-center py-20">
+    <LoadingSpinner 
+      size="xl" 
+      variant="primary" 
+      showLabel={true}
+      label="Loading Projects"
+      description="Fetching your assigned projects and AI insights..."
+    />
+  </div>
+);
 
 export default function TeacherDashboardPage() {
   const { user, loading: authLoading } = useAuth();
@@ -244,18 +525,25 @@ export default function TeacherDashboardPage() {
     return currentProjects;
   }, [assignedProjects, projectFilter]);
 
+  // Calculate statistics
+  const totalProjects = assignedProjects.length;
+  const onTrackCount = assignedProjects.filter(p => p.aiReview?.studentProjectStatus === 'on-track').length;
+  const offTrackCount = assignedProjects.filter(p => p.aiReview?.studentProjectStatus === 'off-track').length;
+
   if (authLoading) {
-    return (
-      <div className="flex-grow flex items-center justify-center p-6">
-        <LoadingSpinner size={64} />
-      </div>
-    );
+    return <LoadingState />;
   }
 
   if (!user) {
     return (
-      <div className="flex-grow flex items-center justify-center p-6">
-        <p className="text-muted-foreground">Please sign in to view your dashboard.</p>
+      <div className="flex items-center justify-center py-20">
+        <Card variant="feature" className="text-center max-w-md">
+          <CardContent className="p-8">
+            <p className="body-text text-neutral-600 dark:text-neutral-400">
+              Please sign in to view your dashboard.
+            </p>
+          </CardContent>
+        </Card>
       </div>
     );
   }
@@ -270,95 +558,35 @@ export default function TeacherDashboardPage() {
   }
 
   return (
-    <div className="flex-grow flex flex-col p-6 space-y-8 mx-auto">
-      <div className="text-center">
-        <BookOpen size={56} className="mx-auto mb-5 text-primary" />
-        <h1 className="text-4xl font-bold tracking-tight text-primary">My Assigned Projects</h1>
-        <p className="mt-3 text-lg text-muted-foreground">
-          A quick overview of projects you've assigned to students.
-        </p>
-      </div>
+    <div className="space-y-6 max-w-7xl mx-auto">
+      <DashboardHeader 
+        totalProjects={totalProjects}
+        onTrackCount={onTrackCount}
+        offTrackCount={offTrackCount}
+      />
 
-      {/* AI Rating Filter */}
-      <div className="w-full max-w-4xl mx-auto flex justify-end">
-        <div className="flex items-center gap-2 mt-6 mb-4">
-          <label htmlFor="projectFilter" className="text-md font-medium text-muted-foreground">Filter/Sort Projects:</label>
-          <Select onValueChange={(value: 'all' | 'off-track' | 'on-track' | 'ai-asc' | 'ai-desc' | 'review-high' | 'review-low') => setProjectFilter(value)} value={projectFilter}>
-            <SelectTrigger className="w-[220px]">
-              <SelectValue placeholder="Filter/Sort Projects" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Projects</SelectItem>
-              <SelectItem value="on-track">Status: On Track</SelectItem>
-              <SelectItem value="off-track">Status: Off Track</SelectItem>
-              <SelectItem value="review-high">Rating: High(6-10)</SelectItem>
-              <SelectItem value="review-low">Rating: Low(0-5)</SelectItem>
-              <SelectItem value="ai-asc">Rating: Low to High</SelectItem>
-              <SelectItem value="ai-desc">Rating: High to Low</SelectItem>
-            </SelectContent>
-          </Select>
+      <ProjectFilter 
+        value={projectFilter}
+        onChange={(value) => setProjectFilter(value as any)}
+      />
+
+      {loadingProjects ? (
+        <LoadingState />
+      ) : assignedProjects.length === 0 ? (
+        <EmptyState hasFilter={false} />
+      ) : filteredProjects.length === 0 ? (
+        <EmptyState hasFilter={true} />
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {filteredProjects.map((project) => (
+            <ProjectCard
+              key={project.assignedProjectId}
+              project={project}
+              onClick={() => handleViewDetails(project)}
+            />
+          ))}
         </div>
-      </div>
-
-      <div className="w-full">
-        {loadingProjects ? (
-          <div className="flex justify-center items-center h-64">
-            <LoadingSpinner size={48} />
-          </div>
-        ) : assignedProjects.length === 0 ? (
-          <Card className="shadow-lg">
-            <CardContent className="pt-6">
-              <p className="text-muted-foreground text-center">
-                {projectFilter === 'all'
-                  ? "You haven't assigned any projects yet. Go to \"Student Mentor\" to assign one!"
-                  : "No projects match the selected filter."}
-              </p>
-            </CardContent>
-          </Card>
-        ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {filteredProjects.map((project) => (
-              <Card
-                key={project.assignedProjectId}
-                className="shadow-lg hover:shadow-xl transition-shadow duration-300 cursor-pointer flex flex-col"
-                onClick={() => handleViewDetails(project)}
-              >
-                <CardContent className="p-6 flex flex-col gap-4">
-                  <div className="flex flex-col justify-between min-h-[150px]">
-                    <CardTitle className="text-xl text-primary font-semibold line-clamp-2 flex-grow">{project.title}</CardTitle>
-                    <CardDescription className="flex items-center text-sm text-muted-foreground">
-                      <UserRound className="mr-1 h-4 w-4 text-muted-foreground" />
-                      Assigned to: <span className="ml-1 font-medium text-foreground">{project.studentName}</span>
-                    </CardDescription>
-                    <div className="flex flex-wrap gap-2">
-                      <Badge variant="secondary">Difficulty: {project.difficulty}</Badge>
-                      <Badge variant="outline">Duration: {project.duration}</Badge>
-                      <Badge variant="default">Status: Assigned</Badge>
-                    </div>
-                  </div>
-                  {project.aiReview && (
-                    <div className="w-full p-3 rounded-lg bg-secondary flex flex-col items-start">
-                      <Badge className={cn("text-sm px-3 py-1 mb-2 font-semibold", getAIRatingBadgeClass(project.aiReview.rating))}>
-                        ✨ AI Rating: {project.aiReview.rating}/10
-                      </Badge>
-                      <p className="text-sm text-muted-foreground line-clamp-2 leading-snug">
-                        AI Note: {project.aiReview.note}
-                      </p>
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-        )}
-      </div>
+      )}
     </div>
   );
 }
-
-// Helper function for AI rating badge class - should be defined outside the component or imported
-const getAIRatingBadgeClass = (rating: number): string => {
-  if (rating > 5) return "bg-green-500 hover:bg-green-600 text-white animated-siri-border";
-  if (rating <= 5) return "bg-red-500 hover:bg-red-600 text-white animated-siri-border";
-  return "bg-gray-400 hover:bg-gray-500 text-white"; // Default for unexpected values
-};

@@ -1,23 +1,38 @@
-
+// teacher/dashboard/student-mentor/page.tsx
 "use client";
 
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/context/auth-context';
-import { Lightbulb, Zap, BookOpen, Rocket, UserPlus, Info, ArrowLeft } from 'lucide-react';
-import LoadingSpinner from '@/components/ui/loading-spinner';
+import { 
+  Lightbulb, 
+  Zap, 
+  BookOpen, 
+  Rocket, 
+  UserPlus, 
+  Info, 
+  ArrowLeft,
+  Sparkles,
+  Brain,
+  Target,
+  Clock
+} from 'lucide-react';
+import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
+import { db as firebaseDbService } from '@/lib/firebase';
+
+// Apollo Design System Components
+import { LoadingSpinner } from '@/components/ui/loading-spinner';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
-import { useToast } from '@/hooks/use-toast';
-import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
-import { db as firebaseDbService } from '@/lib/firebase';
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { Separator } from '@/components/ui/separator';
+
+import { useToast } from '@/hooks/use-toast';
 import AssignProjectDialog from '@/components/teacher/assign-project-dialog';
 import { generateProjectIdeas } from '@/ai/flows/generate-project-ideas';
 import IdeaDetail from './idea-detail';
-
 
 export interface ProjectIdea {
   id: string;
@@ -28,6 +43,251 @@ export interface ProjectIdea {
   icon?: React.ElementType;
 }
 
+// Enhanced Header Component
+const StudentMentorHeader = () => (
+  <Card variant="gradient" className="mb-8">
+    <CardHeader className="text-center pb-6">
+      <div className="mx-auto mb-4 w-16 h-16 bg-gradient-to-br from-blueberry-500 to-blueberry-600 rounded-2xl flex items-center justify-center shadow-lg">
+        <Brain className="w-8 h-8 text-white" />
+      </div>
+      <CardTitle size="lg" gradient className="mb-2">
+        AI Project Idea Generator
+      </CardTitle>
+      <p className="body-text text-neutral-600 dark:text-neutral-400 max-w-2xl mx-auto">
+        Harness the power of AI to discover personalized project ideas that inspire and challenge your students
+      </p>
+    </CardHeader>
+  </Card>
+);
+
+// Enhanced Search Form Component
+const ProjectSearchForm = ({ 
+  projectKeywords, 
+  setProjectKeywords,
+  difficulty,
+  setDifficulty,
+  duration,
+  setDuration,
+  onGenerate,
+  isLoading
+}: {
+  projectKeywords: string;
+  setProjectKeywords: (value: string) => void;
+  difficulty: string;
+  setDifficulty: (value: string) => void;
+  duration: string;
+  setDuration: (value: string) => void;
+  onGenerate: () => void;
+  isLoading: boolean;
+}) => (
+  <Card variant="elevated" className="mb-8">
+    <CardHeader>
+      <div className="flex items-center gap-3 mb-2">
+        <div className="w-8 h-8 bg-blueberry-100 dark:bg-blueberry-950 rounded-lg flex items-center justify-center">
+          <Target className="w-4 h-4 text-blueberry-600 dark:text-blueberry-400" />
+        </div>
+        <CardTitle size="default">Define Your Search Parameters</CardTitle>
+      </div>
+      <p className="body-text text-neutral-600 dark:text-neutral-400">
+        Customize the AI generation to match your curriculum needs and student skill levels
+      </p>
+    </CardHeader>
+    
+    <CardContent className="space-y-6">
+      {/* Keywords Input */}
+      <div className="space-y-2">
+        <Label htmlFor="project-keywords" required>
+          Project Keywords & Topics
+        </Label>
+        <Input 
+          id="project-keywords" 
+          type="search"
+          placeholder="e.g., Python, Web Development, Machine Learning, Art History"
+          value={projectKeywords}
+          onChange={(e) => setProjectKeywords(e.target.value)}
+          disabled={isLoading}
+          leftIcon={<Lightbulb className="w-4 h-4" />}
+          description="Enter topics, technologies, or subject areas to base project ideas on"
+        />
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        {/* Difficulty Selection */}
+        <div className="space-y-2">
+          <Label htmlFor="difficulty-level">
+            Difficulty Level
+          </Label>
+          <Select 
+            onValueChange={(value: 'Easy' | 'Medium' | 'Difficult') => setDifficulty(value)} 
+            defaultValue={difficulty}
+            disabled={isLoading}
+          >
+            <SelectTrigger id="difficulty-level">
+              <SelectValue placeholder="Select difficulty" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="Easy">
+                <div className="flex items-center gap-2">
+                  <div className="w-2 h-2 bg-success-500 rounded-full"></div>
+                  Easy - Beginner Friendly
+                </div>
+              </SelectItem>
+              <SelectItem value="Medium">
+                <div className="flex items-center gap-2">
+                  <div className="w-2 h-2 bg-warning-500 rounded-full"></div>
+                  Medium - Intermediate Level
+                </div>
+              </SelectItem>
+              <SelectItem value="Difficult">
+                <div className="flex items-center gap-2">
+                  <div className="w-2 h-2 bg-error-500 rounded-full"></div>
+                  Difficult - Advanced Challenge
+                </div>
+              </SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+
+        {/* Duration Selection */}
+        <div className="space-y-2">
+          <Label htmlFor="duration-level">
+            Estimated Duration
+          </Label>
+          <Select 
+            onValueChange={(value: '1 Week' | '3 Weeks' | '5+ Weeks') => setDuration(value)} 
+            defaultValue={duration}
+            disabled={isLoading}
+          >
+            <SelectTrigger id="duration-level" leftIcon={<Clock className="w-4 h-4" />}>
+              <SelectValue placeholder="Select duration" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="1 Week">1 Week - Quick Sprint</SelectItem>
+              <SelectItem value="3 Weeks">3 Weeks - Standard Project</SelectItem>
+              <SelectItem value="5+ Weeks">5+ Weeks - Comprehensive Study</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+      </div>
+
+      <Separator />
+
+      {/* Generate Button */}
+      <Button 
+        onClick={onGenerate} 
+        variant="default"
+        size="lg"
+        className="w-full shadow-button hover:shadow-button-hover"
+        disabled={isLoading || !projectKeywords.trim()}
+        loading={isLoading}
+        loadingText="Generating Ideas..."
+      >
+        <Sparkles className="w-5 h-5 mr-2" />
+        Generate AI Project Ideas
+        <Rocket className="w-5 h-5 ml-2" />
+      </Button>
+    </CardContent>
+  </Card>
+);
+
+// Enhanced Project Card Component
+const ProjectIdeaCard = ({ 
+  idea, 
+  onViewDetails 
+}: { 
+  idea: ProjectIdea; 
+  onViewDetails: (idea: ProjectIdea) => void;
+}) => {
+  const IconComponent = idea.icon || Lightbulb;
+  
+  const getDifficultyVariant = (difficulty: string) => {
+    switch (difficulty.toLowerCase()) {
+      case 'easy': return 'success';
+      case 'medium': return 'warning';
+      case 'difficult': return 'destructive';
+      default: return 'secondary';
+    }
+  };
+
+  const getDurationVariant = (duration: string) => {
+    if (duration.includes('1 Week')) return 'success';
+    if (duration.includes('3 Weeks')) return 'default';
+    return 'secondary';
+  };
+
+  return (
+    <Card 
+      variant="interactive"
+      className="group h-full flex flex-col hover:shadow-2xl transition-all duration-300"
+    >
+      <CardHeader className="pb-4">
+        <div className="flex items-start justify-between gap-3 mb-3">
+          <CardTitle className="heading-3 text-neutral-900 dark:text-neutral-100 line-clamp-2 group-hover:text-blueberry-600 dark:group-hover:text-blueberry-400 transition-colors flex-1">
+            {idea.title}
+          </CardTitle>
+          <div className="w-12 h-12 bg-gradient-to-br from-blueberry-100 to-blueberry-200 dark:from-blueberry-950 dark:to-blueberry-900 rounded-xl flex items-center justify-center flex-shrink-0 group-hover:from-blueberry-500 group-hover:to-blueberry-600 transition-all duration-300">
+            <IconComponent className="w-6 h-6 text-blueberry-600 dark:text-blueberry-400 group-hover:text-white transition-colors" />
+          </div>
+        </div>
+        
+        <div className="flex flex-wrap gap-2">
+          <Badge variant={getDifficultyVariant(idea.difficulty)} size="sm">
+            {idea.difficulty}
+          </Badge>
+          <Badge variant={getDurationVariant(idea.duration)} size="sm">
+            <Clock className="w-3 h-3 mr-1" />
+            {idea.duration}
+          </Badge>
+        </div>
+      </CardHeader>
+      
+      <CardContent className="pt-0 flex-1 flex flex-col">
+        <p className="body-text text-neutral-600 dark:text-neutral-400 line-clamp-3 mb-6 flex-1">
+          {idea.description}
+        </p>
+        
+        <div className="space-y-3">
+          <Button 
+            variant="outline" 
+            size="default"
+            className="w-full group-hover:border-blueberry-400 group-hover:text-blueberry-600 transition-colors"
+            onClick={() => onViewDetails(idea)}
+          >
+            <Info className="w-4 h-4 mr-2" />
+            View Details & Plan
+          </Button>
+        </div>
+      </CardContent>
+    </Card>
+  );
+};
+
+// Enhanced Empty State Component
+const EmptyState = ({ hasSearched }: { hasSearched: boolean }) => (
+  <Card variant="ghost" className="text-center py-12">
+    <CardContent>
+      <div className="mx-auto mb-6 w-20 h-20 bg-neutral-100 dark:bg-neutral-800 rounded-2xl flex items-center justify-center">
+        <Lightbulb className="w-10 h-10 text-neutral-400" />
+      </div>
+      <CardTitle size="default" className="mb-2">
+        {hasSearched ? 'No ideas generated yet' : 'Ready to spark creativity?'}
+      </CardTitle>
+      <p className="body-text text-neutral-600 dark:text-neutral-400 mb-6 max-w-md mx-auto">
+        {hasSearched 
+          ? 'Try adjusting your search parameters or keywords to generate new project ideas.'
+          : 'Enter your project keywords and preferences above to generate personalized AI-powered project ideas for your students.'
+        }
+      </p>
+      {!hasSearched && (
+        <div className="flex items-center justify-center gap-2 text-neutral-500 dark:text-neutral-400">
+          <Sparkles className="w-4 h-4" />
+          <span className="overline">AI-Powered • Personalized • Educational</span>
+        </div>
+      )}
+    </CardContent>
+  </Card>
+);
+
 export default function StudentMentorPage() {
   const { user, loading: authLoading } = useAuth(); 
   const [projectKeywords, setProjectKeywords] = useState('');
@@ -36,6 +296,7 @@ export default function StudentMentorPage() {
   const [isSavingQuery, setIsSavingQuery] = useState(false);
   const [generatedIdeas, setGeneratedIdeas] = useState<ProjectIdea[]>([]);
   const [loadingProjectIdeas, setLoadingProjectIdeas] = useState<boolean>(false);
+  const [hasSearched, setHasSearched] = useState(false);
   const { toast } = useToast();
 
   const [selectedProjectToAssign, setSelectedProjectToAssign] = useState<ProjectIdea | null>(null);
@@ -64,17 +325,23 @@ export default function StudentMentorPage() {
 
   if (authLoading || !user) { 
     return (
-     <div className="flex-grow flex items-center justify-center p-6">
-       <LoadingSpinner size={64} />
-     </div>
-   );
- }
+      <div className="flex items-center justify-center py-20">
+        <LoadingSpinner 
+          size="xl" 
+          variant="default" 
+          showLabel={true}
+          label="Loading Mentor Tools"
+          description="Preparing your AI-powered project generation workspace..."
+        />
+      </div>
+    );
+  }
 
   const handleGenProjectIdeas = async () => {
     if (!projectKeywords.trim()) {
       toast({
         title: "Missing Keywords",
-        description: "Please enter some project keywords.",
+        description: "Please enter some project keywords to generate ideas.",
         variant: "destructive",
       });
       return;
@@ -98,11 +365,9 @@ export default function StudentMentorPage() {
       return;
     }
 
-
     try {
       setLoadingProjectIdeas(true);
-      // const result = await generateProjectIdeas({ topic: projectKeywords, difficulty: difficulty, duration: duration });
-      // console.log(result);
+      setHasSearched(true);
 
       const requestBody = {
         topic: projectKeywords,
@@ -122,14 +387,25 @@ export default function StudentMentorPage() {
       const rawResponseText = data.response;
 
       setGeneratedIdeas(rawResponseText.ideas || []); 
+      
+      if (rawResponseText.ideas && rawResponseText.ideas.length > 0) {
+        toast({
+          title: "Ideas Generated Successfully!",
+          description: `Generated ${rawResponseText.ideas.length} personalized project ideas for your students.`,
+        });
+      }
     } catch (error: any) {
-      console.log("error in gen ai query");
+      console.error("Error in AI generation:", error);
+      toast({
+        title: "Generation Failed",
+        description: "Could not generate project ideas. Please try again.",
+        variant: "destructive",
+      });
     } finally {
       setLoadingProjectIdeas(false); 
     }
 
-
-
+    // Save query to Firestore
     setIsSavingQuery(true);
     try {
       const queryData = {
@@ -142,19 +418,8 @@ export default function StudentMentorPage() {
       };
 
       await addDoc(collection(firebaseDbService, "projectIdeaQueries"), queryData);
-      
-      toast({
-        title: "Query Saved!",
-        description: "Your project idea query has been saved. AI generation coming soon!",
-      });
-
     } catch (error) {
       console.error("Error saving project idea query:", error);
-      toast({
-        title: "Save Failed",
-        description: "Could not save your project idea query. Please try again.",
-        variant: "destructive",
-      });
     } finally {
       setIsSavingQuery(false);
     }
@@ -167,140 +432,67 @@ export default function StudentMentorPage() {
         goBack={handleBackToList}
         handleAssign={() => handleOpenAssignDialog(selectedProjectForDetail)}
       />
-    )
+    );
   }
 
   return (
-    <div className="flex-grow flex flex-col p-6 space-y-8 mx-auto">
-      <div className="text-center">
-        <Lightbulb size={56} className="mx-auto mb-5 text-primary" />
-        <h1 className="text-4xl font-bold tracking-tight text-primary">Project Idea Generator</h1>
-        <p className="mt-3 text-lg text-muted-foreground">
-          Spark creativity! Enter keywords and set parameters to discover project ideas for your students.
-        </p>
-      </div>
+    <div className="space-y-6 max-w-7xl mx-auto">
+      <StudentMentorHeader />
 
-      <div className="flex flex-col">
-        <div className="w-full p-6 bg-card/50 rounded-xl shadow-lg">
-          <h2 className="text-2xl font-semibold text-primary mb-4">Define Your Search</h2>
-          <div className="space-y-2">
-            <Label htmlFor="project-keywords" className="text-md font-medium sr-only">Project Keywords</Label>
-            <Input 
-              id="project-keywords" 
-              type="search"
-              placeholder="e.g., Python, Web App, Art History" 
-              value={projectKeywords}
-              onChange={(e) => setProjectKeywords(e.target.value)}
-              className="bg-background text-lg h-14 px-6 rounded-lg shadow-sm w-full focus:ring-2 focus:ring-primary"
-              disabled={isSavingQuery}
+      <ProjectSearchForm
+        projectKeywords={projectKeywords}
+        setProjectKeywords={setProjectKeywords}
+        difficulty={difficulty}
+        setDifficulty={setDifficulty}
+        duration={duration}
+        setDuration={setDuration}
+        onGenerate={handleGenProjectIdeas}
+        isLoading={loadingProjectIdeas || isSavingQuery}
+      />
+
+      {/* Results Section */}
+      <div className="space-y-6">
+        <div className="flex items-center justify-between">
+          <div>
+            <h2 className="heading-2 text-neutral-900 dark:text-neutral-100">
+              Generated Project Ideas
+            </h2>
+            <p className="body-text text-neutral-600 dark:text-neutral-400">
+              AI-powered suggestions tailored to your specifications
+            </p>
+          </div>
+          {generatedIdeas.length > 0 && (
+            <Badge variant="soft-primary" size="lg">
+              {generatedIdeas.length} Ideas Generated
+            </Badge>
+          )}
+        </div>
+
+        {loadingProjectIdeas ? (
+          <div className="flex justify-center items-center py-20">
+            <LoadingSpinner 
+              size="xl" 
+              variant="default" 
+              showLabel={true}
+              label="Generating Ideas"
+              description="Our AI is crafting personalized project ideas for your students..."
             />
-             <p className="text-xs text-muted-foreground px-1">Enter topics or technologies to base project ideas on.</p>
           </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div className="space-y-2">
-              <Label htmlFor="difficulty-level" className="text-md font-medium">Difficulty Level</Label>
-              <Select 
-                onValueChange={(value: 'Easy' | 'Medium' | 'Difficult') => setDifficulty(value)} 
-                defaultValue={difficulty}
-                disabled={isSavingQuery}
-              >
-                <SelectTrigger id="difficulty-level" className="text-base h-11 bg-background">
-                  <SelectValue placeholder="Select difficulty" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="Easy">Easy</SelectItem>
-                  <SelectItem value="Medium">Medium</SelectItem>
-                  <SelectItem value="Difficult">Difficult</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="duration-level" className="text-md font-medium">Est. Duration</Label>
-              <Select 
-                onValueChange={(value: '1 Week' | '3 Weeks' | '5+ Weeks') => setDuration(value)} 
-                defaultValue={duration}
-                disabled={isSavingQuery}
-              >
-                <SelectTrigger id="duration-level" className="text-base h-11 bg-background">
-                  <SelectValue placeholder="Select duration" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="1 Week">1 Week</SelectItem>
-                  <SelectItem value="3 Weeks">3 Weeks</SelectItem>
-                  <SelectItem value="5+ Weeks">5+ Weeks</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
+        ) : generatedIdeas.length === 0 ? (
+          <EmptyState hasSearched={hasSearched} />
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {generatedIdeas.map((idea) => (
+              <ProjectIdeaCard
+                key={idea.id}
+                idea={idea}
+                onViewDetails={handleViewDetails}
+              />
+            ))}
           </div>
-          <Button 
-            onClick={handleGenProjectIdeas} 
-            className="w-full py-3 text-lg h-12 bg-primary hover:bg-primary/90 text-primary-foreground rounded-md shadow-md transition-transform transform hover:scale-105 mt-6"
-            aria-label="Generate Project Ideas"
-            disabled={isSavingQuery || authLoading || loadingProjectIdeas}
-          >
-            {loadingProjectIdeas ? (
-              <LoadingSpinner size={24} iconClassName="text-primary-foreground" />
-            ) : (
-              <>
-                <Lightbulb className="mr-2 h-5 w-5" />
-                Gen Project Ideas
-              </>
-            )}
-          </Button>
-        </div>
-
-        <div className="w-full ml-0 mt-6">
-          <h2 className="text-3xl font-bold text-primary mb-6 text-center lg:text-left">Generated Project Ideas</h2>
-          {generatedIdeas.length === 0 && !isSavingQuery && (
-            <Card className="shadow-lg">
-              <CardContent className="pt-6">
-                <p className="text-muted-foreground text-center">
-                  No project ideas generated yet. Use the form to find some!
-                </p>
-              </CardContent>
-            </Card>
-          )}
-          {isSavingQuery && generatedIdeas.length === 0 && ( 
-             <div className="flex justify-center items-center h-64">
-                <LoadingSpinner size={48} />
-             </div>
-          )}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {generatedIdeas.map((idea) => {
-              const IconComponent = idea.icon || Lightbulb; 
-              return (
-                <Card key={idea.id} className="shadow-lg hover:shadow-xl transition-shadow duration-300 flex flex-col">
-                  <CardHeader>
-                    <div className="flex justify-between items-start mb-2">
-                      <CardTitle className="text-xl text-primary">{idea.title}</CardTitle>
-                      <IconComponent size={24} className="text-accent flex-shrink-0" />
-                    </div>
-                    <div className="flex flex-wrap gap-2">
-                      <Badge variant="secondary">Difficulty: {idea.difficulty}</Badge>
-                      <Badge variant="outline">Duration: {idea.duration}</Badge>
-                    </div>
-                  </CardHeader>
-                  <CardContent className="flex-grow">
-                    <p className="text-sm text-muted-foreground">{idea.description}</p>
-                  </CardContent>
-                  <CardFooter className="flex flex-row gap-4">
-                    <Button 
-                      variant="outline" 
-                      size="sm" 
-                      className="w-full sm:flex-auto shadow-sm"
-                      onClick={() => handleViewDetails(idea)}
-                    >
-                      <Info className="mr-2 h-4 w-4" />
-                      View Details
-                    </Button>
-                  </CardFooter>
-                </Card>
-              );
-            })}
-          </div>
-        </div>
+        )}
       </div>
+
       {selectedProjectToAssign && user && (
         <AssignProjectDialog
           project={selectedProjectToAssign}
