@@ -29,6 +29,7 @@ import { format } from 'date-fns';
 
 // Import the ProjectIdea and SavedProjectTask types from teacher's area for consistency
 import { ProjectIdea, SavedProjectTask } from '@/app/teacher/dashboard/student-mentor/idea-detail';
+import TaskHints from '@/app/teacher/dashboard/student-mentor/task-hints';
 
 // Define the interface for the project data this component expects
 interface StudentAssignedProjectDetailProps {
@@ -56,9 +57,10 @@ export default function StudentAssignedProjectDetail({ project, onBack }: Studen
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [latestReport, setLatestReport] = useState<ProjectReport | null>(null);
   const [isLoadingReport, setIsLoadingReport] = useState(true);
+  const [selectedTask, setSelectedTask] = useState<SavedProjectTask | null>(null);
 
   useEffect(() => {
-    if (!project.projectId) {
+    if (!db || !project.projectId) {
       setIsLoadingReport(false);
       return;
     }
@@ -335,16 +337,27 @@ export default function StudentAssignedProjectDetail({ project, onBack }: Studen
                   <Table>
                     <TableHeader>
                       <TableRow className="bg-neutral-50 dark:bg-neutral-800">
+                        <TableHead className="subtitle text-neutral-900 dark:text-neutral-100">Hints</TableHead>
                         <TableHead className="subtitle text-neutral-900 dark:text-neutral-100">Task Name</TableHead>
                         <TableHead className="subtitle text-neutral-900 dark:text-neutral-100">Task ID</TableHead>
                         <TableHead className="subtitle text-neutral-900 dark:text-neutral-100">Duration</TableHead>
-                        <TableHead className="subtitle text-neutral-900 dark:text-neutral-100">Start Date</TableHead>
+                        <TableHead className="subtitle text-neutral-900 dark:text-neutral-100 text-right">Start Date</TableHead>
                         <TableHead className="subtitle text-neutral-900 dark:text-neutral-100 text-right">End Date</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
                       {project.tasks.map((task, index) => (
                         <TableRow key={task.taskId || index} className="hover:bg-neutral-50 dark:hover:bg-neutral-800 transition-colors">
+                          <TableCell>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => setSelectedTask(task)}
+                              className="border-blueberry-200 text-blueberry-600 hover:bg-blueberry-50 dark:border-blueberry-700 dark:text-blueberry-400 dark:hover:bg-blueberry-950"
+                            >
+                              Hints
+                            </Button>
+                          </TableCell>
                           <TableCell className="body-text text-neutral-800 dark:text-neutral-200 font-medium">{task.taskName}</TableCell>
                           <TableCell className="body-text text-neutral-600 dark:text-neutral-400">{task.taskId}</TableCell>
                           <TableCell className="body-text text-neutral-600 dark:text-neutral-400">{task.duration}</TableCell>
@@ -478,6 +491,16 @@ export default function StudentAssignedProjectDetail({ project, onBack }: Studen
           </Button>
         </CardContent>
       </Card>
+
+      {/* Task Hints Dialog */}
+      {selectedTask && (
+        <TaskHints
+          task={selectedTask.taskName}
+          idea={project.description}
+          onClose={() => setSelectedTask(null)}
+          initialHints={selectedTask.hints || []}
+        />
+      )}
     </div>
   );
 }
