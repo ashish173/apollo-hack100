@@ -49,11 +49,11 @@ interface TeacherAssignedProjectDetailProps {
 }
 
 // Enhanced Project Header Component
-const ProjectDetailHeader = ({ 
-  project, 
-  onBack 
-}: { 
-  project: AssignedProjectWithDetails; 
+const ProjectDetailHeader = ({
+  project,
+  onBack
+}: {
+  project: AssignedProjectWithDetails;
   onBack: () => void;
 }) => {
   const getDifficultyVariant = (difficulty: string) => {
@@ -134,11 +134,11 @@ const ProjectDetailHeader = ({
 };
 
 // Enhanced Student Report Component
-const StudentReportSection = ({ 
-  latestReport, 
-  isLoading 
-}: { 
-  latestReport: ProjectReport | null; 
+const StudentReportSection = ({
+  latestReport,
+  isLoading
+}: {
+  latestReport: ProjectReport | null;
   isLoading: boolean;
 }) => {
   const getStatusVariant = (status?: string) => {
@@ -284,11 +284,11 @@ const StudentReportSection = ({
 };
 
 // Enhanced Task Table Component
-const ProjectTasksSection = ({ 
-  tasks, 
-  onShowHints 
-}: { 
-  tasks: SavedProjectTask[]; 
+const ProjectTasksSection = ({
+  tasks,
+  onShowHints
+}: {
+  tasks: SavedProjectTask[];
   onShowHints: (task: SavedProjectTask) => void;
 }) => {
   if (!tasks || tasks.length === 0) {
@@ -393,9 +393,9 @@ const ProjectTasksSection = ({
   );
 };
 
-export default function TeacherAssignedProjectDetail({ 
-  project, 
-  onBack 
+export default function TeacherAssignedProjectDetail({
+  project,
+  onBack
 }: TeacherAssignedProjectDetailProps) {
   const { toast } = useToast();
   const [selectedTask, setSelectedTask] = useState<SavedProjectTask | null>(null);
@@ -403,7 +403,8 @@ export default function TeacherAssignedProjectDetail({
   const [isLoadingReport, setIsLoadingReport] = useState(true);
 
   useEffect(() => {
-    if (!project.projectId) {
+    // Ensure db is defined before proceeding
+    if (!db || !project.projectId || !project.studentUid) {
       setIsLoadingReport(false);
       return;
     }
@@ -493,8 +494,9 @@ export default function TeacherAssignedProjectDetail({
         {selectedTask && (
           <TaskHints
             task={selectedTask.taskName}
-            idea={project.description}
+            idea={project.description} // Assuming project.description is still relevant for the 'idea' prop
             onClose={() => setSelectedTask(null)}
+            initialHints={selectedTask.hints || []}
           />
         )}
       </div>
