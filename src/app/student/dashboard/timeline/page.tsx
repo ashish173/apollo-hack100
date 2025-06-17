@@ -1,8 +1,5 @@
 'use client';
 
-import { useAuth } from '@/context/auth-context';
-import { useRouter } from 'next/navigation';
-import { useEffect } from 'react';
 import Timeline from '@/components/timeline/Timeline';
 import { TimelineTask, TaskDependency } from '@/types/timeline';
 
@@ -117,27 +114,6 @@ const MOCK_DEPENDENCIES: TaskDependency[] = [
 ];
 
 export default function TimelinePage() {
-  const { user, loading } = useAuth();
-  const router = useRouter();
-
-  useEffect(() => {
-    if (loading) return;
-    if (!user) {
-      router.replace('/login');
-    } else if (user.role !== 'student') {
-      console.warn(`User ${user.uid} with role ${user.role} attempted to access student section. Redirecting.`);
-      router.replace('/');
-    }
-  }, [user, loading, router]);
-
-  if (loading || !user || user?.role !== 'student') {
-    return (
-      <div className="flex-grow flex items-center justify-center p-6 min-h-screen bg-background">
-        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary"></div>
-      </div>
-    );
-  }
-
   return (
     <div className="flex flex-col h-full">
       <header className="mb-6">

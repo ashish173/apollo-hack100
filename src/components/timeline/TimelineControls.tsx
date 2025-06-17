@@ -46,22 +46,28 @@ const TimelineControls: React.FC<TimelineControlsProps> = ({
   };
 
   return (
-    <div className="flex items-center justify-between mb-4">
+    <div 
+      className="flex items-center justify-between mb-4"
+      role="toolbar"
+      aria-label="Timeline navigation and view controls"
+    >
       <div className="flex items-center space-x-2">
         <Button
           variant="outline"
           size="sm"
           onClick={() => onNavigate('today')}
           className="text-xs"
+          aria-label="Navigate to today"
         >
           Today
         </Button>
-        <div className="flex">
+        <div className="flex" role="group" aria-label="Timeline navigation">
           <Button
             variant="ghost"
             size="icon"
             onClick={() => onNavigate('prev')}
             className="h-8 w-8"
+            aria-label={`Go to previous ${view}`}
           >
             <ChevronLeft className="h-4 w-4" />
           </Button>
@@ -70,15 +76,25 @@ const TimelineControls: React.FC<TimelineControlsProps> = ({
             size="icon"
             onClick={() => onNavigate('next')}
             className="h-8 w-8"
+            aria-label={`Go to next ${view}`}
           >
             <ChevronRight className="h-4 w-4" />
           </Button>
         </div>
-        <div className="ml-2 text-sm font-medium">
+        <div 
+          className="ml-2 text-sm font-medium"
+          role="status"
+          aria-live="polite"
+          aria-label="Current date range"
+        >
           {formatDateRange(currentDate, view)}
         </div>
       </div>
-      <div className="flex space-x-1 bg-muted p-1 rounded-md">
+      <div 
+        className="flex space-x-1 bg-muted p-1 rounded-md"
+        role="radiogroup"
+        aria-label="Timeline view options"
+      >
         {(Object.keys(viewLabels) as TimelineView[]).map((v) => (
           <Button
             key={v}
@@ -86,6 +102,9 @@ const TimelineControls: React.FC<TimelineControlsProps> = ({
             size="sm"
             className={`text-xs h-8 px-3 ${view === v ? 'shadow-sm' : ''}`}
             onClick={() => onViewChange(v)}
+            role="radio"
+            aria-checked={view === v}
+            aria-label={`Switch to ${viewLabels[v]} view`}
           >
             {viewLabels[v]}
           </Button>

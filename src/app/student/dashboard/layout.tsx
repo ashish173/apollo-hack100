@@ -1,4 +1,3 @@
-
 "use client";
 
 import type { ReactNode } from 'react';
@@ -65,9 +64,9 @@ export default function StudentDashboardLayout({
                 </Link>
               </SidebarMenuItem>
               <SidebarMenuItem>
-                <Link href="/student/timeline" passHref legacyBehavior>
+                <Link href="/student/dashboard/timeline" passHref legacyBehavior>
                   <SidebarMenuButton 
-                    isActive={pathname === '/student/timeline'} 
+                    isActive={pathname === '/student/dashboard/timeline'} 
                     tooltip="Project Timeline"
                     className="flex items-center gap-2"
                   >
@@ -81,7 +80,7 @@ export default function StudentDashboardLayout({
 
           {/* Moved LogoutButton inside SidebarFooter */}
           <SidebarFooter className="p-2"> {/* Add padding to SidebarFooter */}
-            <LogoutButton className="w-full" /> {/* Make button full width */}
+            <LogoutButton /> {/* Removed className prop */}
           </SidebarFooter>
 
         </Sidebar>

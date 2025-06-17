@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { forwardRef } from 'react';
 import { TimelineTask } from '@/types/timeline';
 import { cn } from '@/lib/utils';
 
@@ -8,115 +8,87 @@ interface TaskBarProps {
   totalDays: number;
   isSelected: boolean;
   onClick: (taskId: string, event: React.MouseEvent) => void;
+  'aria-label'?: string;
 }
 
-const TaskBar: React.FC<TaskBarProps> = ({ 
+const TaskBar = forwardRef<HTMLDivElement, TaskBarProps>(({ 
   task, 
   getDatePosition, 
   totalDays, 
-  isSelected,
-  onClick 
-}) => {
-  const { title, startDate, endDate, status, progress } = task;
+  isSelected, 
+  onClick,
+  'aria-label': ariaLabel,
+}, ref) => {
+  const { id, title, startDate, endDate, status, progress } = task;
   
-  // Calculate positions and width
+  const statusColors = {
+    'not_started': 'bg-gray-300 border-gray-400',
+    'in_progress': 'bg-blue-500 border-blue-600',
+    'completed': 'bg-green-500 border-green-600',
+    'overdue': 'bg-red-500 border-red-600',
+  };
+  
+  const statusText = {
+    'not_started': 'Not Started',
+    'in_progress': 'In Progress',
+    'completed': 'Completed',
+    'overdue': 'Overdue',
+  };
+
+  // Calculate position and width
   const left = getDatePosition(startDate);
   const right = 100 - getDatePosition(endDate);
   const width = 100 - left - right;
-  
-  // Handle task click
-  const handleClick = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    onClick(task.id, e);
-  };
-  
-  // Status colors
-  const statusColors = {
-    not_started: 'bg-muted',
-    in_progress: 'bg-blue-500',
-    completed: 'bg-green-500',
-    overdue: 'bg-destructive',
-  };
-  
-  // Status text
-  const statusText = {
-    not_started: 'Not Started',
-    in_progress: 'In Progress',
-    completed: 'Completed',
-    overdue: 'Overdue',
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault();
+      onClick(id, e as any);
+    }
   };
 
   return (
-    <div className="relative h-full w-full">
-      {/* Task label */}
+    <div ref={ref} className="relative h-full w-full">
       <div className="absolute left-0 top-0 w-48 pr-4 truncate">
         <div className="text-sm font-medium truncate">{title}</div>
         <div className="text-xs text-muted-foreground">{statusText[status]}</div>
       </div>
-      
-      {/* Timeline track */}
       <div className="absolute left-48 right-0 top-1/2 h-9 -translate-y-1/2 bg-muted/30 rounded-full overflow-hidden">
-        {/* Progress bar */}
-        <div 
+        <div
           className={cn(
-            'h-full rounded-full transition-all duration-200 ease-in-out',
-            'hover:shadow-md',
+            'relative h-full rounded-full border-2 transition-all duration-200 cursor-pointer hover:opacity-80 focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2',
             statusColors[status],
-            {
-              // Darken on hover for all statuses
-              'hover:brightness-90': true,
-              // Status-specific hover effects
-              'hover:border-blue-700': status === 'in_progress',
-              'hover:border-green-700': status === 'completed',
-              'hover:border-red-700': status === 'overdue',
-              'hover:border-foreground/80': status === 'not_started',
-            }
-          )}
-          style={{
-            width: `${progress}%`,
-            opacity: 0.95,
-          }}
-        />
-        
-        {/* Task bar */}
-        <div 
-          className={cn(
-            'absolute top-0 h-full border-2 rounded-md',
-            'transition-all duration-200',
-            'flex items-center justify-end pr-1',
-            isSelected 
-              ? 'ring-2 ring-offset-1 ring-primary z-10 scale-[1.02] shadow-md'
-              : 'border-foreground/20 hover:border-foreground/40',
-            status === 'completed' && 'border-green-500/50',
-            status === 'in_progress' && 'border-blue-500/50',
-            status === 'overdue' && 'border-destructive/50',
+            isSelected && 'ring-2 ring-primary ring-offset-2'
           )}
           style={{
             left: `${left}%`,
-            right: `${right}%`,
+            width: `${width}%`,
           }}
-          onClick={handleClick}
-          title={`${title} (${formatDateRange(startDate, endDate)})`}
+          aria-label={ariaLabel || `${title}: ${statusText[status]}, ${progress}% complete`}
+          aria-selected={isSelected}
+          role="button"
+          tabIndex={0}
+          onClick={(e) => onClick(id, e)}
+          onKeyDown={handleKeyDown}
         >
-          {progress > 30 && (
-            <span className="text-[10px] font-medium text-white mix-blend-difference">
-              {progress}%
+          {/* Progress indicator */}
+          <div
+            className="absolute top-0 left-0 h-full bg-white/30 rounded-full transition-all duration-300"
+            style={{ width: `${progress}%` }}
+          />
+          
+          {/* Task title on bar */}
+          <div className="absolute inset-0 flex items-center justify-center">
+            <span className="text-xs font-medium text-white truncate px-2">
+              {progress > 0 && `${progress}%`}
             </span>
-          )}
+          </div>
         </div>
       </div>
     </div>
   );
-};
+});
 
-// Helper function to format date range
-function formatDateRange(start: Date, end: Date): string {
-  const format = (date: Date) => date.toLocaleDateString('en-US', {
-    month: 'short',
-    day: 'numeric',
-  });
-  
-  return `${format(start)} - ${format(end)}`;
-}
+TaskBar.displayName = 'TaskBar';
 
 export default TaskBar;
