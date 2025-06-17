@@ -2,7 +2,7 @@
 "use client";
 
 import { useState, useEffect } from 'react';
-import { ArrowLeft, BookOpen, CheckCircle, Hourglass, Clock, Calendar, User, Target, AlertCircle, Send, TrendingUp, FileText } from 'lucide-react';
+import { ArrowLeft, BookOpen, CheckCircle, Hourglass, Clock, Calendar, User, Target, AlertCircle, Send, TrendingUp, FileText, Download } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -30,6 +30,7 @@ import { format } from 'date-fns';
 // Import the ProjectIdea and SavedProjectTask types from teacher's area for consistency
 import { ProjectIdea, SavedProjectTask } from '@/app/teacher/dashboard/student-mentor/idea-detail';
 import TaskHints from '@/app/teacher/dashboard/student-mentor/task-hints';
+import { generateExcel } from '@/lib/utils'; // Import the new utility function
 
 // Define the interface for the project data this component expects
 interface StudentAssignedProjectDetailProps {
@@ -190,6 +191,31 @@ export default function StudentAssignedProjectDetail({ project, onBack }: Studen
   const statusProps = getStatusBadgeProps(project.status);
   const StatusIcon = statusProps.icon;
 
+  const handleDownload = async () => {
+    if (project.tasks) {
+      try {
+        await generateExcel(project.title, project.tasks);
+        toast({
+          title: "Download Successful",
+          description: "Project plan downloaded successfully!",
+        });
+      } catch (error) {
+        console.error("Error generating or downloading Excel file:", error);
+        toast({
+          title: "Download Failed",
+          description: "Failed to download project plan. Please try again.",
+          variant: "destructive",
+        });
+      }
+    } else {
+      toast({
+        title: "No Tasks Found",
+        description: "There are no tasks to download for this project.",
+        variant: "warning",
+      });
+    }
+  };
+
   return (
     <div className="flex-grow flex flex-col p-6 space-y-8 max-w-6xl mx-auto bg-neutral-50 dark:bg-neutral-900">
       {/* Header Navigation */}
@@ -317,16 +343,17 @@ export default function StudentAssignedProjectDetail({ project, onBack }: Studen
       {/* Project Plan Section */}
       <Card variant="elevated" className="shadow-xl">
         <CardHeader>
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-blueberry-100 dark:bg-blueberry-900 rounded-lg flex items-center justify-center">
-              <Target size={20} className="text-blueberry-600 dark:text-blueberry-400" />
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-3">
+              <div className="w-12 h-12 bg-indigo-100 dark:bg-indigo-900 rounded-xl flex items-center justify-center">
+                <FileText size={24} className="text-indigo-600 dark:text-indigo-400" />
+              </div>
+              <div>
+                <CardTitle size="md" className="text-neutral-900 dark:text-neutral-100">Project Plan</CardTitle>
+                <CardDescription>Detailed task breakdown and timeline</CardDescription>
+              </div>
             </div>
-            <div>
-              <CardTitle className="text-blueberry-700 dark:text-blueberry-300">Project Plan</CardTitle>
-              <CardDescription className="body-text text-neutral-600 dark:text-neutral-400">
-                Detailed task breakdown and timeline
-              </CardDescription>
-            </div>
+            <Button variant="outline-secondary" size="sm" leftIcon={<Download size={16} />} onClick={handleDownload}>Download</Button>
           </div>
         </CardHeader>
         <CardContent>
