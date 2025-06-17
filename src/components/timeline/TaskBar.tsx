@@ -55,16 +55,26 @@ const TaskBar: React.FC<TaskBarProps> = ({
       </div>
       
       {/* Timeline track */}
-      <div className="absolute left-48 right-0 top-1/2 h-2 -translate-y-1/2 bg-muted rounded-full overflow-hidden">
+      <div className="absolute left-48 right-0 top-1/2 h-9 -translate-y-1/2 bg-muted/30 rounded-full overflow-hidden">
         {/* Progress bar */}
         <div 
           className={cn(
-            'h-full rounded-full',
-            statusColors[status]
+            'h-full rounded-full transition-all duration-200 ease-in-out',
+            'hover:shadow-md',
+            statusColors[status],
+            {
+              // Darken on hover for all statuses
+              'hover:brightness-90': true,
+              // Status-specific hover effects
+              'hover:border-blue-700': status === 'in_progress',
+              'hover:border-green-700': status === 'completed',
+              'hover:border-red-700': status === 'overdue',
+              'hover:border-foreground/80': status === 'not_started',
+            }
           )}
           style={{
             width: `${progress}%`,
-            opacity: 0.8,
+            opacity: 0.95,
           }}
         />
         
