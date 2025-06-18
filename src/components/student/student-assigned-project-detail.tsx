@@ -2,7 +2,7 @@
 "use client";
 
 import { useState, useEffect } from 'react';
-import { ArrowLeft, BookOpen, CheckCircle, Hourglass, Clock, Calendar, User, Target, AlertCircle, Send, TrendingUp, FileText, Download } from 'lucide-react';
+import { ArrowLeft, BookOpen, CheckCircle, Hourglass, Clock, Calendar, User, Target, AlertCircle, Send, TrendingUp, FileText, ExternalLink, Download, Users } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -29,8 +29,26 @@ import { format } from 'date-fns';
 
 // Import the ProjectIdea and SavedProjectTask types from teacher's area for consistency
 import { ProjectIdea, SavedProjectTask } from '@/app/teacher/dashboard/student-mentor/idea-detail';
-import TaskHints from '@/app/teacher/dashboard/student-mentor/task-hints';
-import { generateExcel } from '@/lib/utils'; // Import the new utility function
+
+// Define types for research papers
+interface ResearchPaper {
+  id: string;
+  title: string;
+  abstract: string;
+  authors: string[];
+  arxivUrl: string;
+  pdfUrl: string;
+  categories: string[];
+  subjects: string[];
+  comments?: string;
+  submittedDate: string;
+  addedAt: FirebaseTimestampType;
+  addedBy: string;
+}
+
+export interface ProjectResources {
+  papers?: ResearchPaper[];
+}
 
 // Define the interface for the project data this component expects
 interface StudentAssignedProjectDetailProps {
@@ -47,6 +65,7 @@ interface StudentAssignedProjectDetailProps {
     difficulty: string;
     duration: string;
     tasks?: SavedProjectTask[];
+    resources?: ProjectResources;
   };
   onBack: () => void;
 }
@@ -58,10 +77,9 @@ export default function StudentAssignedProjectDetail({ project, onBack }: Studen
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [latestReport, setLatestReport] = useState<ProjectReport | null>(null);
   const [isLoadingReport, setIsLoadingReport] = useState(true);
-  const [selectedTask, setSelectedTask] = useState<SavedProjectTask | null>(null);
 
   useEffect(() => {
-    if (!db || !project.projectId) {
+    if (!project.projectId) {
       setIsLoadingReport(false);
       return;
     }
@@ -191,31 +209,6 @@ export default function StudentAssignedProjectDetail({ project, onBack }: Studen
   const statusProps = getStatusBadgeProps(project.status);
   const StatusIcon = statusProps.icon;
 
-  const handleDownload = async () => {
-    if (project.tasks) {
-      try {
-        await generateExcel(project.title, project.tasks);
-        toast({
-          title: "Download Successful",
-          description: "Project plan downloaded successfully!",
-        });
-      } catch (error) {
-        console.error("Error generating or downloading Excel file:", error);
-        toast({
-          title: "Download Failed",
-          description: "Failed to download project plan. Please try again.",
-          variant: "destructive",
-        });
-      }
-    } else {
-      toast({
-        title: "No Tasks Found",
-        description: "There are no tasks to download for this project.",
-        variant: "warning",
-      });
-    }
-  };
-
   return (
     <div className="flex-grow flex flex-col p-6 space-y-8 max-w-6xl mx-auto bg-neutral-50 dark:bg-neutral-900">
       {/* Header Navigation */}
@@ -238,13 +231,13 @@ export default function StudentAssignedProjectDetail({ project, onBack }: Studen
 
       {/* Project Overview Card */}
       <Card variant="feature" className="shadow-2xl">
-        <CardHeader>
+        <CardHeader size="lg">
           <div className="flex items-start gap-4">
             <div className="w-16 h-16 bg-gradient-to-br from-blueberry-500 to-blueberry-600 rounded-xl flex items-center justify-center shadow-lg">
               <BookOpen size={32} className="text-white" />
             </div>
             <div className="flex-1">
-              <CardTitle size="lg" className="text-neutral-900 dark:text-neutral-100 mb-3">
+              <CardTitle size="xl" className="text-neutral-900 dark:text-neutral-100 mb-3">
                 {project.title}
               </CardTitle>
               <div className="flex items-center gap-2 mb-4">
@@ -340,20 +333,133 @@ export default function StudentAssignedProjectDetail({ project, onBack }: Studen
         </CardContent>
       </Card>
 
+      {/* Research Papers Section */}
+      {project.resources?.papers && project.resources.papers.length > 0 && (
+        <Card variant="elevated" className="shadow-xl">
+          <CardHeader>
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 bg-warning-100 dark:bg-warning-900 rounded-lg flex items-center justify-center">
+                <FileText size={20} className="text-warning-600 dark:text-warning-400" />
+              </div>
+              <div>
+                <CardTitle className="text-warning-700 dark:text-warning-300">Research Papers</CardTitle>
+                <CardDescription className="body-text text-neutral-600 dark:text-neutral-400">
+                  Relevant research papers and resources for this project
+                </CardDescription>
+              </div>
+            </div>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-6">
+              {project.resources.papers.map((paper, index) => (
+                <Card key={paper.id || index} variant="ghost" className="border border-neutral-200 dark:border-neutral-700 hover:shadow-md transition-shadow duration-300">
+                  <CardContent size="lg">
+                    <div className="space-y-4">
+                      {/* Paper Header */}
+                      <div className="space-y-3">
+                        <h4 className="subtitle text-neutral-900 dark:text-neutral-100 leading-tight">
+                          {paper.title}
+                        </h4>
+                        
+                        {/* Authors */}
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <Users size={14} className="text-neutral-500 dark:text-neutral-400" />
+                          <span className="body-text text-neutral-600 dark:text-neutral-400 text-sm">
+                            {paper.authors.join(', ')}
+                          </span>
+                        </div>
+
+                        {/* Metadata */}
+                        <div className="flex flex-wrap gap-2">
+                          {paper.categories.map((category, idx) => (
+                            <Badge key={idx} variant="outline" size="sm">
+                              {category}
+                            </Badge>
+                          ))}
+                          {paper.comments && (
+                            <Badge variant="secondary" size="sm">
+                              {paper.comments}
+                            </Badge>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Abstract */}
+                      <div className="space-y-2">
+                        <h5 className="overline text-neutral-700 dark:text-neutral-300">Abstract</h5>
+                        <p className="body-text text-neutral-700 dark:text-neutral-300 leading-relaxed text-sm bg-neutral-50 dark:bg-neutral-800 p-4 rounded-lg">
+                          {paper.abstract}
+                        </p>
+                      </div>
+
+                      {/* Subjects */}
+                      {paper.subjects && paper.subjects.length > 0 && (
+                        <div className="space-y-2">
+                          <h5 className="overline text-neutral-700 dark:text-neutral-300">Research Areas</h5>
+                          <div className="flex flex-wrap gap-2">
+                            {paper.subjects.map((subject, idx) => (
+                              <Badge key={idx} variant="soft-primary" size="sm">
+                                {subject}
+                              </Badge>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Action Buttons */}
+                      <div className="flex gap-3 pt-2">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          asChild
+                          className="border-blueberry-300 text-blueberry-700 hover:bg-blueberry-50 dark:border-blueberry-600 dark:text-blueberry-400 dark:hover:bg-blueberry-950"
+                        >
+                          <a href={paper.arxivUrl} target="_blank" rel="noopener noreferrer">
+                            <ExternalLink size={14} className="mr-2" />
+                            View on ArXiv
+                          </a>
+                        </Button>
+                        
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          asChild
+                          className="border-success-300 text-success-700 hover:bg-success-50 dark:border-success-600 dark:text-success-400 dark:hover:bg-success-950"
+                        >
+                          <a href={paper.pdfUrl} target="_blank" rel="noopener noreferrer">
+                            <Download size={14} className="mr-2" />
+                            Download PDF
+                          </a>
+                        </Button>
+                      </div>
+
+                      {/* Paper metadata footer */}
+                      <div className="pt-3 border-t border-neutral-200 dark:border-neutral-700 flex items-center justify-between text-xs text-neutral-500 dark:text-neutral-400">
+                        <span>Paper ID: {paper.id}</span>
+                        <span>Submitted: {new Date(paper.submittedDate).toLocaleDateString()}</span>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       {/* Project Plan Section */}
       <Card variant="elevated" className="shadow-xl">
         <CardHeader>
-          <div className="flex items-center justify-between mb-4">
-            <div className="flex items-center gap-3">
-              <div className="w-12 h-12 bg-indigo-100 dark:bg-indigo-900 rounded-xl flex items-center justify-center">
-                <FileText size={24} className="text-indigo-600 dark:text-indigo-400" />
-              </div>
-              <div>
-                <CardTitle size="md" className="text-neutral-900 dark:text-neutral-100">Project Plan</CardTitle>
-                <CardDescription>Detailed task breakdown and timeline</CardDescription>
-              </div>
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 bg-blueberry-100 dark:bg-blueberry-900 rounded-lg flex items-center justify-center">
+              <Target size={20} className="text-blueberry-600 dark:text-blueberry-400" />
             </div>
-            <Button variant="outline-secondary" size="sm" leftIcon={<Download size={16} />} onClick={handleDownload}>Download</Button>
+            <div>
+              <CardTitle className="text-blueberry-700 dark:text-blueberry-300">Project Plan</CardTitle>
+              <CardDescription className="body-text text-neutral-600 dark:text-neutral-400">
+                Detailed task breakdown and timeline
+              </CardDescription>
+            </div>
           </div>
         </CardHeader>
         <CardContent>
@@ -364,27 +470,16 @@ export default function StudentAssignedProjectDetail({ project, onBack }: Studen
                   <Table>
                     <TableHeader>
                       <TableRow className="bg-neutral-50 dark:bg-neutral-800">
-                        <TableHead className="subtitle text-neutral-900 dark:text-neutral-100">Hints</TableHead>
                         <TableHead className="subtitle text-neutral-900 dark:text-neutral-100">Task Name</TableHead>
                         <TableHead className="subtitle text-neutral-900 dark:text-neutral-100">Task ID</TableHead>
                         <TableHead className="subtitle text-neutral-900 dark:text-neutral-100">Duration</TableHead>
-                        <TableHead className="subtitle text-neutral-900 dark:text-neutral-100 text-right">Start Date</TableHead>
+                        <TableHead className="subtitle text-neutral-900 dark:text-neutral-100">Start Date</TableHead>
                         <TableHead className="subtitle text-neutral-900 dark:text-neutral-100 text-right">End Date</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
                       {project.tasks.map((task, index) => (
                         <TableRow key={task.taskId || index} className="hover:bg-neutral-50 dark:hover:bg-neutral-800 transition-colors">
-                          <TableCell>
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => setSelectedTask(task)}
-                              className="border-blueberry-200 text-blueberry-600 hover:bg-blueberry-50 dark:border-blueberry-700 dark:text-blueberry-400 dark:hover:bg-blueberry-950"
-                            >
-                              Hints
-                            </Button>
-                          </TableCell>
                           <TableCell className="body-text text-neutral-800 dark:text-neutral-200 font-medium">{task.taskName}</TableCell>
                           <TableCell className="body-text text-neutral-600 dark:text-neutral-400">{task.taskId}</TableCell>
                           <TableCell className="body-text text-neutral-600 dark:text-neutral-400">{task.duration}</TableCell>
@@ -518,16 +613,6 @@ export default function StudentAssignedProjectDetail({ project, onBack }: Studen
           </Button>
         </CardContent>
       </Card>
-
-      {/* Task Hints Dialog */}
-      {selectedTask && (
-        <TaskHints
-          task={selectedTask.taskName}
-          idea={project.description}
-          onClose={() => setSelectedTask(null)}
-          initialHints={selectedTask.hints || []}
-        />
-      )}
     </div>
   );
 }

@@ -3,7 +3,7 @@
 
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useAuth } from '@/context/auth-context';
-import { collection, query, where, getDocs, doc, getDoc, Timestamp, orderBy, limit } from 'firebase/firestore';
+import { collection, query, where, getDocs, doc, getDoc, Timestamp, orderBy, limit, documentId } from 'firebase/firestore';
 import { db as firebaseDbService } from '@/lib/firebase';
 import { 
   BookOpen, 
@@ -213,12 +213,12 @@ const ProjectCard = ({
           <CardTitle className="heading-3 text-neutral-900 dark:text-neutral-100 line-clamp-2 group-hover:text-blueberry-600 dark:group-hover:text-blueberry-400 transition-colors">
             {project.title}
           </CardTitle>
-          <div className="flex items-center gap-1 flex-shrink-0">
-            <Star className="w-4 h-4 text-warning-500" />
-            <span className="body-text text-neutral-600 dark:text-neutral-400">
-              {project.aiReview?.rating || 'N/A'}
-            </span>
-          </div>
+          {project.aiReview?.rating !== undefined && (
+            <Badge variant={getRatingVariant(project.aiReview.rating)} size="sm" className="flex-shrink-0">
+              <Star className="w-3 h-3 mr-1" />
+              {project.aiReview.rating}/10
+            </Badge>
+          )}
         </div>
         
         <div className="flex items-center gap-2 mb-3">
@@ -266,9 +266,6 @@ const ProjectCard = ({
                     <span className="subtitle text-blueberry-900 dark:text-blueberry-100">
                       AI Insights
                     </span>
-                    <Badge variant={getRatingVariant(project.aiReview.rating)} size="sm">
-                      {project.aiReview.rating}/10
-                    </Badge>
                   </div>
                   <p className="body-text text-blueberry-800 dark:text-blueberry-200 text-sm line-clamp-2">
                     {project.aiReview.note}
@@ -331,47 +328,112 @@ export default function TeacherDashboardPage() {
   const [projectFilter, setProjectFilter] = useState<'all' | 'off-track' | 'on-track' | 'ai-asc' | 'ai-desc' | 'review-high' | 'review-low'>('all');
 
   const fetchAssignedProjects = useCallback(async () => {
-    if (!user || !firebaseDbService) return;
+    if (!user || !firebaseDbService || !user.uid) return;
 
     setLoadingProjects(true);
     try {
+      // Step 1: Fetch all assigned projects for the teacher
       const assignedProjectsRef = collection(firebaseDbService, 'assignedProjects');
-      const q = query(assignedProjectsRef, where('teacherUid', '==', user.uid));
-      const querySnapshot = await getDocs(q);
+      const assignmentQuery = query(assignedProjectsRef, where('teacherUid', '==', user.uid));
+      const assignmentSnapshot = await getDocs(assignmentQuery);
 
+      if (assignmentSnapshot.empty) {
+        setAssignedProjects([]);
+        setLoadingProjects(false);
+        return;
+      }
+
+      // Step 2: Extract unique project IDs and assignment data
+      const assignmentData = assignmentSnapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      }));
+      
+      const projectIds = [...new Set(assignmentData.map(assignment => assignment.projectId))];
+      
+      if (projectIds.length === 0) {
+        setAssignedProjects([]);
+        setLoadingProjects(false);
+        return;
+      }
+
+      // Step 3: Batch fetch all project details
+      // Firestore 'in' queries are limited to 10 items, so we need to chunk if necessary
+      const chunkSize = 10;
+      const projectChunks: string[][] = [];
+      
+      for (let i = 0; i < projectIds.length; i += chunkSize) {
+        projectChunks.push(projectIds.slice(i, i + chunkSize));
+      }
+
+      const allProjects: { [key: string]: any } = {};
+      
+      // Fetch projects in batches
+      for (const chunk of projectChunks) {
+        const projectsRef = collection(firebaseDbService, 'projects');
+        const projectQuery = query(projectsRef, where(documentId(), 'in', chunk));
+        const projectSnapshot = await getDocs(projectQuery);
+        
+        projectSnapshot.docs.forEach(doc => {
+          allProjects[doc.id] = { id: doc.id, ...doc.data() };
+        });
+      }
+
+      // Step 4: Batch fetch latest reports for all projects
+      const latestReports: { [key: string]: ProjectReport } = {};
+      
+      // Get unique combinations of projectId and studentUid for report fetching
+      const reportKeys = assignmentData.map(assignment => ({
+        projectId: assignment.projectId,
+        studentUid: assignment.studentUid,
+        teacherUid: assignment.teacherUid,
+        key: `${assignment.projectId}_${assignment.studentUid}_${assignment.teacherUid}`
+      }));
+
+      // Batch fetch reports (we'll still need individual queries due to the complex where clause, but we can parallelize them)
+      const reportPromises = reportKeys.map(async ({ projectId, studentUid, teacherUid, key }) => {
+        try {
+          const reportsRef = collection(firebaseDbService, "projectReports");
+          const reportQuery = query(
+            reportsRef,
+            where("projectId", "==", projectId),
+            where("studentUid", "==", studentUid),
+            where("teacherUid", "==", teacherUid),
+            orderBy("submittedAt", "desc"),
+            limit(1)
+          );
+          const reportSnapshot = await getDocs(reportQuery);
+          
+          if (!reportSnapshot.empty) {
+            const reportData = reportSnapshot.docs[0].data();
+            latestReports[key] = { id: reportSnapshot.docs[0].id, ...reportData } as ProjectReport;
+          }
+        } catch (error) {
+          console.error(`Error fetching report for ${key}:`, error);
+        }
+      });
+
+      // Wait for all report fetches to complete
+      await Promise.all(reportPromises);
+
+      // Step 5: Process assignments with AI review logic
       const fetchedAssignedProjects: AssignedProjectWithDetails[] = [];
+      const aiReviewUpdates: Promise<void>[] = [];
 
-      for (const assignedDoc of querySnapshot.docs) {
-        const assignedData = assignedDoc.data();
-        const assignedProjectId = assignedDoc.id;
-        const projectId = assignedData.projectId;
-        const studentUid = assignedData.studentUid;
-        const teacherUid = assignedData.teacherUid;
-
-        // Fetch the corresponding project details from the 'projects' collection
-        const projectRef = doc(firebaseDbService, 'projects', projectId);
-        const projectDoc = await getDoc(projectRef);
-
-        let latestReport: ProjectReport | null = null;
-        // Attempt to fetch the latest project report for the student and project from 'projectReports'
-        const reportsRef = collection(firebaseDbService, "projectReports");
-        const reportQuery = query(
-          reportsRef,
-          where("projectId", "==", projectId),
-          where("studentUid", "==", studentUid),
-          where("teacherUid", "==", teacherUid),
-          orderBy("submittedAt", "desc"),
-          limit(1)
-        );
-        const reportSnapshot = await getDocs(reportQuery);
-        if (!reportSnapshot.empty) {
-          const reportData = reportSnapshot.docs[0].data();
-          latestReport = { id: reportSnapshot.docs[0].id, ...reportData } as ProjectReport;
+      assignmentData.forEach(assignment => {
+        const projectData = allProjects[assignment.projectId];
+        
+        if (!projectData) {
+          console.warn(`Project document with ID ${assignment.projectId} not found for teacher ${user.uid}. Skipping this assignment.`);
+          return;
         }
 
-        console.log("Latest Report for project", projectId, ":", latestReport);
+        const reportKey = `${assignment.projectId}_${assignment.studentUid}_${assignment.teacherUid}`;
+        const latestReport = latestReports[reportKey] || null;
 
-        let currentAIReview: AIReviewResult | null | undefined = assignedData.aiReview as AIReviewResult | null | undefined;
+        console.log("Latest Report for project", assignment.projectId, ":", latestReport);
+
+        let currentAIReview: AIReviewResult | null | undefined = assignment.aiReview as AIReviewResult | null | undefined;
 
         let shouldGenerateAIReview = false;
         const now = Timestamp.now();
@@ -432,40 +494,43 @@ export default function TeacherDashboardPage() {
             textStatus: textStatusForAI
           });
           currentAIReview = aiReviewGenerated; // Use the newly generated one for display
-          console.log("Generated/Updated AI Review for project", assignedProjectId, ":", currentAIReview);
+          console.log("Generated/Updated AI Review for project", assignment.id, ":", currentAIReview);
 
-          // Attempt to save the newly generated/updated AI review to Firestore
-          try {
-            await updateAssignedProjectAIReview(
-              assignedProjectId,
-              aiReviewGenerated
-            );
-          } catch (error) {
-            console.error("Failed to update AI review in Firestore for assigned project:", assignedProjectId, error);
-          }
-        }
-
-        if (projectDoc.exists()) {
-          const projectData = projectDoc.data() as ProjectIdea;
-          fetchedAssignedProjects.push({
-            assignedProjectId: assignedProjectId,
-            projectId: projectId,
-            studentUid: studentUid,
-            studentName: assignedData.studentName,
-            teacherUid: teacherUid,
-            assignedAt: assignedData.assignedAt,
-            title: projectData.title,
-            description: projectData.description,
-            difficulty: projectData.difficulty,
-            duration: projectData.duration,
-            tasks: projectData.tasks || [],
-            latestReport: latestReport,
-            aiReview: currentAIReview,
+          // Queue the AI review update (don't wait for it to complete)
+          const updatePromise = updateAssignedProjectAIReview(
+            assignment.id,
+            aiReviewGenerated
+          ).catch(error => {
+            console.error("Failed to update AI review in Firestore for assigned project:", assignment.id, error);
           });
-        } else {
-          console.warn(`Project document with ID ${projectId} not found.`);
+          
+          aiReviewUpdates.push(updatePromise);
         }
-      }
+
+        fetchedAssignedProjects.push({
+          assignedProjectId: assignment.id,
+          projectId: assignment.projectId,
+          studentUid: assignment.studentUid,
+          studentName: assignment.studentName,
+          teacherUid: assignment.teacherUid,
+          assignedAt: assignment.assignedAt,
+          title: projectData.title,
+          description: projectData.description,
+          difficulty: projectData.difficulty,
+          duration: projectData.duration,
+          tasks: projectData.tasks || [],
+          latestReport: latestReport,
+          aiReview: currentAIReview,
+        });
+      });
+
+      // Fire and forget the AI review updates
+      Promise.all(aiReviewUpdates).then(() => {
+        console.log("All AI review updates completed");
+      }).catch(error => {
+        console.error("Some AI review updates failed:", error);
+      });
+      
       setAssignedProjects(fetchedAssignedProjects);
     } catch (error) {
       console.error("Error fetching assigned projects:", error);

@@ -3,7 +3,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '@/context/auth-context';
-import { collection, query, where, getDocs, doc, getDoc, Timestamp } from 'firebase/firestore';
+import { collection, query, where, getDocs, doc, getDoc, Timestamp, documentId } from 'firebase/firestore';
 import { db as firebaseDbService } from '@/lib/firebase';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -13,7 +13,7 @@ import { GraduationCap, BookOpen, AlertTriangle, User, Calendar, Clock, Target, 
 import { format } from 'date-fns';
 
 // Import the new detail component
-import StudentAssignedProjectDetail from '@/components/student/student-assigned-project-detail';
+import StudentAssignedProjectDetail, { ProjectResources } from '@/components/student/student-assigned-project-detail';
 
 // Import ProjectIdea and SavedProjectTask types from where they are defined
 import { ProjectIdea, SavedProjectTask } from '@/app/teacher/dashboard/student-mentor/idea-detail';
@@ -32,6 +32,7 @@ interface AssignedProjectWithDetails {
   difficulty: string;
   duration: string;
   tasks?: SavedProjectTask[];
+  resources?: ProjectResources;
 }
 
 export default function StudentDashboardPage() {
@@ -50,40 +51,89 @@ export default function StudentDashboardPage() {
 
     setLoadingProjects(true);
     setFetchError(null);
+    
     try {
+      // Step 1: Fetch all assigned projects for the student
       const assignmentsRef = collection(firebaseDbService, 'assignedProjects');
-      const q = query(assignmentsRef, where('studentUid', '==', user.uid));
-      const querySnapshot = await getDocs(q);
+      const assignmentQuery = query(assignmentsRef, where('studentUid', '==', user.uid));
+      const assignmentSnapshot = await getDocs(assignmentQuery);
 
+      if (assignmentSnapshot.empty) {
+        setAssignedProjects([]);
+        setLoadingProjects(false);
+        return;
+      }
+
+      // Step 2: Extract unique project IDs
+      const assignmentData = assignmentSnapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      }));
+      
+      const projectIds = [...new Set(assignmentData.map(assignment => assignment.projectId))];
+      
+      if (projectIds.length === 0) {
+        setAssignedProjects([]);
+        setLoadingProjects(false);
+        return;
+      }
+
+      // Step 3: Batch fetch all project details
+      // Firestore 'in' queries are limited to 10 items, so we need to chunk if necessary
+      const chunkSize = 10;
+      const projectChunks: string[][] = [];
+      
+      for (let i = 0; i < projectIds.length; i += chunkSize) {
+        projectChunks.push(projectIds.slice(i, i + chunkSize));
+      }
+
+      const allProjects: { [key: string]: any } = {};
+      
+      // Fetch projects in batches
+      for (const chunk of projectChunks) {
+        const projectsRef = collection(firebaseDbService, 'projects');
+        const projectQuery = query(projectsRef, where(documentId(), 'in', chunk));
+        const projectSnapshot = await getDocs(projectQuery);
+        
+        projectSnapshot.docs.forEach(doc => {
+          allProjects[doc.id] = { id: doc.id, ...doc.data() };
+        });
+      }
+
+      // Step 4: Combine assignment data with project details
       const fetchedAssignedProjects: AssignedProjectWithDetails[] = [];
-
-      for (const assignedDoc of querySnapshot.docs) {
-        const assignedData = assignedDoc.data();
-        const projectId = assignedData.projectId;
-
-        const projectRef = doc(firebaseDbService, 'projects', projectId);
-        const projectDoc = await getDoc(projectRef);
-
-        if (projectDoc.exists()) {
-          const projectData = projectDoc.data() as ProjectIdea;
+      
+      assignmentData.forEach(assignment => {
+        const projectData = allProjects[assignment.projectId];
+        
+        if (projectData) {
           fetchedAssignedProjects.push({
-            assignedProjectId: assignedDoc.id,
-            projectId: projectId,
-            studentUid: assignedData.studentUid,
-            studentName: assignedData.studentName || user.displayName || user.email || 'N/A',
-            teacherUid: assignedData.teacherUid,
-            assignedAt: assignedData.assignedAt as Timestamp,
-            status: assignedData.status,
+            assignedProjectId: assignment.id,
+            projectId: assignment.projectId,
+            studentUid: assignment.studentUid,
+            studentName: assignment.studentName || user.displayName || user.email || 'N/A',
+            teacherUid: assignment.teacherUid,
+            assignedAt: assignment.assignedAt as Timestamp,
+            status: assignment.status,
             title: projectData.title,
             description: projectData.description,
             difficulty: projectData.difficulty,
             duration: projectData.duration,
             tasks: projectData.tasks || [],
+            resources: projectData.resources || {}
           });
         } else {
-          console.warn(`Project document with ID ${projectId} not found for student ${user.uid}. Skipping this assignment.`);
+          console.warn(`Project document with ID ${assignment.projectId} not found for student ${user.uid}. Skipping this assignment.`);
         }
-      }
+      });
+      
+      // Sort by assignment date (newest first)
+      fetchedAssignedProjects.sort((a, b) => {
+        const dateA = a.assignedAt?.toDate?.() || new Date(0);
+        const dateB = b.assignedAt?.toDate?.() || new Date(0);
+        return dateB.getTime() - dateA.getTime();
+      });
+
       setAssignedProjects(fetchedAssignedProjects);
     } catch (error) {
       console.error("Error fetching assigned projects for student:", error);
@@ -197,6 +247,9 @@ export default function StudentDashboardPage() {
         </div>
         
         <div className="space-y-4">
+          <h1 className="heading-1 bg-gradient-to-r from-blueberry-600 to-blueberry-700 bg-clip-text text-transparent dark:from-blueberry-400 dark:to-blueberry-500">
+            Student Dashboard
+          </h1>
           <p className="heading-3 text-neutral-600 dark:text-neutral-400 max-w-3xl mx-auto font-normal leading-relaxed">
             Welcome back, {user.displayName || user.email || 'Student'}! Here are your assigned projects and learning opportunities.
           </p>
@@ -275,7 +328,7 @@ export default function StudentDashboardPage() {
           />
         ) : fetchError ? (
           <Card variant="ghost" className="text-center py-16">
-            <CardContent>
+            <CardContent size="xl">
               <div className="w-24 h-24 bg-error-100 dark:bg-error-900 rounded-2xl flex items-center justify-center mx-auto mb-6">
                 <AlertTriangle size={48} className="text-error-600 dark:text-error-400" />
               </div>
@@ -294,7 +347,7 @@ export default function StudentDashboardPage() {
           </Card>
         ) : assignedProjects.length === 0 ? (
           <Card variant="ghost" className="text-center py-16">
-            <CardContent>
+            <CardContent size="xl">
               <div className="w-24 h-24 bg-neutral-100 dark:bg-neutral-800 rounded-2xl flex items-center justify-center mx-auto mb-6">
                 <BookOpen size={48} className="text-neutral-400 dark:text-neutral-500" />
               </div>
@@ -322,7 +375,7 @@ export default function StudentDashboardPage() {
                   <CardHeader>
                     <div className="flex items-start justify-between gap-3">
                       <div className="flex-1">
-                        <CardTitle size="default" className="text-neutral-900 dark:text-neutral-100 group-hover:text-blueberry-700 dark:group-hover:text-blueberry-300 transition-colors line-clamp-2">
+                        <CardTitle size="lg" className="text-neutral-900 dark:text-neutral-100 group-hover:text-blueberry-700 dark:group-hover:text-blueberry-300 transition-colors line-clamp-2">
                           {project.title}
                         </CardTitle>
                         <div className="flex items-center gap-2 mt-2 text-neutral-500 dark:text-neutral-400">
@@ -357,16 +410,25 @@ export default function StudentDashboardPage() {
                       {project.description}
                     </p>
                     
-                    {project.tasks && project.tasks.length > 0 && (
-                      <div className="mt-4 pt-3 border-t border-neutral-200 dark:border-neutral-700">
+                    <div className="mt-4 space-y-2">
+                      {project.tasks && project.tasks.length > 0 && (
                         <div className="flex items-center gap-2">
                           <Target size={14} className="text-blueberry-600 dark:text-blueberry-400" />
                           <span className="body-text text-neutral-700 dark:text-neutral-300 font-medium text-sm">
                             {project.tasks.length} Task{project.tasks.length !== 1 ? 's' : ''} Available
                           </span>
                         </div>
-                      </div>
-                    )}
+                      )}
+                      
+                      {project.resources?.papers && project.resources.papers.length > 0 && (
+                        <div className="flex items-center gap-2">
+                          <BookOpen size={14} className="text-warning-600 dark:text-warning-400" />
+                          <span className="body-text text-neutral-700 dark:text-neutral-300 font-medium text-sm">
+                            {project.resources.papers.length} Research Paper{project.resources.papers.length !== 1 ? 's' : ''} Available
+                          </span>
+                        </div>
+                      )}
+                    </div>
                   </CardContent>
                 </Card>
               );
@@ -374,6 +436,36 @@ export default function StudentDashboardPage() {
           </div>
         )}
       </div>
+
+      {/* Help Section */}
+      {assignedProjects.length > 0 && (
+        <Card variant="gradient" className="mt-8">
+          <CardContent className='pt-6'>
+            <div className="flex items-start gap-4">
+              <div className="w-12 h-12 bg-blueberry-100 dark:bg-blueberry-900 rounded-xl flex items-center justify-center">
+                <GraduationCap size={24} className="text-blueberry-600 dark:text-blueberry-400" />
+              </div>
+              <div className="flex-1">
+                <h3 className="subtitle text-blueberry-800 dark:text-blueberry-200 mb-2">Learning Tips</h3>
+                <div className="grid md:grid-cols-3 gap-4 body-text text-blueberry-700 dark:text-blueberry-300">
+                  <div className="space-y-1">
+                    <p className="overline text-blueberry-900 dark:text-blueberry-100">Stay Organized</p>
+                    <p>Click on projects to view detailed tasks and requirements</p>
+                  </div>
+                  <div className="space-y-1">
+                    <p className="overline text-blueberry-900 dark:text-blueberry-100">Track Progress</p>
+                    <p>Monitor your completion status and upcoming deadlines</p>
+                  </div>
+                  <div className="space-y-1">
+                    <p className="overline text-blueberry-900 dark:text-blueberry-100">Ask Questions</p>
+                    <p>Reach out to your instructor if you need help or clarification</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 }

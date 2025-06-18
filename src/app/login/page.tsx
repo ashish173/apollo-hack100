@@ -24,20 +24,20 @@ import { Badge } from '@/components/ui/badge';
 import { LoadingSpinner } from '@/components/ui/loading-spinner';
 import { Separator } from '@/components/ui/separator';
 
-// Enhanced Apollo Logo Component
+// Apollo Logo Component (matching landing page)
 const ApolloLogo = ({ size = "default" }: { size?: "sm" | "default" | "lg" }) => {
   const sizes = {
-    sm: { container: "w-8 h-8", icon: "w-20 h-20" },
-    default: { container: "w-12 h-12", icon: "w-24 h-24" },
-    lg: { container: "w-16 h-16", icon: "w-32 h-32" }
+    sm: { container: "w-8 h-8", icon: "20" },
+    default: { container: "w-12 h-12", icon: "24" },
+    lg: { container: "w-16 h-16", icon: "32" }
   };
 
   return (
     <div className="flex items-center gap-3">
       <div className={`${sizes[size].container} bg-gradient-to-br from-blueberry-500 to-blueberry-600 rounded-xl flex items-center justify-center shadow-lg`}>
         <svg 
-          width={sizes[size].icon.split(' ')[0].replace('w-', '')} 
-          height={sizes[size].icon.split(' ')[1].replace('h-', '')} 
+          width={sizes[size].icon} 
+          height={sizes[size].icon} 
           viewBox="0 0 100 100" 
           xmlns="http://www.w3.org/2000/svg" 
           className="text-white"
@@ -49,7 +49,7 @@ const ApolloLogo = ({ size = "default" }: { size?: "sm" | "default" | "lg" }) =>
       {size !== "sm" && (
         <div>
           <h1 className={size === "lg" ? "heading-1" : "heading-2"}>
-            <span className="bg-gradient-to-r from-blueberry-600 to-blueberry-700 bg-clip-text text-transparent">
+            <span className="bg-gradient-to-r from-blueberry-600 to-blueberry-700 bg-clip-text text-transparent font-bold">
               Apollo
             </span>
           </h1>
@@ -62,34 +62,17 @@ const ApolloLogo = ({ size = "default" }: { size?: "sm" | "default" | "lg" }) =>
   );
 };
 
-// Enhanced Top Navigation
+// Enhanced Top Navigation (matching landing page)
 const TopNavigation = () => (
-  <Card variant="ghost" className="fixed top-0 left-0 right-0 z-50 border-0 bg-white/80 dark:bg-neutral-900/80 backdrop-blur-md shadow-sm">
-    <CardContent className="p-4">
-      <div className="max-w-7xl mx-auto flex items-center justify-between">
+  <nav className="fixed top-0 left-0 right-0 z-50 bg-white/95 backdrop-blur-md border-b border-neutral-200 shadow-sm">
+    <div className="max-w-6xl mx-auto px-6 py-4">
+      <div className="flex items-center justify-between">
         <Link href="/" className="group">
-          <div className="flex items-center gap-3 group-hover:scale-105 transition-transform duration-200">
-            <ApolloLogo size="sm" />
-            <div>
-              <span className="heading-3 bg-gradient-to-r from-blueberry-600 to-blueberry-700 bg-clip-text text-transparent">
-                Apollo
-              </span>
-            </div>
-          </div>
+          <ApolloLogo size="default" />
         </Link>
-        
-        <div className="flex items-center gap-4">
-          <Button variant="ghost" size="sm" asChild>
-            <Link href="/about">About</Link>
-          </Button>
-          <Button variant="default" size="sm" className="shadow-button">
-            Get Started
-            <ArrowRight className="w-4 h-4 ml-2" />
-          </Button>
-        </div>
       </div>
-    </CardContent>
-  </Card>
+    </div>
+  </nav>
 );
 
 // Role Selection Cards
@@ -127,143 +110,139 @@ const RoleCard = ({
   const config = roleConfig[role];
 
   return (
-    <Card 
-      variant={isSelected ? "feature" : "default"}
-      className={`cursor-pointer transition-all duration-300 hover:shadow-lg hover:-translate-y-1 ${
-        isSelected ? 'ring-2 ring-blueberry-500 dark:ring-blueberry-400' : ''
+    <div 
+      className={`bg-white rounded-2xl p-8 cursor-pointer transition-all duration-300 hover:shadow-xl hover:-translate-y-1 border-2 ${
+        isSelected 
+          ? 'border-blueberry-500 shadow-xl ring-2 ring-blueberry-200' 
+          : 'border-neutral-200 shadow-lg hover:border-blueberry-300'
       }`}
       onClick={() => onSelect(role)}
     >
-      <CardHeader className="text-center pb-4">
+      <div className="text-center mb-6">
         <div className={`mx-auto mb-4 w-16 h-16 rounded-2xl flex items-center justify-center ${
           isTeacher 
-            ? 'bg-gradient-to-br from-blueberry-500 to-blueberry-600' 
-            : 'bg-gradient-to-br from-success-500 to-success-600'
+            ? 'bg-gradient-to-br from-blueberry-500 via-blueberry-600 to-blueberry-700' 
+            : 'bg-gradient-to-br from-success-500 via-success-600 to-success-700'
         } shadow-lg`}>
           <div className="text-white">
             {config.icon}
           </div>
         </div>
         
-        <div className="flex items-center justify-center gap-2 mb-2">
+        <div className="flex items-center justify-center gap-3 mb-3">
           <RadioGroupItem value={role} id={`role-${role}`} className="sr-only" />
-          <CardTitle size="default">{config.title}</CardTitle>
-          <Badge 
-            variant={isTeacher ? "default" : "success"} 
-            size="sm"
-          >
+          <h3 className="heading-3 text-neutral-900 font-semibold">{config.title}</h3>
+          <span className={`px-3 py-1 rounded-full text-xs font-semibold ${
+            isTeacher 
+              ? 'bg-blueberry-100 text-blueberry-700' 
+              : 'bg-success-100 text-success-700'
+          }`}>
             {config.badge}
-          </Badge>
+          </span>
         </div>
         
-        <p className="body-text text-neutral-600 dark:text-neutral-400">
+        <p className="body-text text-neutral-600 leading-relaxed">
           {config.description}
         </p>
-      </CardHeader>
+      </div>
       
-      <CardContent className="pt-0">
-        <div className="space-y-2">
-          {config.features.map((feature, index) => (
-            <div key={index} className="flex items-center gap-2">
-              <div className={`w-1.5 h-1.5 rounded-full ${
-                isTeacher ? 'bg-blueberry-500' : 'bg-success-500'
-              }`} />
-              <span className="body-text text-neutral-700 dark:text-neutral-300 text-sm">
-                {feature}
-              </span>
-            </div>
-          ))}
-        </div>
-      </CardContent>
-    </Card>
+      <div className="space-y-3">
+        {config.features.map((feature, index) => (
+          <div key={index} className="flex items-center gap-3">
+            <div className={`w-2 h-2 rounded-full ${
+              isTeacher ? 'bg-blueberry-500' : 'bg-success-500'
+            }`} />
+            <span className="body-text text-neutral-700 font-medium">
+              {feature}
+            </span>
+          </div>
+        ))}
+      </div>
+    </div>
   );
 };
 
 // Error Alert Component
 const ErrorAlert = ({ error, variant = "error" }: { error: string; variant?: "error" | "warning" }) => (
-  <Card variant={variant === "error" ? "default" : "default"} className={`border-2 ${
+  <div className={`rounded-2xl p-6 border-2 shadow-lg ${
     variant === "error" 
-      ? 'border-error-300 bg-error-50 dark:border-error-700 dark:bg-error-950' 
-      : 'border-warning-300 bg-warning-50 dark:border-warning-700 dark:bg-warning-950'
+      ? 'border-error-400 bg-error-50 text-error-800' 
+      : 'border-warning-400 bg-warning-50 text-warning-800'
   }`}>
-    <CardContent className="p-4">
-      <p className={`body-text text-center ${
-        variant === "error" 
-          ? 'text-error-700 dark:text-error-300' 
-          : 'text-warning-700 dark:text-warning-300'
-      }`}>
-        {error}
-      </p>
-    </CardContent>
-  </Card>
+    <p className="body-text text-center font-medium">
+      {error}
+    </p>
+  </div>
 );
 
 // Loading Component
 const LoginLoading = () => (
-  <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-neutral-50 to-blueberry-50 dark:from-neutral-900 dark:to-blueberry-950">
-    <Card variant="feature" size="lg" className="text-center shadow-2xl">
-      <CardHeader>
-        <ApolloLogo size="lg" />
-        <CardTitle gradient size="lg" className="mt-4">
-          Welcome to Apollo
-        </CardTitle>
-      </CardHeader>
-      <CardContent>
-        <LoadingSpinner 
-          size="lg" 
-          variant="primary" 
-          showLabel={true}
-          label="Signing you in"
-          description="Please wait while we authenticate your account..."
-        />
-      </CardContent>
-    </Card>
+  <div className="min-h-screen bg-gradient-to-br from-blueberry-400 via-blueberry-500 to-blueberry-700">
+    <div className="pt-20">
+      <div className="max-w-2xl mx-auto px-6 py-20">
+        <div className="bg-white backdrop-blur-xl rounded-3xl p-12 shadow-2xl border border-white/30 text-center">
+          <div className="mb-8">
+            <ApolloLogo size="lg" />
+          </div>
+          <h1 className="heading-2 bg-gradient-to-r from-blueberry-600 via-blueberry-700 to-blueberry-800 bg-clip-text text-transparent mb-6">
+            Welcome to Apollo
+          </h1>
+          <LoadingSpinner 
+            size="lg" 
+            variant="primary" 
+            showLabel={true}
+            label="Signing you in"
+            description="Please wait while we authenticate your account..."
+          />
+        </div>
+      </div>
+    </div>
   </div>
 );
 
 // Features Showcase
 const FeaturesShowcase = () => (
-  <Card variant="gradient" className="mt-8">
-    <CardHeader className="text-center">
-      <div className="flex items-center justify-center gap-2 mb-2">
-        <Sparkles className="w-5 h-5 text-blueberry-600 dark:text-blueberry-400" />
-        <CardTitle size="default">Why Choose Apollo?</CardTitle>
+  <div className="bg-white rounded-3xl p-8 shadow-xl border border-neutral-200 mt-8">
+    <div className="text-center mb-8">
+      <div className="flex items-center justify-center gap-2 mb-4">
+        <Sparkles className="w-6 h-6 text-blueberry-600" />
+        <h3 className="heading-3 bg-gradient-to-r from-blueberry-600 to-blueberry-700 bg-clip-text text-transparent">
+          Why Choose Apollo?
+        </h3>
       </div>
-    </CardHeader>
-    <CardContent>
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        {[
-          {
-            icon: <BookOpen className="w-6 h-6" />,
-            title: 'Smart Learning',
-            description: 'AI-powered curriculum suggestions and personalized learning paths'
-          },
-          {
-            icon: <Users className="w-6 h-6" />,
-            title: 'Collaborative',
-            description: 'Connect teachers and students in meaningful educational experiences'
-          },
-          {
-            icon: <Trophy className="w-6 h-6" />,
-            title: 'Achievement Focused',
-            description: 'Track progress and celebrate milestones with comprehensive analytics'
-          }
-        ].map((feature, index) => (
-          <div key={index} className="text-center space-y-2">
-            <div className="w-12 h-12 bg-blueberry-100 dark:bg-blueberry-950 rounded-xl flex items-center justify-center mx-auto text-blueberry-600 dark:text-blueberry-400">
-              {feature.icon}
-            </div>
-            <h4 className="subtitle text-neutral-900 dark:text-neutral-100">
-              {feature.title}
-            </h4>
-            <p className="body-text text-neutral-600 dark:text-neutral-400 text-sm">
-              {feature.description}
-            </p>
+    </div>
+    <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+      {[
+        {
+          icon: <BookOpen className="w-6 h-6" />,
+          title: 'Smart Learning',
+          description: 'AI-powered curriculum suggestions and personalized learning paths'
+        },
+        {
+          icon: <Users className="w-6 h-6" />,
+          title: 'Collaborative',
+          description: 'Connect teachers and students in meaningful educational experiences'
+        },
+        {
+          icon: <Trophy className="w-6 h-6" />,
+          title: 'Achievement Focused',
+          description: 'Track progress and celebrate milestones with comprehensive analytics'
+        }
+      ].map((feature, index) => (
+        <div key={index} className="text-center space-y-4">
+          <div className="w-16 h-16 bg-gradient-to-br from-blueberry-100 to-blueberry-200 rounded-2xl flex items-center justify-center mx-auto text-blueberry-600 shadow-lg">
+            {feature.icon}
           </div>
-        ))}
-      </div>
-    </CardContent>
-  </Card>
+          <h4 className="heading-3 text-neutral-900">
+            {feature.title}
+          </h4>
+          <p className="body-text text-neutral-700">
+            {feature.description}
+          </p>
+        </div>
+      ))}
+    </div>
+  </div>
 );
 
 // Main Login Page Component
@@ -303,25 +282,29 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-neutral-50 via-white to-blueberry-50 dark:from-neutral-900 dark:via-neutral-900 dark:to-blueberry-950">
+    <div className="min-h-screen bg-gradient-to-br from-blueberry-400 via-blueberry-500 to-blueberry-700">
       <TopNavigation />
       
-      <div className="pt-24 pb-12 px-6">
-        <div className="max-w-4xl mx-auto">
-          {/* Login Card */}
-          <Card variant="elevated" size="lg" className="max-w-3xl mx-auto shadow-2xl">
-            <CardHeader className="text-center">
-              <CardTitle size="lg" className="mb-2">Choose Your Role</CardTitle>
-              <p className="body-text text-neutral-600 dark:text-neutral-400">
-                Select how you'll be using Apollo to get started with the right experience
+      <div className="pt-20">
+        <div className="max-w-6xl mx-auto px-6 py-20">
+          {/* Main Login Card */}
+          <div className="bg-white rounded-3xl p-12 shadow-2xl border border-neutral-200">
+            {/* Header */}
+            <div className="text-center mb-12">
+              <h1 className="heading-1 bg-gradient-to-r from-blueberry-600 via-blueberry-700 to-blueberry-800 bg-clip-text text-transparent mb-6 font-light">
+                Choose Your Role
+              </h1>
+              <p className="subtitle text-neutral-700 max-w-2xl mx-auto">
+                Select how you'll be using Apollo to get started with the right experience for your educational journey
               </p>
-            </CardHeader>
+            </div>
             
-            <CardContent className="space-y-6">
+            {/* Role Selection */}
+            <div className="space-y-8">
               <RadioGroup
                 value={selectedRole}
                 onValueChange={(value: UserRole) => setSelectedRole(value)}
-                className="grid grid-cols-1 md:grid-cols-2 gap-6"
+                className="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-4xl mx-auto"
               >
                 <RoleCard 
                   role="teacher" 
@@ -337,23 +320,35 @@ export default function LoginPage() {
 
               {/* Error Messages */}
               {authError && (
-                <ErrorAlert error={authError} variant="error" />
+                <div className="max-w-2xl mx-auto">
+                  <ErrorAlert error={authError} variant="error" />
+                </div>
               )}
 
               {roleMismatchError && (
-                <ErrorAlert error={roleMismatchError} variant="warning" />
+                <div className="max-w-2xl mx-auto">
+                  <ErrorAlert error={roleMismatchError} variant="warning" />
+                </div>
               )}
 
-              <Separator />
+              {/* Separator */}
+              <div className="max-w-2xl mx-auto">
+                <div className="relative">
+                  <div className="absolute inset-0 flex items-center">
+                    <span className="w-full border-t border-neutral-300" />
+                  </div>
+                  <div className="relative flex justify-center text-sm">
+                    <span className="bg-white px-6 py-2 text-neutral-600 font-medium">Continue with</span>
+                  </div>
+                </div>
+              </div>
 
               {/* Sign In Button */}
-              <div className="space-y-4">
+              <div className="space-y-6 max-w-2xl mx-auto">
                 <Button 
                   onClick={handleSignIn} 
                   disabled={authLoading}
-                  variant="primary"
-                  size="lg"
-                  className="w-full shadow-button hover:shadow-button-hover"
+                  className="w-full h-14 bg-gradient-to-r from-blueberry-500 via-blueberry-600 to-blueberry-700 hover:from-blueberry-600 hover:via-blueberry-700 hover:to-blueberry-800 text-white font-semibold transition-all duration-300 shadow-xl hover:shadow-2xl transform hover:-translate-y-0.5 rounded-xl"
                   loading={authLoading}
                   loadingText="Signing you in..."
                 >
@@ -362,12 +357,12 @@ export default function LoginPage() {
                   <ArrowRight className="w-5 h-5 ml-3" />
                 </Button>
                 
-                <p className="body-text text-neutral-500 dark:text-neutral-400 text-center text-sm">
+                <p className="body-text text-neutral-600 text-center">
                   By continuing, you agree to Apollo's Terms of Service and Privacy Policy
                 </p>
               </div>
-            </CardContent>
-          </Card>
+            </div>
+          </div>
 
           {/* Features Showcase */}
           <FeaturesShowcase />
