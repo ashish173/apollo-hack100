@@ -1,24 +1,25 @@
-// teacher/dashboard/page.tsx
-"use client";
+'use client'
 
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useAuth } from '@/context/auth-context';
-import { collection, query, where, getDocs, doc, getDoc, Timestamp, orderBy, limit, documentId } from 'firebase/firestore';
+import { collection, query, where, getDocs, Timestamp, orderBy } from 'firebase/firestore';
 import { db as firebaseDbService } from '@/lib/firebase';
 import { 
   BookOpen, 
-  UserRound, 
   Lightbulb, 
   TrendingUp,
-  TrendingDown,
   Clock,
-  Star,
   Filter,
   BarChart3,
   Users,
   CheckCircle,
   AlertTriangle,
-  Sparkles
+  Sparkles,
+  Target,
+  Calendar,
+  Award,
+  Plus,
+  Search
 } from 'lucide-react';
 
 // Apollo Design System Components
@@ -26,85 +27,86 @@ import { LoadingSpinner } from '@/components/ui/loading-spinner';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Separator } from '@/components/ui/separator';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
-import TeacherAssignedProjectDetail from '@/components/teacher/teacher-assigned-project-detail';
-import { ProjectIdea, SavedProjectTask } from './student-mentor/idea-detail';
+import { SavedProjectTask } from './student-mentor/idea-detail';
 import { cn } from '@/lib/utils';
-import { ProjectReport } from '@/types';
-import { generateAIReview, AIReviewResult } from '@/services/aiReviewService';
-import { updateAssignedProjectAIReview } from '@/services/firestoreService';
+import ProjectDetailView from './project-detail-view';
 
-// Define an interface that combines data from 'assignedProjects' and 'projects' collections
-interface AssignedProjectWithDetails {
-  assignedProjectId: string;
-  projectId: string;
-  studentUid: string;
-  studentName: string;
-  teacherUid: string;
-  assignedAt: Timestamp;
+// Project Template Interface
+interface ProjectTemplate {
+  id: string;
   title: string;
   description: string;
   difficulty: string;
   duration: string;
-  tasks?: SavedProjectTask[];
-  latestReport?: ProjectReport | null;
-  aiReview?: AIReviewResult | null;
+  teacherId: string;
+  createdAt: Timestamp;
+  tasks: SavedProjectTask[];
+  // Assignment statistics
+  totalAssignments?: number;
+  activeAssignments?: number;
+  completedAssignments?: number;
 }
 
 // Enhanced Dashboard Header Component
 const DashboardHeader = ({ 
   totalProjects, 
-  onTrackCount, 
-  offTrackCount 
+  totalAssignments, 
+  activeAssignments 
 }: { 
   totalProjects: number;
-  onTrackCount: number;
-  offTrackCount: number;
+  totalAssignments: number;
+  activeAssignments: number;
 }) => (
   <Card variant="gradient" className="mb-8">
     <CardHeader className="text-center pb-6">
-      <div className="mx-auto mb-4 w-16 h-16 bg-gradient-to-br from-blueberry-500 to-blueberry-600 rounded-2xl flex items-center justify-center shadow-lg">
-        <BookOpen className="w-8 h-8 text-white" />
+      <div className="mx-auto mb-4 w-20 h-20 bg-gradient-to-br from-blueberry-500 to-blueberry-600 rounded-3xl flex items-center justify-center shadow-2xl">
+        <BookOpen className="w-10 h-10 text-white" />
       </div>
-      <CardTitle size="lg" gradient className="mb-2">
-        My Assigned Projects
+      <CardTitle size="xl" gradient className="mb-3">
+        My Project Templates
       </CardTitle>
-      <p className="body-text text-neutral-600 dark:text-neutral-400 max-w-2xl mx-auto">
-        Monitor student progress, review AI insights, and provide guidance for optimal learning outcomes
+      <p className="body-text text-neutral-600 dark:text-neutral-400 max-w-3xl mx-auto text-lg">
+        Manage your AI-generated project templates, track student assignments, and create new learning experiences
       </p>
     </CardHeader>
     
     <CardContent>
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <div className="text-center space-y-2">
-          <div className="w-12 h-12 bg-blueberry-100 dark:bg-blueberry-950 rounded-xl flex items-center justify-center mx-auto">
-            <BarChart3 className="w-6 h-6 text-blueberry-600 dark:text-blueberry-400" />
+        <div className="text-center space-y-3">
+          <div className="w-14 h-14 bg-blueberry-100 dark:bg-blueberry-950 rounded-2xl flex items-center justify-center mx-auto shadow-lg">
+            <Target className="w-7 h-7 text-blueberry-600 dark:text-blueberry-400" />
           </div>
           <div>
-            <p className="heading-2 text-neutral-900 dark:text-neutral-100">{totalProjects}</p>
-            <p className="body-text text-neutral-600 dark:text-neutral-400">Total Projects</p>
+            <p className="heading-1 text-blueberry-600 dark:text-blueberry-400">{totalProjects}</p>
+            <p className="subtitle text-neutral-700 dark:text-neutral-300">Project Templates</p>
+            <p className="body-text text-neutral-500 dark:text-neutral-400 text-sm">Created by you</p>
           </div>
         </div>
         
-        <div className="text-center space-y-2">
-          <div className="w-12 h-12 bg-success-100 dark:bg-success-950 rounded-xl flex items-center justify-center mx-auto">
-            <CheckCircle className="w-6 h-6 text-success-600 dark:text-success-400" />
+        <div className="text-center space-y-3">
+          <div className="w-14 h-14 bg-success-100 dark:bg-success-950 rounded-2xl flex items-center justify-center mx-auto shadow-lg">
+            <Users className="w-7 h-7 text-success-600 dark:text-success-400" />
           </div>
           <div>
-            <p className="heading-2 text-success-600 dark:text-success-400">{onTrackCount}</p>
-            <p className="body-text text-neutral-600 dark:text-neutral-400">On Track</p>
+            <p className="heading-1 text-success-600 dark:text-success-400">{totalAssignments}</p>
+            <p className="subtitle text-neutral-700 dark:text-neutral-300">Total Assignments</p>
+            <p className="body-text text-neutral-500 dark:text-neutral-400 text-sm">Across all projects</p>
           </div>
         </div>
         
-        <div className="text-center space-y-2">
-          <div className="w-12 h-12 bg-error-100 dark:bg-error-950 rounded-xl flex items-center justify-center mx-auto">
-            <AlertTriangle className="w-6 h-6 text-error-600 dark:text-error-400" />
+        <div className="text-center space-y-3">
+          <div className="w-14 h-14 bg-warning-100 dark:bg-warning-950 rounded-2xl flex items-center justify-center mx-auto shadow-lg">
+            <CheckCircle className="w-7 h-7 text-warning-600 dark:text-warning-400" />
           </div>
           <div>
-            <p className="heading-2 text-error-600 dark:text-error-400">{offTrackCount}</p>
-            <p className="body-text text-neutral-600 dark:text-neutral-400">Need Attention</p>
+            <p className="heading-1 text-warning-600 dark:text-warning-400">{activeAssignments}</p>
+            <p className="subtitle text-neutral-700 dark:text-neutral-300">Active Assignments</p>
+            <p className="body-text text-neutral-500 dark:text-neutral-400 text-sm">Currently in progress</p>
           </div>
         </div>
       </div>
@@ -112,194 +114,245 @@ const DashboardHeader = ({
   </Card>
 );
 
-// Enhanced Filter Component
-const ProjectFilter = ({ 
-  value, 
-  onChange 
+// Enhanced Filter and Search Component
+const ProjectControls = ({ 
+  searchTerm,
+  setSearchTerm,
+  sortFilter,
+  setSortFilter,
+  difficultyFilter,
+  setDifficultyFilter,
+  onCreateNew
 }: { 
-  value: string; 
-  onChange: (value: string) => void;
+  searchTerm: string;
+  setSearchTerm: (value: string) => void;
+  sortFilter: string;
+  setSortFilter: (value: string) => void;
+  difficultyFilter: string;
+  setDifficultyFilter: (value: string) => void;
+  onCreateNew: () => void;
 }) => (
-  <Card variant="outlined" className="mb-6">
-    <CardContent className="p-4">
-      <div className="flex items-center justify-between gap-4">
-        <div className="flex items-center gap-2">
-          <Filter className="w-4 h-4 text-blueberry-600 dark:text-blueberry-400" />
-          <span className="subtitle text-neutral-700 dark:text-neutral-300">Filter & Sort Projects</span>
+  <Card variant="elevated" className="mb-6 shadow-lg">
+    <CardContent className="p-6">
+      <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-6">
+        <div className="flex-1 w-full lg:w-auto">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            {/* Search */}
+            <Input
+              placeholder="Search project templates..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              leftIcon={<Search className="w-4 h-4" />}
+              size="lg"
+              className="md:col-span-1"
+            />
+            
+            {/* Sort Filter */}
+            <Select onValueChange={setSortFilter} value={sortFilter}>
+              <SelectTrigger size="lg">
+                <SelectValue placeholder="Sort by..." />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="newest">
+                  <div className="flex items-center gap-2">
+                    <Calendar className="w-4 h-4" />
+                    Newest First
+                  </div>
+                </SelectItem>
+                <SelectItem value="oldest">
+                  <div className="flex items-center gap-2">
+                    <Calendar className="w-4 h-4" />
+                    Oldest First
+                  </div>
+                </SelectItem>
+                <SelectItem value="most-assigned">
+                  <div className="flex items-center gap-2">
+                    <TrendingUp className="w-4 h-4" />
+                    Most Assigned
+                  </div>
+                </SelectItem>
+                <SelectItem value="alphabetical">
+                  <div className="flex items-center gap-2">
+                    <BarChart3 className="w-4 h-4" />
+                    Alphabetical
+                  </div>
+                </SelectItem>
+              </SelectContent>
+            </Select>
+            
+            {/* Difficulty Filter */}
+            <Select onValueChange={setDifficultyFilter} value={difficultyFilter}>
+              <SelectTrigger size="lg">
+                <SelectValue placeholder="All difficulties" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Difficulties</SelectItem>
+                <Separator />
+                <SelectItem value="Easy">
+                  <div className="flex items-center gap-2">
+                    <div className="w-3 h-3 bg-success-500 rounded-full"></div>
+                    Easy
+                  </div>
+                </SelectItem>
+                <SelectItem value="Medium">
+                  <div className="flex items-center gap-2">
+                    <div className="w-3 h-3 bg-warning-500 rounded-full"></div>
+                    Medium
+                  </div>
+                </SelectItem>
+                <SelectItem value="Difficult">
+                  <div className="flex items-center gap-2">
+                    <div className="w-3 h-3 bg-error-500 rounded-full"></div>
+                    Difficult
+                  </div>
+                </SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
         </div>
         
-        <Select onValueChange={onChange} value={value}>
-          <SelectTrigger className="w-64">
-            <SelectValue placeholder="Select filter option" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All Projects</SelectItem>
-            <Separator />
-            <SelectItem value="on-track">
-              <div className="flex items-center gap-2">
-                <CheckCircle className="w-4 h-4 text-success-600" />
-                Status: On Track
-              </div>
-            </SelectItem>
-            <SelectItem value="off-track">
-              <div className="flex items-center gap-2">
-                <AlertTriangle className="w-4 h-4 text-error-600" />
-                Status: Off Track
-              </div>
-            </SelectItem>
-            <Separator />
-            <SelectItem value="review-high">
-              <div className="flex items-center gap-2">
-                <TrendingUp className="w-4 h-4 text-success-600" />
-                Rating: High (6-10)
-              </div>
-            </SelectItem>
-            <SelectItem value="review-low">
-              <div className="flex items-center gap-2">
-                <TrendingDown className="w-4 h-4 text-error-600" />
-                Rating: Low (0-5)
-              </div>
-            </SelectItem>
-            <Separator />
-            <SelectItem value="ai-asc">Rating: Low to High</SelectItem>
-            <SelectItem value="ai-desc">Rating: High to Low</SelectItem>
-          </SelectContent>
-        </Select>
+        {/* Create New Button */}
+        <Button 
+          variant="default" 
+          size="xl"
+          onClick={onCreateNew}
+          className="bg-gradient-to-r from-blueberry-600 to-blueberry-700 hover:from-blueberry-700 hover:to-blueberry-800 shadow-button hover:shadow-button-hover w-full lg:w-auto"
+        >
+          <Plus className="w-5 h-5 mr-2" />
+          Create New Project
+        </Button>
       </div>
     </CardContent>
   </Card>
 );
 
-// Enhanced Project Card Component
-const ProjectCard = ({ 
+// Enhanced Project Template Card Component
+const ProjectTemplateCard = ({ 
   project, 
   onClick 
 }: { 
-  project: AssignedProjectWithDetails; 
+  project: ProjectTemplate; 
   onClick: () => void;
 }) => {
-  const getStatusVariant = (status?: string) => {
-    switch (status) {
-      case 'on-track': return 'success';
-      case 'off-track': return 'destructive';
-      default: return 'secondary';
-    }
-  };
-
-  const getRatingVariant = (rating: number) => {
-    if (rating >= 8) return 'success';
-    if (rating >= 6) return 'default';
-    if (rating >= 4) return 'warning';
-    return 'destructive';
-  };
-
-  const getDifficultyVariant = (difficulty: string) => {
+  const getDifficultyConfig = (difficulty: string) => {
     switch (difficulty.toLowerCase()) {
-      case 'easy': return 'success';
-      case 'medium': return 'warning';
-      case 'hard': return 'destructive';
-      default: return 'secondary';
+      case 'easy': 
+        return { variant: 'success' as const, icon: '🟢', color: 'text-success-700' };
+      case 'medium': 
+        return { variant: 'warning' as const, icon: '🟡', color: 'text-warning-700' };
+      case 'difficult': 
+        return { variant: 'destructive' as const, icon: '🔴', color: 'text-error-700' };
+      default: 
+        return { variant: 'secondary' as const, icon: '⚪', color: 'text-neutral-700' };
     }
   };
+
+  const difficultyConfig = getDifficultyConfig(project.difficulty);
+  const totalTasks = project.tasks?.length || 0;
+  const totalHints = project.tasks?.reduce((total, task) => total + (task.hints?.length || 0), 0) || 0;
 
   return (
     <Card 
       variant="interactive"
-      className="group cursor-pointer h-full flex flex-col hover:shadow-2xl transition-all duration-300"
+      className="group cursor-pointer h-full flex flex-col hover:shadow-2xl hover:-translate-y-1 transition-all duration-300 border-2 hover:border-blueberry-300 dark:hover:border-blueberry-600"
       onClick={onClick}
     >
       <CardHeader className="pb-4">
-        <div className="flex items-start justify-between gap-2 mb-3">
-          <CardTitle className="heading-3 text-neutral-900 dark:text-neutral-100 line-clamp-2 group-hover:text-blueberry-600 dark:group-hover:text-blueberry-400 transition-colors">
+        <div className="flex items-start justify-between gap-3 mb-3">
+          <CardTitle className="heading-3 text-neutral-900 dark:text-neutral-100 line-clamp-2 group-hover:text-blueberry-600 dark:group-hover:text-blueberry-400 transition-colors flex-1">
             {project.title}
           </CardTitle>
-          {project.aiReview?.rating !== undefined && (
-            <Badge variant={getRatingVariant(project.aiReview.rating)} size="sm" className="flex-shrink-0">
-              <Star className="w-3 h-3 mr-1" />
-              {project.aiReview.rating}/10
-            </Badge>
-          )}
+          <div className="w-12 h-12 bg-gradient-to-br from-blueberry-100 to-blueberry-200 dark:from-blueberry-950 dark:to-blueberry-900 rounded-xl flex items-center justify-center flex-shrink-0 group-hover:from-blueberry-500 group-hover:to-blueberry-600 transition-all duration-300 shadow-lg">
+            <Lightbulb className="w-6 h-6 text-blueberry-600 dark:text-blueberry-400 group-hover:text-white transition-colors" />
+          </div>
         </div>
         
-        <div className="flex items-center gap-2 mb-3">
-          <UserRound className="w-4 h-4 text-neutral-500 dark:text-neutral-400" />
-          <span className="body-text text-neutral-700 dark:text-neutral-300">
-            {project.studentName}
-          </span>
-        </div>
-        
-        <div className="flex flex-wrap gap-2">
-          <Badge variant={getDifficultyVariant(project.difficulty)} size="sm">
-            {project.difficulty}
+        <div className="flex flex-wrap gap-2 mb-3">
+          <Badge variant={difficultyConfig.variant} size="default" className="font-semibold">
+            {difficultyConfig.icon} {project.difficulty}
           </Badge>
-          <Badge variant="outline" size="sm">
+          <Badge variant="outline" size="default">
             <Clock className="w-3 h-3 mr-1" />
             {project.duration}
           </Badge>
-          {project.aiReview?.studentProjectStatus && (
-            <Badge variant={getStatusVariant(project.aiReview.studentProjectStatus)} size="sm">
-              {project.aiReview.studentProjectStatus === 'on-track' ? (
-                <CheckCircle className="w-3 h-3 mr-1" />
-              ) : (
-                <AlertTriangle className="w-3 h-3 mr-1" />
-              )}
-              {project.aiReview.studentProjectStatus.replace('-', ' ')}
-            </Badge>
-          )}
+          <Badge variant="soft-primary" size="default">
+            <Target className="w-3 h-3 mr-1" />
+            {totalTasks} tasks
+          </Badge>
         </div>
+
+        {/* Assignment Statistics */}
+        {(project.totalAssignments || 0) > 0 && (
+          <div className="flex items-center gap-2 p-2 bg-success-25 dark:bg-success-950 rounded-lg border border-success-200 dark:border-success-800">
+            <Users className="w-4 h-4 text-success-600 dark:text-success-400" />
+            <span className="body-text text-success-700 dark:text-success-300 text-sm font-medium">
+              Assigned to {project.totalAssignments} student{project.totalAssignments !== 1 ? 's' : ''}
+            </span>
+          </div>
+        )}
       </CardHeader>
       
       <CardContent className="pt-0 flex-1 flex flex-col">
-        <p className="body-text text-neutral-600 dark:text-neutral-400 line-clamp-2 mb-4 flex-1">
+        <p className="body-text text-neutral-600 dark:text-neutral-400 line-clamp-3 mb-4 flex-1 leading-relaxed">
           {project.description}
         </p>
+
+        {/* Project Statistics */}
+        <div className="grid grid-cols-2 gap-3 mb-4">
+          <div className="text-center p-3 bg-blueberry-25 dark:bg-blueberry-950 rounded-lg">
+            <p className="heading-3 text-blueberry-600 dark:text-blueberry-400">{totalTasks}</p>
+            <p className="body-text text-blueberry-700 dark:text-blueberry-300 text-xs font-medium">Tasks</p>
+          </div>
+          <div className="text-center p-3 bg-success-25 dark:bg-success-950 rounded-lg">
+            <p className="heading-3 text-success-600 dark:text-success-400">{totalHints}</p>
+            <p className="body-text text-success-700 dark:text-success-300 text-xs font-medium">AI Hints</p>
+          </div>
+        </div>
         
-        {project.aiReview && (
-          <Card variant="feature" size="sm" className="mt-auto">
-            <CardContent className="p-3">
-              <div className="flex items-start gap-3">
-                <div className="w-8 h-8 bg-gradient-to-br from-blueberry-500 to-blueberry-600 rounded-lg flex items-center justify-center flex-shrink-0">
-                  <Sparkles className="w-4 h-4 text-white" />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 mb-1">
-                    <span className="subtitle text-blueberry-900 dark:text-blueberry-100">
-                      AI Insights
-                    </span>
-                  </div>
-                  <p className="body-text text-blueberry-800 dark:text-blueberry-200 text-sm line-clamp-2">
-                    {project.aiReview.note}
-                  </p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        )}
+        <div className="space-y-2 pt-2 border-t border-neutral-200 dark:border-neutral-700">
+          <Button 
+            variant="outline" 
+            size="lg"
+            className="w-full group-hover:border-blueberry-400 group-hover:text-blueberry-600 group-hover:bg-blueberry-50 dark:group-hover:bg-blueberry-950 transition-all duration-200"
+            onClick={(e) => {
+              e.stopPropagation();
+              onClick();
+            }}
+          >
+            <Sparkles className="w-4 h-4 mr-2" />
+            Manage & Assign
+          </Button>
+        </div>
       </CardContent>
     </Card>
   );
 };
 
 // Empty State Component
-const EmptyState = ({ hasFilter }: { hasFilter: boolean }) => (
-  <Card variant="ghost" className="text-center py-12">
+const EmptyState = ({ hasFilter, onCreateNew }: { hasFilter: boolean; onCreateNew: () => void; }) => (
+  <Card variant="ghost" className="text-center py-16">
     <CardContent>
-      <div className="mx-auto mb-6 w-20 h-20 bg-neutral-100 dark:bg-neutral-800 rounded-2xl flex items-center justify-center">
-        <BookOpen className="w-10 h-10 text-neutral-400" />
+      <div className="mx-auto mb-8 w-24 h-24 bg-gradient-to-br from-neutral-100 to-neutral-200 dark:from-neutral-800 dark:to-neutral-700 rounded-3xl flex items-center justify-center shadow-lg">
+        <BookOpen className="w-12 h-12 text-neutral-400" />
       </div>
-      <CardTitle size="default" className="mb-2">
-        {hasFilter ? 'No projects match your filter' : 'No projects assigned yet'}
+      <CardTitle size="lg" className="mb-3">
+        {hasFilter ? 'No projects match your search' : 'No project templates yet'}
       </CardTitle>
-      <p className="body-text text-neutral-600 dark:text-neutral-400 mb-6 max-w-md mx-auto">
+      <p className="body-text text-neutral-600 dark:text-neutral-400 mb-8 max-w-lg mx-auto text-lg leading-relaxed">
         {hasFilter 
-          ? 'Try adjusting your filter settings to see more projects.'
-          : 'Start by visiting the Student Mentor section to assign your first project to a student.'
+          ? 'Try adjusting your search terms or filters to find the projects you\'re looking for.'
+          : 'Start creating AI-powered project templates that you can assign to multiple students and reuse across different classes.'
         }
       </p>
       {!hasFilter && (
-        <Button variant="default" className="shadow-button">
-          <Users className="w-4 h-4 mr-2" />
-          Go to Student Mentor
+        <Button 
+          variant="default" 
+          size="xl"
+          onClick={onCreateNew}
+          className="shadow-button hover:shadow-button-hover bg-gradient-to-r from-blueberry-600 to-blueberry-700"
+        >
+          <Plus className="w-5 h-5 mr-2" />
+          Create Your First Project
         </Button>
       )}
     </CardContent>
@@ -310,230 +363,104 @@ const EmptyState = ({ hasFilter }: { hasFilter: boolean }) => (
 const LoadingState = () => (
   <div className="flex justify-center items-center py-20">
     <LoadingSpinner 
-      size="xl" 
+      size="2xl" 
       variant="primary" 
       showLabel={true}
-      label="Loading Projects"
-      description="Fetching your assigned projects and AI insights..."
+      label="Loading Project Templates"
+      description="Fetching your AI-generated projects and assignment statistics..."
     />
   </div>
 );
 
 export default function TeacherDashboardPage() {
   const { user, loading: authLoading } = useAuth();
-  const [assignedProjects, setAssignedProjects] = useState<AssignedProjectWithDetails[]>([]);
+  const [projects, setProjects] = useState<ProjectTemplate[]>([]);
   const [loadingProjects, setLoadingProjects] = useState(true);
   const [viewMode, setViewMode] = useState<'list' | 'detail'>('list');
-  const [selectedProject, setSelectedProject] = useState<AssignedProjectWithDetails | null>(null);
-  const [projectFilter, setProjectFilter] = useState<'all' | 'off-track' | 'on-track' | 'ai-asc' | 'ai-desc' | 'review-high' | 'review-low'>('all');
+  const [selectedProject, setSelectedProject] = useState<ProjectTemplate | null>(null);
+  
+  // Filter states
+  const [searchTerm, setSearchTerm] = useState('');
+  const [sortFilter, setSortFilter] = useState('newest');
+  const [difficultyFilter, setDifficultyFilter] = useState('all');
 
-  const fetchAssignedProjects = useCallback(async () => {
+  const fetchProjectTemplates = useCallback(async () => {
     if (!user || !firebaseDbService || !user.uid) return;
 
     setLoadingProjects(true);
     try {
-      // Step 1: Fetch all assigned projects for the teacher
-      const assignedProjectsRef = collection(firebaseDbService, 'assignedProjects');
-      const assignmentQuery = query(assignedProjectsRef, where('teacherUid', '==', user.uid));
-      const assignmentSnapshot = await getDocs(assignmentQuery);
+      // Step 1: Fetch all project templates created by the teacher (without orderBy to avoid index)
+      const projectsRef = collection(firebaseDbService, 'projects');
+      const projectQuery = query(
+        projectsRef, 
+        where('teacherId', '==', user.uid)
+      );
+      const projectSnapshot = await getDocs(projectQuery);
 
-      if (assignmentSnapshot.empty) {
-        setAssignedProjects([]);
+      if (projectSnapshot.empty) {
+        setProjects([]);
         setLoadingProjects(false);
         return;
       }
 
-      // Step 2: Extract unique project IDs and assignment data
-      const assignmentData = assignmentSnapshot.docs.map(doc => ({
+      // Step 2: Get all projects data and sort in memory
+      const allProjectsData = projectSnapshot.docs.map(doc => ({
         id: doc.id,
         ...doc.data()
-      }));
-      
-      const projectIds = [...new Set(assignmentData.map(assignment => assignment.projectId))];
-      
-      if (projectIds.length === 0) {
-        setAssignedProjects([]);
-        setLoadingProjects(false);
-        return;
-      }
+      })) as ProjectTemplate[];
 
-      // Step 3: Batch fetch all project details
-      // Firestore 'in' queries are limited to 10 items, so we need to chunk if necessary
-      const chunkSize = 10;
-      const projectChunks: string[][] = [];
-      
-      for (let i = 0; i < projectIds.length; i += chunkSize) {
-        projectChunks.push(projectIds.slice(i, i + chunkSize));
-      }
+      // Sort in memory by createdAt (newest first)
+      allProjectsData.sort((a, b) => {
+        const aTime = a.createdAt?.toMillis?.() || 0;
+        const bTime = b.createdAt?.toMillis?.() || 0;
+        return bTime - aTime;
+      });
 
-      const allProjects: { [key: string]: any } = {};
+      // Step 3: Fetch ALL assignment statistics for the teacher at once
+      const assignedProjectsRef = collection(firebaseDbService, 'assignedProjects');
+      const allAssignmentsQuery = query(
+        assignedProjectsRef,
+        where('teacherUid', '==', user.uid)
+      );
+      const allAssignmentsSnapshot = await getDocs(allAssignmentsQuery);
       
-      // Fetch projects in batches
-      for (const chunk of projectChunks) {
-        const projectsRef = collection(firebaseDbService, 'projects');
-        const projectQuery = query(projectsRef, where(documentId(), 'in', chunk));
-        const projectSnapshot = await getDocs(projectQuery);
+      // Group assignments by projectId
+      const assignmentsByProject: { [projectId: string]: any[] } = {};
+      allAssignmentsSnapshot.docs.forEach(doc => {
+        const assignment = doc.data();
+        const projectId = assignment.projectId;
+        if (!assignmentsByProject[projectId]) {
+          assignmentsByProject[projectId] = [];
+        }
+        assignmentsByProject[projectId].push(assignment);
+      });
+
+      // Step 4: Add statistics to each project
+      const projectsWithStats: ProjectTemplate[] = allProjectsData.map(projectData => {
+        const projectAssignments = assignmentsByProject[projectData.id] || [];
         
-        projectSnapshot.docs.forEach(doc => {
-          allProjects[doc.id] = { id: doc.id, ...doc.data() };
-        });
-      }
+        const totalAssignments = projectAssignments.length;
+        const activeAssignments = projectAssignments.filter(assignment => {
+          const status = assignment.status;
+          return status === 'assigned' || status === 'in-progress';
+        }).length;
+        const completedAssignments = projectAssignments.filter(assignment => {
+          const status = assignment.status;
+          return status === 'completed';
+        }).length;
 
-      // Step 4: Batch fetch latest reports for all projects
-      const latestReports: { [key: string]: ProjectReport } = {};
-      
-      // Get unique combinations of projectId and studentUid for report fetching
-      const reportKeys = assignmentData.map(assignment => ({
-        projectId: assignment.projectId,
-        studentUid: assignment.studentUid,
-        teacherUid: assignment.teacherUid,
-        key: `${assignment.projectId}_${assignment.studentUid}_${assignment.teacherUid}`
-      }));
-
-      // Batch fetch reports (we'll still need individual queries due to the complex where clause, but we can parallelize them)
-      const reportPromises = reportKeys.map(async ({ projectId, studentUid, teacherUid, key }) => {
-        try {
-          const reportsRef = collection(firebaseDbService, "projectReports");
-          const reportQuery = query(
-            reportsRef,
-            where("projectId", "==", projectId),
-            where("studentUid", "==", studentUid),
-            where("teacherUid", "==", teacherUid),
-            orderBy("submittedAt", "desc"),
-            limit(1)
-          );
-          const reportSnapshot = await getDocs(reportQuery);
-          
-          if (!reportSnapshot.empty) {
-            const reportData = reportSnapshot.docs[0].data();
-            latestReports[key] = { id: reportSnapshot.docs[0].id, ...reportData } as ProjectReport;
-          }
-        } catch (error) {
-          console.error(`Error fetching report for ${key}:`, error);
-        }
-      });
-
-      // Wait for all report fetches to complete
-      await Promise.all(reportPromises);
-
-      // Step 5: Process assignments with AI review logic
-      const fetchedAssignedProjects: AssignedProjectWithDetails[] = [];
-      const aiReviewUpdates: Promise<void>[] = [];
-
-      assignmentData.forEach(assignment => {
-        const projectData = allProjects[assignment.projectId];
-        
-        if (!projectData) {
-          console.warn(`Project document with ID ${assignment.projectId} not found for teacher ${user.uid}. Skipping this assignment.`);
-          return;
-        }
-
-        const reportKey = `${assignment.projectId}_${assignment.studentUid}_${assignment.teacherUid}`;
-        const latestReport = latestReports[reportKey] || null;
-
-        console.log("Latest Report for project", assignment.projectId, ":", latestReport);
-
-        let currentAIReview: AIReviewResult | null | undefined = assignment.aiReview as AIReviewResult | null | undefined;
-
-        let shouldGenerateAIReview = false;
-        const now = Timestamp.now();
-        const oneWeekAgo = new Timestamp(now.seconds - (7 * 24 * 60 * 60), now.nanoseconds);
-
-        let studentProjectStatusForAI: string | undefined = latestReport?.studentProjectStatus;
-        let textStatusForAI: string | undefined = latestReport?.textStatus;
-
-        // Determine if the report is stale (i.e., existing report but no update for a week)
-        const hasStaleReport = latestReport &&
-                               latestReport.submittedAt instanceof Timestamp &&
-                               latestReport.submittedAt.toMillis() < oneWeekAgo.toMillis();
-
-        if (hasStaleReport) {
-          studentProjectStatusForAI = 'off-track';
-          textStatusForAI = 'The student has not provided a new status update for over a week since their last report.';
-        }
-
-        // Base conditions for regeneration
-        if (!currentAIReview) {
-          // Case 1: No existing AI review, always generate
-          shouldGenerateAIReview = true;
-        } else if (latestReport && latestReport.submittedAt instanceof Timestamp && currentAIReview.timestamp instanceof Timestamp) {
-          // Case 2: Existing AI review and latest report, check if report is newer than AI review
-          if (latestReport.submittedAt.toMillis() > currentAIReview.timestamp.toMillis()) {
-            shouldGenerateAIReview = true;
-          }
-        } else if (currentAIReview.timestamp instanceof Timestamp && currentAIReview.timestamp.toMillis() < oneWeekAgo.toMillis()) {
-          // Case 3: AI review exists but is older than one week, force regenerate (general weekly update)
-          shouldGenerateAIReview = true;
-        } else if (!(currentAIReview.timestamp instanceof Timestamp)) {
-          // Case 4: Existing AI review but its timestamp is not a proper Timestamp object
-          // This can happen if data was inserted without serverTimestamp() for aiReview.timestamp.
-          // Force regeneration to correct the timestamp.
-          shouldGenerateAIReview = true;
-        }
-
-        // Additional condition for regeneration: If the determined AI inputs (based on staleness or no report)
-        // are different from what the current AI review was generated with.
-        // This ensures that if a report *becomes* stale, or a project without reports now needs a 0/10,
-        // and the AI review hasn't been regenerated for other reasons, it gets regenerated.
-        if (currentAIReview && !shouldGenerateAIReview) {
-            const currentSourceTextStatus = currentAIReview.sourceTextStatus;
-            const currentSourceStudentProjectStatus = currentAIReview.sourceStudentProjectStatus;
-
-            // Check if the inputs *that would be used for generation* are different from the ones saved
-            const inputsChanged = (studentProjectStatusForAI !== currentSourceStudentProjectStatus) ||
-                                  (textStatusForAI !== currentSourceTextStatus);
-
-            if (inputsChanged) {
-                shouldGenerateAIReview = true;
-            }
-        }
-
-        if (shouldGenerateAIReview) {
-          const aiReviewGenerated: AIReviewResult = generateAIReview({
-            studentProjectStatus: studentProjectStatusForAI,
-            textStatus: textStatusForAI
-          });
-          currentAIReview = aiReviewGenerated; // Use the newly generated one for display
-          console.log("Generated/Updated AI Review for project", assignment.id, ":", currentAIReview);
-
-          // Queue the AI review update (don't wait for it to complete)
-          const updatePromise = updateAssignedProjectAIReview(
-            assignment.id,
-            aiReviewGenerated
-          ).catch(error => {
-            console.error("Failed to update AI review in Firestore for assigned project:", assignment.id, error);
-          });
-          
-          aiReviewUpdates.push(updatePromise);
-        }
-
-        fetchedAssignedProjects.push({
-          assignedProjectId: assignment.id,
-          projectId: assignment.projectId,
-          studentUid: assignment.studentUid,
-          studentName: assignment.studentName,
-          teacherUid: assignment.teacherUid,
-          assignedAt: assignment.assignedAt,
-          title: projectData.title,
-          description: projectData.description,
-          difficulty: projectData.difficulty,
-          duration: projectData.duration,
-          tasks: projectData.tasks || [],
-          latestReport: latestReport,
-          aiReview: currentAIReview,
-        });
-      });
-
-      // Fire and forget the AI review updates
-      Promise.all(aiReviewUpdates).then(() => {
-        console.log("All AI review updates completed");
-      }).catch(error => {
-        console.error("Some AI review updates failed:", error);
+        return {
+          ...projectData,
+          totalAssignments,
+          activeAssignments,
+          completedAssignments
+        };
       });
       
-      setAssignedProjects(fetchedAssignedProjects);
+      setProjects(projectsWithStats);
     } catch (error) {
-      console.error("Error fetching assigned projects:", error);
+      console.error("Error fetching project templates:", error);
+      setProjects([]); // Set empty array on error
     } finally {
       setLoadingProjects(false);
     }
@@ -541,11 +468,11 @@ export default function TeacherDashboardPage() {
 
   useEffect(() => {
     if (!authLoading && user) {
-      fetchAssignedProjects();
+      fetchProjectTemplates();
     }
-  }, [user, authLoading, fetchAssignedProjects]);
+  }, [user, authLoading, fetchProjectTemplates]);
 
-  const handleViewDetails = (project: AssignedProjectWithDetails) => {
+  const handleViewDetails = (project: ProjectTemplate) => {
     setSelectedProject(project);
     setViewMode('detail');
   };
@@ -553,47 +480,56 @@ export default function TeacherDashboardPage() {
   const handleBackToList = () => {
     setSelectedProject(null);
     setViewMode('list');
+    // Refresh data when coming back from detail view
+    fetchProjectTemplates();
+  };
+
+  const handleCreateNew = () => {
+    // Navigate to Student Mentor page
+    window.location.href = '/teacher/dashboard/student-mentor';
   };
 
   const filteredProjects = useMemo(() => {
-    let currentProjects = [...assignedProjects];
+    let filtered = [...projects];
 
-    // Apply Filtering
-    switch (projectFilter) {
-      case 'on-track':
-        currentProjects = currentProjects.filter(project => project.aiReview?.studentProjectStatus === 'on-track');
+    // Apply search filter
+    if (searchTerm.trim()) {
+      const searchLower = searchTerm.toLowerCase();
+      filtered = filtered.filter(project =>
+        project.title.toLowerCase().includes(searchLower) ||
+        project.description.toLowerCase().includes(searchLower)
+      );
+    }
+
+    // Apply difficulty filter
+    if (difficultyFilter !== 'all') {
+      filtered = filtered.filter(project => project.difficulty === difficultyFilter);
+    }
+
+    // Apply sorting
+    switch (sortFilter) {
+      case 'oldest':
+        filtered.sort((a, b) => a.createdAt.toMillis() - b.createdAt.toMillis());
         break;
-      case 'off-track':
-        currentProjects = currentProjects.filter(project => project.aiReview?.studentProjectStatus === 'off-track');
+      case 'most-assigned':
+        filtered.sort((a, b) => (b.totalAssignments || 0) - (a.totalAssignments || 0));
         break;
-      case 'review-high':
-        currentProjects = currentProjects.filter(project => (project.aiReview?.rating ?? -1) >= 6);
+      case 'alphabetical':
+        filtered.sort((a, b) => a.title.localeCompare(b.title));
         break;
-      case 'review-low':
-        currentProjects = currentProjects.filter(project => (project.aiReview?.rating ?? -1) <= 5);
-        break;
-      case 'all':
-        // No filtering needed, all projects are already included
+      case 'newest':
+      default:
+        filtered.sort((a, b) => b.createdAt.toMillis() - a.createdAt.toMillis());
         break;
     }
 
-    // Apply Sorting
-    switch (projectFilter) {
-      case 'ai-asc':
-        currentProjects.sort((a, b) => (a.aiReview?.rating ?? -1) - (b.aiReview?.rating ?? -1));
-        break;
-      case 'ai-desc':
-        currentProjects.sort((a, b) => (b.aiReview?.rating ?? -1) - (a.aiReview?.rating ?? -1));
-        break;
-    }
-
-    return currentProjects;
-  }, [assignedProjects, projectFilter]);
+    return filtered;
+  }, [projects, searchTerm, sortFilter, difficultyFilter]);
 
   // Calculate statistics
-  const totalProjects = assignedProjects.length;
-  const onTrackCount = assignedProjects.filter(p => p.aiReview?.studentProjectStatus === 'on-track').length;
-  const offTrackCount = assignedProjects.filter(p => p.aiReview?.studentProjectStatus === 'off-track').length;
+  const totalProjects = projects.length;
+  const totalAssignments = projects.reduce((sum, p) => sum + (p.totalAssignments || 0), 0);
+  const activeAssignments = projects.reduce((sum, p) => sum + (p.activeAssignments || 0), 0);
 
   if (authLoading) {
     return <LoadingState />;
@@ -615,37 +551,43 @@ export default function TeacherDashboardPage() {
 
   if (viewMode === 'detail' && selectedProject) {
     return (
-      <TeacherAssignedProjectDetail
+      <ProjectDetailView
         project={selectedProject}
         onBack={handleBackToList}
+        teacherId={user.uid}
       />
     );
   }
 
   return (
-    <div className="space-y-6 max-w-7xl mx-auto">
+    <div className="space-y-8 max-w-7xl mx-auto">
       <DashboardHeader 
         totalProjects={totalProjects}
-        onTrackCount={onTrackCount}
-        offTrackCount={offTrackCount}
+        totalAssignments={totalAssignments}
+        activeAssignments={activeAssignments}
       />
 
-      <ProjectFilter 
-        value={projectFilter}
-        onChange={(value) => setProjectFilter(value as any)}
+      <ProjectControls
+        searchTerm={searchTerm}
+        setSearchTerm={setSearchTerm}
+        sortFilter={sortFilter}
+        setSortFilter={setSortFilter}
+        difficultyFilter={difficultyFilter}
+        setDifficultyFilter={setDifficultyFilter}
+        onCreateNew={handleCreateNew}
       />
 
       {loadingProjects ? (
         <LoadingState />
-      ) : assignedProjects.length === 0 ? (
-        <EmptyState hasFilter={false} />
+      ) : projects.length === 0 ? (
+        <EmptyState hasFilter={false} onCreateNew={handleCreateNew} />
       ) : filteredProjects.length === 0 ? (
-        <EmptyState hasFilter={true} />
+        <EmptyState hasFilter={true} onCreateNew={handleCreateNew} />
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-8">
           {filteredProjects.map((project) => (
-            <ProjectCard
-              key={project.assignedProjectId}
+            <ProjectTemplateCard
+              key={project.id}
               project={project}
               onClick={() => handleViewDetails(project)}
             />

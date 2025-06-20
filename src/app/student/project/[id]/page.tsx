@@ -54,11 +54,17 @@ export default function StudentProjectDetailPage() {
     try {
       // Step 1: Find the assignment record for this student and project
       const assignmentsRef = collection(firebaseDbService, 'assignedProjects');
-      const assignmentQuery = query(
-        assignmentsRef, 
-        where('studentUid', '==', user.uid),
-        where('projectId', '==', projectId)
-      );
+      const assignmentQuery = user.role === 'teacher' 
+        ? query(
+            assignmentsRef, 
+            where('teacherUid', '==', user.uid),
+            where('projectId', '==', projectId)
+          )
+        : query(
+            assignmentsRef, 
+            where('studentUid', '==', user.uid),
+            where('projectId', '==', projectId)
+          );
       const assignmentSnapshot = await getDocs(assignmentQuery);
 
       if (assignmentSnapshot.empty) {
