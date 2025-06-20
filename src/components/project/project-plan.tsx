@@ -417,18 +417,22 @@ export default function ProjectPlan({ project, userRole }: ProjectPlanProps) {
                                           <Eye size={12} className="mr-1" />
                                           View Details
                                         </Button>
-                                        <Button
-                                          variant="outline"
-                                          size="sm"
-                                          onClick={(e) => {
-                                            e.stopPropagation();
-                                            handleTaskSubmission(task);
-                                          }}
-                                          className="flex-1 text-xs border-blueberry-300 text-blueberry-700 hover:bg-blueberry-50 dark:border-blueberry-600 dark:text-blueberry-400 dark:hover:bg-blueberry-950"
-                                        >
-                                          <Upload size={12} className="mr-1" />
-                                          Submit Work
-                                        </Button>
+                                        {
+                                          user?.role === "student" && (
+                                            <Button
+                                              variant="outline"
+                                              size="sm"
+                                              onClick={(e) => {
+                                                e.stopPropagation();
+                                                handleTaskSubmission(task);
+                                              }}
+                                              className="flex-1 text-xs border-blueberry-300 text-blueberry-700 hover:bg-blueberry-50 dark:border-blueberry-600 dark:text-blueberry-400 dark:hover:bg-blueberry-950"
+                                            >
+                                              <Upload size={12} className="mr-1" />
+                                              Submit Work
+                                            </Button>
+                                          )
+                                        }
                                         {task.status !== 'completed' && (
                                           <Button
                                             variant="ghost"
