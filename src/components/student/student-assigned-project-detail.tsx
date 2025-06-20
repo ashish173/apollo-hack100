@@ -1,19 +1,16 @@
-// components/student/student-assigned-project-detail.tsx
 "use client";
 
 import { useState, useEffect } from 'react';
-import { ArrowLeft, BookOpen, CheckCircle, Hourglass, Clock, Calendar, User, Target, AlertCircle, Send, TrendingUp, FileText, ExternalLink, Download, Users } from 'lucide-react';
+import { ArrowLeft, BookOpen, CheckCircle, Hourglass, Clock, Calendar, User, Target, AlertCircle, Send, TrendingUp, FileText, ExternalLink, Download, Users, Upload, Link2, CheckSquare, File, Github, Globe, FileImage, Archive, Trash2, Eye, Calendar as CalendarIcon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
+import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { LoadingSpinner } from '@/components/ui/loading-spinner';
-import { db } from '@/lib/firebase';
-import { collection, addDoc, serverTimestamp, Timestamp as FirestoreTimestamp, query, where, orderBy, limit, onSnapshot } from 'firebase/firestore';
-import { ProjectReport } from '@/types';
-import { useToast } from '@/hooks/use-toast';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
   Table,
   TableBody,
@@ -23,14 +20,19 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { Separator } from '@/components/ui/separator';
 import { cn } from '@/lib/utils';
-import { Timestamp as FirebaseTimestampType } from 'firebase/firestore';
-import { format } from 'date-fns';
 
-// Import the ProjectIdea and SavedProjectTask types from teacher's area for consistency
-import { ProjectIdea, SavedProjectTask } from '@/app/teacher/dashboard/student-mentor/idea-detail';
+// Mock data types (replace with your actual types)
+interface ProjectTask {
+  taskId: string;
+  taskName: string;
+  duration: string;
+  startDate: string;
+  endDate: string;
+  status?: 'pending' | 'in-progress' | 'completed';
+}
 
-// Define types for research papers
 interface ResearchPaper {
   id: string;
   title: string;
@@ -42,15 +44,27 @@ interface ResearchPaper {
   subjects: string[];
   comments?: string;
   submittedDate: string;
-  addedAt: FirebaseTimestampType;
-  addedBy: string;
+}
+
+interface ProjectSubmission {
+  id: string;
+  type: 'progress' | 'file' | 'link' | 'task';
+  title: string;
+  description?: string;
+  submittedAt: Date;
+  status: 'submitted' | 'reviewed' | 'approved' | 'needs-revision';
+  fileUrl?: string;
+  fileName?: string;
+  fileSize?: number;
+  linkUrl?: string;
+  taskId?: string;
+  feedback?: string;
 }
 
 export interface ProjectResources {
   papers?: ResearchPaper[];
 }
 
-// Define the interface for the project data this component expects
 interface StudentAssignedProjectDetailProps {
   project: {
     assignedProjectId: string;
@@ -58,72 +72,66 @@ interface StudentAssignedProjectDetailProps {
     studentUid: string;
     studentName: string;
     teacherUid: string;
-    assignedAt: FirebaseTimestampType;
+    assignedAt: Date;
     status: string;
     title: string;
     description: string;
     difficulty: string;
     duration: string;
-    tasks?: SavedProjectTask[];
+    tasks?: ProjectTask[];
     resources?: ProjectResources;
+    submissions?: ProjectSubmission[];
   };
   onBack: () => void;
 }
 
 export default function StudentAssignedProjectDetail({ project, onBack }: StudentAssignedProjectDetailProps) {
-  const { toast } = useToast();
-  const [textStatus, setTextStatus] = useState('');
-  const [studentProjectStatus, setStudentProjectStatus] = useState<'on-track' | 'off-track' | ''>('');
+  // Form states
+  const [progressText, setProgressText] = useState('');
+  const [projectStatus, setProjectStatus] = useState<'on-track' | 'off-track' | ''>('');
+  const [submissionTitle, setSubmissionTitle] = useState('');
+  const [submissionDescription, setSubmissionDescription] = useState('');
+  const [linkUrl, setLinkUrl] = useState('');
+  const [linkType, setLinkType] = useState<'github' | 'docs' | 'website' | 'other'>('github');
+  const [selectedTaskId, setSelectedTaskId] = useState('');
+  const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
+  
+  // UI states
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [latestReport, setLatestReport] = useState<ProjectReport | null>(null);
-  const [isLoadingReport, setIsLoadingReport] = useState(true);
+  const [activeTab, setActiveTab] = useState('progress');
+  const [latestReport, setLatestReport] = useState<any>(null);
+  const [isLoadingReport, setIsLoadingReport] = useState(false);
 
-  useEffect(() => {
-    if (!project.projectId) {
-      setIsLoadingReport(false);
-      return;
+  // Mock submissions data (replace with actual Firebase data)
+  const [submissions, setSubmissions] = useState<ProjectSubmission[]>([
+    {
+      id: '1',
+      type: 'progress',
+      title: 'Week 2 Progress Update',
+      description: 'Completed initial research and started on the prototype',
+      submittedAt: new Date('2024-01-15'),
+      status: 'reviewed'
+    },
+    {
+      id: '2',
+      type: 'file',
+      title: 'Project Proposal Document',
+      fileName: 'project_proposal.pdf',
+      fileSize: 2048576,
+      submittedAt: new Date('2024-01-10'),
+      status: 'approved'
+    },
+    {
+      id: '3',
+      type: 'link',
+      title: 'GitHub Repository',
+      linkUrl: 'https://github.com/student/project-repo',
+      submittedAt: new Date('2024-01-12'),
+      status: 'submitted'
     }
+  ]);
 
-    setIsLoadingReport(true);
-    const reportsRef = collection(db, "projectReports");
-    const q = query(
-      reportsRef,
-      where("projectId", "==", project.projectId),
-      orderBy("submittedAt", "desc"),
-      limit(1)
-    );
-
-    const unsubscribe = onSnapshot(q, (querySnapshot) => {
-      if (!querySnapshot.empty) {
-        const reportDoc = querySnapshot.docs[0];
-        const reportData = { id: reportDoc.id, ...reportDoc.data() } as ProjectReport;
-        if (reportData.submittedAt && !(reportData.submittedAt instanceof FirestoreTimestamp)) {
-          if (reportData.submittedAt && typeof reportData.submittedAt === 'object' && 'seconds' in reportData.submittedAt && 'nanoseconds' in reportData.submittedAt) {
-             reportData.submittedAt = new FirestoreTimestamp((reportData.submittedAt as any).seconds, (reportData.submittedAt as any).nanoseconds);
-          } else {
-            console.warn("latestReport.submittedAt is not a Firestore Timestamp:", reportData.submittedAt);
-          }
-        }
-        setLatestReport(reportData);
-      } else {
-        setLatestReport(null);
-      }
-      setIsLoadingReport(false);
-    }, (error) => {
-      console.error("Error fetching latest report: ", error);
-      toast({
-        title: "Error",
-        description: "Could not load the latest project status.",
-        variant: "destructive",
-      });
-      setIsLoadingReport(false);
-      setLatestReport(null);
-    });
-
-    return () => unsubscribe();
-  }, [project.projectId, toast]);
-
-  // Helper function to get status badge variant and color
+  // Helper functions
   const getStatusBadgeProps = (status: string) => {
     switch (status.toLowerCase()) {
       case 'completed':
@@ -137,7 +145,6 @@ export default function StudentAssignedProjectDetail({ project, onBack }: Studen
     }
   };
 
-  // Helper function to get difficulty badge variant
   const getDifficultyBadgeVariant = (difficulty: string) => {
     switch (difficulty.toLowerCase()) {
       case 'easy':
@@ -151,59 +158,192 @@ export default function StudentAssignedProjectDetail({ project, onBack }: Studen
     }
   };
 
-  // Helper function to get project status badge variant
-  const getProjectStatusBadgeVariant = (status: 'on-track' | 'off-track' | undefined) => {
+  const getSubmissionStatusBadge = (status: ProjectSubmission['status']) => {
     switch (status) {
-      case 'on-track':
-        return 'success' as const;
-      case 'off-track':
-        return 'destructive' as const;
+      case 'approved':
+        return { variant: 'success' as const, text: 'Approved' };
+      case 'reviewed':
+        return { variant: 'soft-primary' as const, text: 'Reviewed' };
+      case 'needs-revision':
+        return { variant: 'warning' as const, text: 'Needs Revision' };
       default:
-        return 'secondary' as const;
+        return { variant: 'secondary' as const, text: 'Submitted' };
     }
   };
 
-  const handleSubmitReport = async () => {
-    if (!textStatus.trim() || !studentProjectStatus) {
-      toast({
-        title: "Missing information",
-        description: "Please describe your progress and select a project status.",
-        variant: "destructive",
-      });
-      return;
+  const getFileIcon = (fileName: string) => {
+    const extension = fileName.split('.').pop()?.toLowerCase();
+    switch (extension) {
+      case 'pdf':
+        return <FileText className="h-4 w-4 text-error-600" />;
+      case 'jpg':
+      case 'jpeg':
+      case 'png':
+      case 'gif':
+        return <FileImage className="h-4 w-4 text-warning-600" />;
+      case 'zip':
+      case 'rar':
+        return <Archive className="h-4 w-4 text-neutral-600" />;
+      default:
+        return <File className="h-4 w-4 text-blueberry-600" />;
     }
+  };
 
+  const getLinkIcon = (type: string) => {
+    switch (type) {
+      case 'github':
+        return <Github className="h-4 w-4" />;
+      case 'docs':
+        return <FileText className="h-4 w-4" />;
+      case 'website':
+        return <Globe className="h-4 w-4" />;
+      default:
+        return <Link2 className="h-4 w-4" />;
+    }
+  };
+
+  const formatFileSize = (bytes: number) => {
+    if (bytes === 0) return '0 Bytes';
+    const k = 1024;
+    const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+  };
+
+  // Submission handlers
+  const handleProgressSubmit = async () => {
+    if (!progressText.trim() || !projectStatus) return;
+    
     setIsSubmitting(true);
     try {
-      const statusToSubmit = studentProjectStatus as 'on-track' | 'off-track';
-
-      const newReportData: Omit<ProjectReport, 'id'> = {
-        projectId: project.projectId,
-        studentUid: project.studentUid,
-        teacherUid: project.teacherUid,
-        textStatus: textStatus,
-        studentProjectStatus: statusToSubmit,
-        submittedAt: serverTimestamp() as any,
+      // Simulate API call
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      
+      const newSubmission: ProjectSubmission = {
+        id: Date.now().toString(),
+        type: 'progress',
+        title: `Progress Update - ${new Date().toLocaleDateString()}`,
+        description: progressText,
+        submittedAt: new Date(),
+        status: 'submitted'
       };
-
-      await addDoc(collection(db, "projectReports"), newReportData);
-
-      toast({
-        title: "Report Submitted",
-        description: "Your progress report has been submitted successfully!",
-      });
-      setTextStatus('');
-      setStudentProjectStatus('');
+      
+      setSubmissions(prev => [newSubmission, ...prev]);
+      setProgressText('');
+      setProjectStatus('');
+      
+      // Show success message (you can use your toast hook here)
+      console.log('Progress report submitted successfully!');
     } catch (error) {
-      console.error("Error submitting report: ", error);
-      toast({
-        title: "Submission Failed",
-        description: "Failed to submit report. Please try again.",
-        variant: "destructive",
-      });
+      console.error('Error submitting progress:', error);
     } finally {
       setIsSubmitting(false);
     }
+  };
+
+  const handleFileSubmit = async () => {
+    if (selectedFiles.length === 0 || !submissionTitle.trim()) return;
+    
+    setIsSubmitting(true);
+    try {
+      // Simulate file upload
+      await new Promise(resolve => setTimeout(resolve, 2000));
+      
+      for (const file of selectedFiles) {
+        const newSubmission: ProjectSubmission = {
+          id: Date.now().toString() + Math.random(),
+          type: 'file',
+          title: submissionTitle,
+          description: submissionDescription,
+          fileName: file.name,
+          fileSize: file.size,
+          submittedAt: new Date(),
+          status: 'submitted'
+        };
+        
+        setSubmissions(prev => [newSubmission, ...prev]);
+      }
+      
+      setSelectedFiles([]);
+      setSubmissionTitle('');
+      setSubmissionDescription('');
+      
+      console.log('Files submitted successfully!');
+    } catch (error) {
+      console.error('Error submitting files:', error);
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleLinkSubmit = async () => {
+    if (!linkUrl.trim() || !submissionTitle.trim()) return;
+    
+    setIsSubmitting(true);
+    try {
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      
+      const newSubmission: ProjectSubmission = {
+        id: Date.now().toString(),
+        type: 'link',
+        title: submissionTitle,
+        description: submissionDescription,
+        linkUrl: linkUrl,
+        submittedAt: new Date(),
+        status: 'submitted'
+      };
+      
+      setSubmissions(prev => [newSubmission, ...prev]);
+      setLinkUrl('');
+      setSubmissionTitle('');
+      setSubmissionDescription('');
+      
+      console.log('Link submitted successfully!');
+    } catch (error) {
+      console.error('Error submitting link:', error);
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleTaskCompletion = async () => {
+    if (!selectedTaskId) return;
+    
+    setIsSubmitting(true);
+    try {
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      
+      const task = project.tasks?.find(t => t.taskId === selectedTaskId);
+      if (task) {
+        const newSubmission: ProjectSubmission = {
+          id: Date.now().toString(),
+          type: 'task',
+          title: `Task Completed: ${task.taskName}`,
+          taskId: selectedTaskId,
+          submittedAt: new Date(),
+          status: 'submitted'
+        };
+        
+        setSubmissions(prev => [newSubmission, ...prev]);
+        setSelectedTaskId('');
+        
+        console.log('Task completion submitted successfully!');
+      }
+    } catch (error) {
+      console.error('Error submitting task completion:', error);
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
+    if (event.target.files) {
+      setSelectedFiles(Array.from(event.target.files));
+    }
+  };
+
+  const removeFile = (index: number) => {
+    setSelectedFiles(prev => prev.filter((_, i) => i !== index));
   };
 
   const statusProps = getStatusBadgeProps(project.status);
@@ -244,7 +384,11 @@ export default function StudentAssignedProjectDetail({ project, onBack }: Studen
                 <Calendar size={16} className="text-neutral-500 dark:text-neutral-400" />
                 <span className="body-text text-neutral-600 dark:text-neutral-400">
                   Assigned on: <span className="font-semibold text-blueberry-700 dark:text-blueberry-300">
-                    {project.assignedAt ? format(project.assignedAt.toDate(), 'PPP') : 'N/A'}
+                    {/* {project.assignedAt.toLocaleDateString('en-US', { 
+                      year: 'numeric', 
+                      month: 'long', 
+                      day: 'numeric' 
+                    })} */}
                   </span>
                 </span>
               </div>
@@ -265,7 +409,7 @@ export default function StudentAssignedProjectDetail({ project, onBack }: Studen
             </div>
           </div>
         </CardHeader>
-        <CardContent size="lg">
+        <CardContent>
           <div className="space-y-6">
             <div>
               <h3 className="subtitle text-neutral-900 dark:text-neutral-100 mb-3">Project Description</h3>
@@ -274,62 +418,6 @@ export default function StudentAssignedProjectDetail({ project, onBack }: Studen
               </p>
             </div>
           </div>
-        </CardContent>
-      </Card>
-
-      {/* Current Status Section */}
-      <Card variant="elevated" className="shadow-xl">
-        <CardHeader>
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-success-100 dark:bg-success-900 rounded-lg flex items-center justify-center">
-              <TrendingUp size={20} className="text-success-600 dark:text-success-400" />
-            </div>
-            <CardTitle className="text-success-700 dark:text-success-300">Current Status</CardTitle>
-          </div>
-        </CardHeader>
-        <CardContent>
-          {isLoadingReport ? (
-            <LoadingSpinner 
-              layout="inline"
-              size="default"
-              variant="primary"
-              label="Loading status report"
-              showLabel
-            />
-          ) : latestReport ? (
-            <div className="space-y-4">
-              <div className="flex items-center justify-between gap-4">
-                <Badge variant={getProjectStatusBadgeVariant(latestReport.studentProjectStatus)} size="default">
-                  <TrendingUp size={14} className="mr-1" />
-                  {latestReport.studentProjectStatus === 'on-track' ? 'On Track' : 
-                   latestReport.studentProjectStatus === 'off-track' ? 'Off Track' : 'Unknown'}
-                </Badge>
-                {latestReport.submittedAt && (
-                  <span className="body-text text-neutral-500 dark:text-neutral-400 text-sm">
-                    Submitted: {format(latestReport.submittedAt.toDate(), 'PPP p')}
-                  </span>
-                )}
-              </div>
-              <Card variant="ghost" className="bg-neutral-100 dark:bg-neutral-800">
-                <CardContent size="lg">
-                  <p className="body-text text-neutral-700 dark:text-neutral-300 whitespace-pre-wrap leading-relaxed">
-                    {latestReport.textStatus}
-                  </p>
-                </CardContent>
-              </Card>
-            </div>
-          ) : (
-            <Card variant="ghost" className="text-center py-8">
-              <CardContent>
-                <div className="w-16 h-16 bg-neutral-100 dark:bg-neutral-800 rounded-2xl flex items-center justify-center mx-auto mb-4">
-                  <FileText size={32} className="text-neutral-400 dark:text-neutral-500" />
-                </div>
-                <p className="body-text text-neutral-500 dark:text-neutral-400">
-                  No status reports submitted yet. Submit your first progress report below.
-                </p>
-              </CardContent>
-            </Card>
-          )}
         </CardContent>
       </Card>
 
@@ -353,15 +441,13 @@ export default function StudentAssignedProjectDetail({ project, onBack }: Studen
             <div className="space-y-6">
               {project.resources.papers.map((paper, index) => (
                 <Card key={paper.id || index} variant="ghost" className="border border-neutral-200 dark:border-neutral-700 hover:shadow-md transition-shadow duration-300">
-                  <CardContent size="lg">
+                  <CardContent>
                     <div className="space-y-4">
-                      {/* Paper Header */}
                       <div className="space-y-3">
                         <h4 className="subtitle text-neutral-900 dark:text-neutral-100 leading-tight">
                           {paper.title}
                         </h4>
                         
-                        {/* Authors */}
                         <div className="flex items-center gap-2 flex-wrap">
                           <Users size={14} className="text-neutral-500 dark:text-neutral-400" />
                           <span className="body-text text-neutral-600 dark:text-neutral-400 text-sm">
@@ -369,22 +455,15 @@ export default function StudentAssignedProjectDetail({ project, onBack }: Studen
                           </span>
                         </div>
 
-                        {/* Metadata */}
                         <div className="flex flex-wrap gap-2">
                           {paper.categories.map((category, idx) => (
                             <Badge key={idx} variant="outline" size="sm">
                               {category}
                             </Badge>
                           ))}
-                          {paper.comments && (
-                            <Badge variant="secondary" size="sm">
-                              {paper.comments}
-                            </Badge>
-                          )}
                         </div>
                       </div>
 
-                      {/* Abstract */}
                       <div className="space-y-2">
                         <h5 className="overline text-neutral-700 dark:text-neutral-300">Abstract</h5>
                         <p className="body-text text-neutral-700 dark:text-neutral-300 leading-relaxed text-sm bg-neutral-50 dark:bg-neutral-800 p-4 rounded-lg">
@@ -392,51 +471,24 @@ export default function StudentAssignedProjectDetail({ project, onBack }: Studen
                         </p>
                       </div>
 
-                      {/* Subjects */}
-                      {paper.subjects && paper.subjects.length > 0 && (
-                        <div className="space-y-2">
-                          <h5 className="overline text-neutral-700 dark:text-neutral-300">Research Areas</h5>
-                          <div className="flex flex-wrap gap-2">
-                            {paper.subjects.map((subject, idx) => (
-                              <Badge key={idx} variant="soft-primary" size="sm">
-                                {subject}
-                              </Badge>
-                            ))}
-                          </div>
-                        </div>
-                      )}
-
-                      {/* Action Buttons */}
                       <div className="flex gap-3 pt-2">
                         <Button
                           variant="outline"
                           size="sm"
-                          asChild
                           className="border-blueberry-300 text-blueberry-700 hover:bg-blueberry-50 dark:border-blueberry-600 dark:text-blueberry-400 dark:hover:bg-blueberry-950"
                         >
-                          <a href={paper.arxivUrl} target="_blank" rel="noopener noreferrer">
-                            <ExternalLink size={14} className="mr-2" />
-                            View on ArXiv
-                          </a>
+                          <ExternalLink size={14} className="mr-2" />
+                          View on ArXiv
                         </Button>
                         
                         <Button
                           variant="outline"
                           size="sm"
-                          asChild
                           className="border-success-300 text-success-700 hover:bg-success-50 dark:border-success-600 dark:text-success-400 dark:hover:bg-success-950"
                         >
-                          <a href={paper.pdfUrl} target="_blank" rel="noopener noreferrer">
-                            <Download size={14} className="mr-2" />
-                            Download PDF
-                          </a>
+                          <Download size={14} className="mr-2" />
+                          Download PDF
                         </Button>
-                      </div>
-
-                      {/* Paper metadata footer */}
-                      <div className="pt-3 border-t border-neutral-200 dark:border-neutral-700 flex items-center justify-between text-xs text-neutral-500 dark:text-neutral-400">
-                        <span>Paper ID: {paper.id}</span>
-                        <span>Submitted: {new Date(paper.submittedDate).toLocaleDateString()}</span>
                       </div>
                     </div>
                   </CardContent>
@@ -507,7 +559,7 @@ export default function StudentAssignedProjectDetail({ project, onBack }: Studen
         </CardContent>
       </Card>
 
-      {/* Weekly Progress Report Card */}
+      {/* Enhanced Project Updates & Submissions Section */}
       <Card variant="feature" className="shadow-2xl border-blueberry-200 dark:border-blueberry-700">
         <CardHeader>
           <div className="flex items-center gap-3">
@@ -515,86 +567,501 @@ export default function StudentAssignedProjectDetail({ project, onBack }: Studen
               <Send size={24} className="text-white" />
             </div>
             <div>
-              <CardTitle size="lg" className="text-blueberry-800 dark:text-blueberry-200">Weekly Progress Report</CardTitle>
+              <CardTitle size="lg" className="text-blueberry-800 dark:text-blueberry-200">Project Updates & Submissions</CardTitle>
               <CardDescription className="body-text text-blueberry-700 dark:text-blueberry-300">
-                Submit your weekly status and rate your progress
+                Submit progress updates, files, links, and mark tasks as completed
               </CardDescription>
             </div>
           </div>
         </CardHeader>
-        <CardContent size="lg" className="space-y-6">
-          <div className="space-y-3">
-            <Label 
-              variant="default" 
-              size="default"
-              className="text-neutral-700 dark:text-neutral-300"
-            >
-              Describe your progress and any challenges:
-            </Label>
-            <Textarea
-              variant="outline"
-              size="lg"
-              value={textStatus}
-              onChange={(e) => setTextStatus(e.target.value)}
-              placeholder="Enter your status update, challenges faced, accomplishments, and next steps..."
-              className="min-h-[120px] bg-white dark:bg-neutral-800"
-            />
-          </div>
-          
-          <div className="space-y-3">
-            <Label 
-              variant="default" 
-              size="default"
-              className="text-neutral-700 dark:text-neutral-300"
-            >
-              Project Status:
-            </Label>
-            <Select value={studentProjectStatus} onValueChange={setStudentProjectStatus}>
-              <SelectTrigger 
-                variant="outline"
-                size="lg"
-                className="bg-white dark:bg-neutral-800"
-              >
-                <SelectValue placeholder="Select your current project status" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="on-track">
-                  <div className="flex items-center gap-2">
-                    <div className="w-3 h-3 bg-success-500 rounded-full" />
-                    On Track - Meeting deadlines and objectives
+        <CardContent>
+          <Tabs value={activeTab} onValueChange={setActiveTab} variant="pills">
+            <TabsList className="grid w-full grid-cols-4">
+              <TabsTrigger value="progress" icon={<TrendingUp size={16} />}>
+                Progress Report
+              </TabsTrigger>
+              <TabsTrigger value="files" icon={<Upload size={16} />}>
+                File Upload
+              </TabsTrigger>
+              <TabsTrigger value="links" icon={<Link2 size={16} />}>
+                Link Submission
+              </TabsTrigger>
+              <TabsTrigger value="tasks" icon={<CheckSquare size={16} />}>
+                Task Completion
+              </TabsTrigger>
+            </TabsList>
+
+            {/* Progress Report Tab */}
+            <TabsContent value="progress" variant="padded">
+              <div className="space-y-6">
+                <div className="space-y-3">
+                  <Label variant="default" size="default">
+                    Describe your progress and any challenges:
+                  </Label>
+                  <Textarea
+                    variant="outline"
+                    size="lg"
+                    value={progressText}
+                    onChange={(e) => setProgressText(e.target.value)}
+                    placeholder="Enter your status update, challenges faced, accomplishments, and next steps..."
+                    className="min-h-[120px]"
+                  />
+                </div>
+                
+                <div className="space-y-3">
+                  <Label variant="default" size="default">
+                    Project Status:
+                  </Label>
+                  <Select value={projectStatus} onValueChange={setProjectStatus}>
+                    <SelectTrigger variant="outline" size="lg">
+                      <SelectValue placeholder="Select your current project status" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="on-track">
+                        <div className="flex items-center gap-2">
+                          <div className="w-3 h-3 bg-success-500 rounded-full" />
+                          On Track - Meeting deadlines and objectives
+                        </div>
+                      </SelectItem>
+                      <SelectItem value="off-track">
+                        <div className="flex items-center gap-2">
+                          <div className="w-3 h-3 bg-error-500 rounded-full" />
+                          Off Track - Facing challenges or delays
+                        </div>
+                      </SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                
+                <Button 
+                  onClick={handleProgressSubmit} 
+                  disabled={isSubmitting || !progressText.trim() || !projectStatus}
+                  loading={isSubmitting}
+                  loadingText="Submitting progress report..."
+                  variant="gradient"
+                  size="lg"
+                  className="w-full"
+                >
+                  <Send size={18} className="mr-2" />
+                  Submit Progress Report
+                </Button>
+              </div>
+            </TabsContent>
+
+            {/* File Upload Tab */}
+            <TabsContent value="files" variant="padded">
+              <div className="space-y-6">
+                <div className="space-y-3">
+                  <Label variant="default" size="default">
+                    Submission Title:
+                  </Label>
+                  <Input
+                    variant="outline"
+                    size="lg"
+                    value={submissionTitle}
+                    onChange={(e) => setSubmissionTitle(e.target.value)}
+                    placeholder="Enter a title for your submission..."
+                  />
+                </div>
+
+                <div className="space-y-3">
+                  <Label variant="default" size="default">
+                    Description (Optional):
+                  </Label>
+                  <Textarea
+                    variant="outline"
+                    size="default"
+                    value={submissionDescription}
+                    onChange={(e) => setSubmissionDescription(e.target.value)}
+                    placeholder="Add any additional context or notes..."
+                    className="min-h-[80px]"
+                  />
+                </div>
+
+                <div className="space-y-3">
+                  <Label variant="default" size="default">
+                    Select Files:
+                  </Label>
+                  <div className="border-2 border-dashed border-neutral-300 dark:border-neutral-600 rounded-lg p-8 text-center hover:border-blueberry-400 dark:hover:border-blueberry-500 transition-colors">
+                    <Upload size={32} className="mx-auto mb-4 text-neutral-400" />
+                    <p className="body-text text-neutral-600 dark:text-neutral-400 mb-4">
+                      Click to select files or drag and drop
+                    </p>
+                    <input
+                      type="file"
+                      multiple
+                      onChange={handleFileSelect}
+                      className="hidden"
+                      id="file-upload"
+                    />
+                    <Button 
+                      variant="outline" 
+                      size="default"
+                      onClick={() => document.getElementById('file-upload')?.click()}
+                    >
+                      <Upload size={16} className="mr-2" />
+                      Choose Files
+                    </Button>
                   </div>
-                </SelectItem>
-                <SelectItem value="off-track">
-                  <div className="flex items-center gap-2">
-                    <div className="w-3 h-3 bg-error-500 rounded-full" />
-                    Off Track - Facing challenges or delays
+                </div>
+
+                {/* Selected Files Display */}
+                {selectedFiles.length > 0 && (
+                  <div className="space-y-3">
+                    <Label variant="default" size="default">
+                      Selected Files ({selectedFiles.length}):
+                    </Label>
+                    <div className="space-y-2">
+                      {selectedFiles.map((file, index) => (
+                        <div key={index} className="flex items-center gap-3 p-3 bg-neutral-100 dark:bg-neutral-800 rounded-lg">
+                          {getFileIcon(file.name)}
+                          <div className="flex-1 min-w-0">
+                            <p className="body-text font-medium text-neutral-900 dark:text-neutral-100 truncate">
+                              {file.name}
+                            </p>
+                            <p className="text-sm text-neutral-500 dark:text-neutral-400">
+                              {formatFileSize(file.size)}
+                            </p>
+                          </div>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => removeFile(index)}
+                            className="text-error-600 hover:bg-error-50 dark:text-error-400 dark:hover:bg-error-950"
+                          >
+                            <Trash2 size={16} />
+                          </Button>
+                        </div>
+                      ))}
+                    </div>
                   </div>
-                </SelectItem>
-              </SelectContent>
-            </Select>
+                )}
+
+                <Button 
+                  onClick={handleFileSubmit} 
+                  disabled={isSubmitting || selectedFiles.length === 0 || !submissionTitle.trim()}
+                  loading={isSubmitting}
+                  loadingText="Uploading files..."
+                  variant="gradient"
+                  size="lg"
+                  className="w-full"
+                >
+                  <Upload size={18} className="mr-2" />
+                  Upload Files ({selectedFiles.length})
+                </Button>
+              </div>
+            </TabsContent>
+
+            {/* Link Submission Tab */}
+            <TabsContent value="links" variant="padded">
+              <div className="space-y-6">
+                <div className="space-y-3">
+                  <Label variant="default" size="default">
+                    Submission Title:
+                  </Label>
+                  <Input
+                    variant="outline"
+                    size="lg"
+                    value={submissionTitle}
+                    onChange={(e) => setSubmissionTitle(e.target.value)}
+                    placeholder="Enter a title for your submission..."
+                  />
+                </div>
+
+                <div className="space-y-3">
+                  <Label variant="default" size="default">
+                    Link Type:
+                  </Label>
+                  <Select value={linkType} onValueChange={setLinkType}>
+                    <SelectTrigger variant="outline" size="lg">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="github">
+                        <div className="flex items-center gap-2">
+                          <Github size={16} />
+                          GitHub Repository
+                        </div>
+                      </SelectItem>
+                      <SelectItem value="docs">
+                        <div className="flex items-center gap-2">
+                          <FileText size={16} />
+                          Google Docs / Document
+                        </div>
+                      </SelectItem>
+                      <SelectItem value="website">
+                        <div className="flex items-center gap-2">
+                          <Globe size={16} />
+                          Website / Demo
+                        </div>
+                      </SelectItem>
+                      <SelectItem value="other">
+                        <div className="flex items-center gap-2">
+                          <Link2 size={16} />
+                          Other Link
+                        </div>
+                      </SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="space-y-3">
+                  <Label variant="default" size="default">
+                    URL:
+                  </Label>
+                  <Input
+                    variant="outline"
+                    size="lg"
+                    type="url"
+                    value={linkUrl}
+                    onChange={(e) => setLinkUrl(e.target.value)}
+                    placeholder="https://..."
+                    leftIcon={getLinkIcon(linkType)}
+                  />
+                </div>
+
+                <div className="space-y-3">
+                  <Label variant="default" size="default">
+                    Description (Optional):
+                  </Label>
+                  <Textarea
+                    variant="outline"
+                    size="default"
+                    value={submissionDescription}
+                    onChange={(e) => setSubmissionDescription(e.target.value)}
+                    placeholder="Add any additional context or notes about this link..."
+                    className="min-h-[80px]"
+                  />
+                </div>
+
+                <Button 
+                  onClick={handleLinkSubmit} 
+                  disabled={isSubmitting || !linkUrl.trim() || !submissionTitle.trim()}
+                  loading={isSubmitting}
+                  loadingText="Submitting link..."
+                  variant="gradient"
+                  size="lg"
+                  className="w-full"
+                >
+                  <Link2 size={18} className="mr-2" />
+                  Submit Link
+                </Button>
+              </div>
+            </TabsContent>
+
+            {/* Task Completion Tab */}
+            <TabsContent value="tasks" variant="padded">
+              <div className="space-y-6">
+                <div className="space-y-3">
+                  <Label variant="default" size="default">
+                    Select Completed Task:
+                  </Label>
+                  <Select value={selectedTaskId} onValueChange={setSelectedTaskId}>
+                    <SelectTrigger variant="outline" size="lg">
+                      <SelectValue placeholder="Choose a task to mark as completed" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {project.tasks?.map((task) => (
+                        <SelectItem key={task.taskId} value={task.taskId}>
+                          <div className="flex items-center gap-2">
+                            <CheckSquare size={16} />
+                            <div>
+                              <p className="font-medium">{task.taskName}</p>
+                              <p className="text-xs text-neutral-500">
+                                {task.startDate} - {task.endDate}
+                              </p>
+                            </div>
+                          </div>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {selectedTaskId && (
+                  <Card variant="ghost" className="bg-blueberry-50 dark:bg-blueberry-950 border-blueberry-200 dark:border-blueberry-700">
+                    <CardContent>
+                      {(() => {
+                        const task = project.tasks?.find(t => t.taskId === selectedTaskId);
+                        return task ? (
+                          <div className="space-y-2">
+                            <h4 className="subtitle text-blueberry-800 dark:text-blueberry-200">
+                              {task.taskName}
+                            </h4>
+                            <div className="flex items-center gap-4 text-sm text-blueberry-700 dark:text-blueberry-300">
+                              <span>Duration: {task.duration}</span>
+                              <span>•</span>
+                              <span>ID: {task.taskId}</span>
+                            </div>
+                          </div>
+                        ) : null;
+                      })()}
+                    </CardContent>
+                  </Card>
+                )}
+
+                <Button 
+                  onClick={handleTaskCompletion} 
+                  disabled={isSubmitting || !selectedTaskId}
+                  loading={isSubmitting}
+                  loadingText="Marking task complete..."
+                  variant="gradient"
+                  size="lg"
+                  className="w-full"
+                >
+                  <CheckCircle size={18} className="mr-2" />
+                  Mark Task as Completed
+                </Button>
+              </div>
+            </TabsContent>
+          </Tabs>
+        </CardContent>
+      </Card>
+
+      {/* Submission History Section */}
+      <Card variant="elevated" className="shadow-xl">
+        <CardHeader>
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 bg-success-100 dark:bg-success-900 rounded-lg flex items-center justify-center">
+                <CalendarIcon size={20} className="text-success-600 dark:text-success-400" />
+              </div>
+              <div>
+                <CardTitle className="text-success-700 dark:text-success-300">Submission History</CardTitle>
+                <CardDescription className="body-text text-neutral-600 dark:text-neutral-400">
+                  Your previous submissions and their status
+                </CardDescription>
+              </div>
+            </div>
+            <Badge variant="outline" size="default">
+              {submissions.length} submissions
+            </Badge>
           </div>
-          
-          <Button 
-            onClick={handleSubmitReport} 
-            disabled={isSubmitting || !textStatus.trim() || !studentProjectStatus}
-            loading={isSubmitting}
-            loadingText="Submitting your report..."
-            variant="gradient"
-            size="lg"
-            className="w-full shadow-xl hover:shadow-2xl transition-all duration-300"
-          >
-            {!isSubmitting && (
-              <>
-                <Send size={18} className="mr-2" />
-                Submit Progress Report
-              </>
-            )}
-          </Button>
-          
-          {(!textStatus.trim() || !studentProjectStatus) && (
-            <p className="body-text text-neutral-500 dark:text-neutral-400 text-center text-sm">
-              Please fill in both fields to submit your report
-            </p>
+        </CardHeader>
+        <CardContent>
+          {submissions.length > 0 ? (
+            <div className="space-y-4">
+              {submissions.map((submission) => {
+                const statusBadge = getSubmissionStatusBadge(submission.status);
+                return (
+                  <Card key={submission.id} variant="ghost" className="border border-neutral-200 dark:border-neutral-700 hover:shadow-sm transition-all duration-200">
+                    <CardContent>
+                      <div className="flex items-start gap-4">
+                        {/* Submission Type Icon */}
+                        <div className="w-10 h-10 bg-neutral-100 dark:bg-neutral-800 rounded-lg flex items-center justify-center flex-shrink-0">
+                          {submission.type === 'progress' && <TrendingUp size={20} className="text-blueberry-600 dark:text-blueberry-400" />}
+                          {submission.type === 'file' && <FileText size={20} className="text-warning-600 dark:text-warning-400" />}
+                          {submission.type === 'link' && <Link2 size={20} className="text-success-600 dark:text-success-400" />}
+                          {submission.type === 'task' && <CheckSquare size={20} className="text-error-600 dark:text-error-400" />}
+                        </div>
+
+                        {/* Submission Content */}
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-start justify-between gap-3 mb-2">
+                            <h4 className="subtitle text-neutral-900 dark:text-neutral-100 truncate">
+                              {submission.title}
+                            </h4>
+                            <Badge variant={statusBadge.variant} size="sm">
+                              {statusBadge.text}
+                            </Badge>
+                          </div>
+
+                          {submission.description && (
+                            <p className="body-text text-neutral-600 dark:text-neutral-400 text-sm mb-3 line-clamp-2">
+                              {submission.description}
+                            </p>
+                          )}
+
+                          {/* Submission-specific details */}
+                          {submission.type === 'file' && submission.fileName && (
+                            <div className="flex items-center gap-2 mb-3">
+                              {getFileIcon(submission.fileName)}
+                              <span className="text-sm text-neutral-600 dark:text-neutral-400">
+                                {submission.fileName}
+                                {submission.fileSize && ` (${formatFileSize(submission.fileSize)})`}
+                              </span>
+                            </div>
+                          )}
+
+                          {submission.type === 'link' && submission.linkUrl && (
+                            <div className="flex items-center gap-2 mb-3">
+                              <Link2 size={14} className="text-neutral-500" />
+                              <a 
+                                href={submission.linkUrl} 
+                                target="_blank" 
+                                rel="noopener noreferrer"
+                                className="text-sm text-blueberry-600 dark:text-blueberry-400 hover:underline truncate"
+                              >
+                                {submission.linkUrl}
+                              </a>
+                            </div>
+                          )}
+
+                          {submission.type === 'task' && submission.taskId && (
+                            <div className="flex items-center gap-2 mb-3">
+                              <CheckSquare size={14} className="text-neutral-500" />
+                              <span className="text-sm text-neutral-600 dark:text-neutral-400">
+                                Task ID: {submission.taskId}
+                              </span>
+                            </div>
+                          )}
+
+                          {/* Submission footer */}
+                          <div className="flex items-center justify-between text-xs text-neutral-500 dark:text-neutral-400">
+                            <span>
+                              Submitted on {submission.submittedAt.toLocaleDateString('en-US', { 
+                                year: 'numeric', 
+                                month: 'short', 
+                                day: 'numeric',
+                                hour: '2-digit',
+                                minute: '2-digit'
+                              })}
+                            </span>
+                            <div className="flex items-center gap-2">
+                              {submission.type === 'file' && (
+                                <Button variant="ghost" size="sm" className="h-6 px-2 text-xs">
+                                  <Eye size={12} className="mr-1" />
+                                  View
+                                </Button>
+                              )}
+                              {submission.type === 'link' && (
+                                <Button variant="ghost" size="sm" className="h-6 px-2 text-xs">
+                                  <ExternalLink size={12} className="mr-1" />
+                                  Open
+                                </Button>
+                              )}
+                            </div>
+                          </div>
+
+                          {/* Feedback section */}
+                          {submission.feedback && (
+                            <div className="mt-3 p-3 bg-blueberry-50 dark:bg-blueberry-950 rounded-lg border border-blueberry-200 dark:border-blueberry-700">
+                              <h5 className="overline text-blueberry-700 dark:text-blueberry-300 mb-1">
+                                Teacher Feedback:
+                              </h5>
+                              <p className="text-sm text-blueberry-800 dark:text-blueberry-200">
+                                {submission.feedback}
+                              </p>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                );
+              })}
+            </div>
+          ) : (
+            <Card variant="ghost" className="text-center py-12">
+              <CardContent>
+                <div className="w-16 h-16 bg-neutral-100 dark:bg-neutral-800 rounded-2xl flex items-center justify-center mx-auto mb-4">
+                  <CalendarIcon size={32} className="text-neutral-400 dark:text-neutral-500" />
+                </div>
+                <p className="body-text text-neutral-500 dark:text-neutral-400">
+                  No submissions yet. Submit your first update above!
+                </p>
+              </CardContent>
+            </Card>
           )}
         </CardContent>
       </Card>

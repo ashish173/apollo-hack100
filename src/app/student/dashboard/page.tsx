@@ -2,21 +2,37 @@
 "use client";
 
 import { useState, useEffect, useCallback } from 'react';
+import { useRouter } from 'next/navigation';
 import { useAuth } from '@/context/auth-context';
 import { collection, query, where, getDocs, doc, getDoc, Timestamp, documentId } from 'firebase/firestore';
 import { db as firebaseDbService } from '@/lib/firebase';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { LoadingSpinner } from '@/components/ui/loading-spinner';
-import { GraduationCap, BookOpen, AlertTriangle, User, Calendar, Clock, Target, Sparkles, CheckCircle } from 'lucide-react';
+import { 
+  GraduationCap, 
+  BookOpen, 
+  AlertTriangle, 
+  User, 
+  Calendar, 
+  Clock, 
+  Target, 
+  Sparkles, 
+  CheckCircle,
+  Search,
+  Filter,
+  ArrowRight,
+  TrendingUp,
+  FileText
+} from 'lucide-react';
 import { format } from 'date-fns';
 
-// Import the new detail component
-import StudentAssignedProjectDetail, { ProjectResources } from '@/components/student/student-assigned-project-detail';
-
-// Import ProjectIdea and SavedProjectTask types from where they are defined
-import { ProjectIdea, SavedProjectTask } from '@/app/teacher/dashboard/student-mentor/idea-detail';
+// Import types
+import ProjectResources from '@/components/student/student-assigned-project-detail';
+import { SavedProjectTask } from '@/app/teacher/dashboard/student-mentor/idea-detail';
 
 // Define an interface that combines data from 'assignedProjects' and 'projects' collections
 interface AssignedProjectWithDetails {
@@ -32,19 +48,20 @@ interface AssignedProjectWithDetails {
   difficulty: string;
   duration: string;
   tasks?: SavedProjectTask[];
-  resources?: ProjectResources;
+  resources?: typeof ProjectResources;
 }
 
 export default function StudentDashboardPage() {
+  const router = useRouter();
   const { user, loading: authLoading } = useAuth();
   const [assignedProjects, setAssignedProjects] = useState<AssignedProjectWithDetails[]>([]);
   const [loadingProjects, setLoadingProjects] = useState(true);
   const [fetchError, setFetchError] = useState<string | null>(null);
-
-  // State to manage the view mode (list of cards or single project detail)
-  const [viewMode, setViewMode] = useState<'list' | 'detail'>('list');
-  // State to hold the data of the project currently selected for detail view
-  const [selectedProject, setSelectedProject] = useState<AssignedProjectWithDetails | null>(null);
+  
+  // Filter states
+  const [searchQuery, setSearchQuery] = useState('');
+  const [statusFilter, setStatusFilter] = useState<string>('all');
+  const [difficultyFilter, setDifficultyFilter] = useState<string>('all');
 
   const fetchAssignedProjects = useCallback(async () => {
     if (!user || !firebaseDbService || !user.uid) return;
@@ -79,7 +96,6 @@ export default function StudentDashboardPage() {
       }
 
       // Step 3: Batch fetch all project details
-      // Firestore 'in' queries are limited to 10 items, so we need to chunk if necessary
       const chunkSize = 10;
       const projectChunks: string[][] = [];
       
@@ -151,15 +167,20 @@ export default function StudentDashboardPage() {
 
   // Function to handle clicking on a project card to view details
   const handleViewDetails = (project: AssignedProjectWithDetails) => {
-    setSelectedProject(project);
-    setViewMode('detail');
+    // Navigate to the project detail page using Next.js router
+    router.push(`/student/project/${project.projectId}`);
   };
 
-  // Function to go back to the list view from the detail page
-  const handleBackToList = () => {
-    setSelectedProject(null);
-    setViewMode('list');
-  };
+  // Filter projects based on search and filters
+  const filteredProjects = assignedProjects.filter(project => {
+    const matchesSearch = project.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                         project.description.toLowerCase().includes(searchQuery.toLowerCase());
+    
+    const matchesStatus = statusFilter === 'all' || project.status === statusFilter;
+    const matchesDifficulty = difficultyFilter === 'all' || project.difficulty === difficultyFilter;
+    
+    return matchesSearch && matchesStatus && matchesDifficulty;
+  });
 
   // Helper function to get status badge variant and color
   const getStatusBadgeProps = (status: string) => {
@@ -187,6 +208,14 @@ export default function StudentDashboardPage() {
       default:
         return 'secondary' as const;
     }
+  };
+
+  // Get summary statistics
+  const stats = {
+    total: assignedProjects.length,
+    completed: assignedProjects.filter(p => p.status.toLowerCase() === 'completed').length,
+    inProgress: assignedProjects.filter(p => p.status.toLowerCase() === 'in-progress').length,
+    assigned: assignedProjects.filter(p => p.status.toLowerCase() === 'assigned').length
   };
 
   if (authLoading) {
@@ -222,19 +251,8 @@ export default function StudentDashboardPage() {
     );
   }
 
-  // Conditionally render the detail component if a project is selected
-  if (viewMode === 'detail' && selectedProject) {
-    return (
-      <StudentAssignedProjectDetail
-        project={selectedProject}
-        onBack={handleBackToList}
-      />
-    );
-  }
-
-  // Otherwise, render the list of assigned projects
   return (
-    <div className="flex-grow flex flex-col p-6 space-y-8 mx-auto max-w-6xl bg-neutral-50 dark:bg-neutral-900">
+    <div className="flex-grow flex flex-col p-6 space-y-8 mx-auto max-w-7xl bg-neutral-50 dark:bg-neutral-900">
       {/* Hero Section */}
       <div className="text-center space-y-6">
         <div className="flex items-center justify-center gap-4 mb-8">
@@ -265,7 +283,7 @@ export default function StudentDashboardPage() {
                 <BookOpen size={24} className="text-blueberry-600 dark:text-blueberry-400" />
               </div>
               <div className="space-y-1">
-                <div className="heading-2 text-blueberry-600 dark:text-blueberry-400">{assignedProjects.length}</div>
+                <div className="heading-2 text-blueberry-600 dark:text-blueberry-400">{stats.total}</div>
                 <div className="body-text text-neutral-600 dark:text-neutral-400 text-sm">Total Projects</div>
               </div>
             </CardContent>
@@ -277,9 +295,7 @@ export default function StudentDashboardPage() {
                 <CheckCircle size={24} className="text-success-600 dark:text-success-400" />
               </div>
               <div className="space-y-1">
-                <div className="heading-2 text-success-600 dark:text-success-400">
-                  {assignedProjects.filter(p => p.status.toLowerCase() === 'completed').length}
-                </div>
+                <div className="heading-2 text-success-600 dark:text-success-400">{stats.completed}</div>
                 <div className="body-text text-neutral-600 dark:text-neutral-400 text-sm">Completed</div>
               </div>
             </CardContent>
@@ -291,9 +307,7 @@ export default function StudentDashboardPage() {
                 <Clock size={24} className="text-warning-600 dark:text-warning-400" />
               </div>
               <div className="space-y-1">
-                <div className="heading-2 text-warning-600 dark:text-warning-400">
-                  {assignedProjects.filter(p => p.status.toLowerCase() === 'in-progress').length}
-                </div>
+                <div className="heading-2 text-warning-600 dark:text-warning-400">{stats.inProgress}</div>
                 <div className="body-text text-neutral-600 dark:text-neutral-400 text-sm">In Progress</div>
               </div>
             </CardContent>
@@ -305,14 +319,99 @@ export default function StudentDashboardPage() {
                 <Target size={24} className="text-error-600 dark:text-error-400" />
               </div>
               <div className="space-y-1">
-                <div className="heading-2 text-error-600 dark:text-error-400">
-                  {assignedProjects.filter(p => p.status.toLowerCase() === 'assigned').length}
-                </div>
+                <div className="heading-2 text-error-600 dark:text-error-400">{stats.assigned}</div>
                 <div className="body-text text-neutral-600 dark:text-neutral-400 text-sm">New Assignments</div>
               </div>
             </CardContent>
           </Card>
         </div>
+      )}
+
+      {/* Search and Filter Section */}
+      {assignedProjects.length > 0 && (
+        <Card variant="elevated" className="shadow-lg">
+          <CardHeader>
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 bg-blueberry-100 dark:bg-blueberry-900 rounded-lg flex items-center justify-center">
+                <Filter size={20} className="text-blueberry-600 dark:text-blueberry-400" />
+              </div>
+              <div>
+                <CardTitle className="text-blueberry-700 dark:text-blueberry-300">Filter Projects</CardTitle>
+                <CardDescription className="body-text text-neutral-600 dark:text-neutral-400">
+                  Search and filter your assigned projects
+                </CardDescription>
+              </div>
+            </div>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="space-y-2">
+                <label className="body-text font-medium text-neutral-700 dark:text-neutral-300">Search Projects</label>
+                <Input
+                  variant="outline"
+                  size="default"
+                  placeholder="Search by title or description..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  leftIcon={<Search size={16} />}
+                />
+              </div>
+              
+              <div className="space-y-2">
+                <label className="body-text font-medium text-neutral-700 dark:text-neutral-300">Status</label>
+                <Select value={statusFilter} onValueChange={setStatusFilter}>
+                  <SelectTrigger variant="outline" size="default">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Statuses</SelectItem>
+                    <SelectItem value="assigned">Assigned</SelectItem>
+                    <SelectItem value="in-progress">In Progress</SelectItem>
+                    <SelectItem value="completed">Completed</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              
+              <div className="space-y-2">
+                <label className="body-text font-medium text-neutral-700 dark:text-neutral-300">Difficulty</label>
+                <Select value={difficultyFilter} onValueChange={setDifficultyFilter}>
+                  <SelectTrigger variant="outline" size="default">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Difficulties</SelectItem>
+                    <SelectItem value="easy">Easy</SelectItem>
+                    <SelectItem value="medium">Medium</SelectItem>
+                    <SelectItem value="hard">Hard</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            
+            {/* Filter Results Info */}
+            {(searchQuery || statusFilter !== 'all' || difficultyFilter !== 'all') && (
+              <div className="mt-4 flex items-center gap-2">
+                <Badge variant="outline" size="default">
+                  {filteredProjects.length} of {assignedProjects.length} projects shown
+                </Badge>
+                {(searchQuery || statusFilter !== 'all' || difficultyFilter !== 'all') && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => {
+                      setSearchQuery('');
+                      setStatusFilter('all');
+                      setDifficultyFilter('all');
+                    }}
+                    className="text-blueberry-600 hover:text-blueberry-700"
+                  >
+                    Clear Filters
+                  </Button>
+                )}
+              </div>
+            )}
+          </CardContent>
+        </Card>
       )}
 
       {/* Main Content */}
@@ -345,23 +444,28 @@ export default function StudentDashboardPage() {
               </div>
             </CardContent>
           </Card>
-        ) : assignedProjects.length === 0 ? (
+        ) : filteredProjects.length === 0 ? (
           <Card variant="ghost" className="text-center py-16">
             <CardContent size="xl">
               <div className="w-24 h-24 bg-neutral-100 dark:bg-neutral-800 rounded-2xl flex items-center justify-center mx-auto mb-6">
                 <BookOpen size={48} className="text-neutral-400 dark:text-neutral-500" />
               </div>
               <div className="space-y-2">
-                <h3 className="heading-3 text-neutral-900 dark:text-neutral-100">No Projects Assigned Yet</h3>
+                <h3 className="heading-3 text-neutral-900 dark:text-neutral-100">
+                  {assignedProjects.length === 0 ? 'No Projects Assigned Yet' : 'No Projects Match Your Filters'}
+                </h3>
                 <p className="body-text text-neutral-600 dark:text-neutral-400 max-w-md mx-auto">
-                  You don't have any projects assigned to you yet. Check back later or contact your instructor for assignments.
+                  {assignedProjects.length === 0 
+                    ? "You don't have any projects assigned to you yet. Check back later or contact your instructor for assignments."
+                    : "Try adjusting your search criteria or clear the filters to see more projects."
+                  }
                 </p>
               </div>
             </CardContent>
           </Card>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {assignedProjects.map((project) => {
+            {filteredProjects.map((project) => {
               const statusProps = getStatusBadgeProps(project.status);
               const StatusIcon = statusProps.icon;
               
@@ -422,12 +526,24 @@ export default function StudentDashboardPage() {
                       
                       {project.resources?.papers && project.resources.papers.length > 0 && (
                         <div className="flex items-center gap-2">
-                          <BookOpen size={14} className="text-warning-600 dark:text-warning-400" />
+                          <FileText size={14} className="text-warning-600 dark:text-warning-400" />
                           <span className="body-text text-neutral-700 dark:text-neutral-300 font-medium text-sm">
                             {project.resources.papers.length} Research Paper{project.resources.papers.length !== 1 ? 's' : ''} Available
                           </span>
                         </div>
                       )}
+                    </div>
+                    
+                    {/* View Details Button */}
+                    <div className="mt-4 pt-4 border-t border-neutral-200 dark:border-neutral-700">
+                      <Button 
+                        variant="ghost" 
+                        size="sm" 
+                        className="w-full text-blueberry-600 hover:text-blueberry-700 hover:bg-blueberry-50 dark:text-blueberry-400 dark:hover:bg-blueberry-950 group-hover:bg-blueberry-100 dark:group-hover:bg-blueberry-900"
+                      >
+                        View Project Details
+                        <ArrowRight size={14} className="ml-2 group-hover:translate-x-1 transition-transform" />
+                      </Button>
                     </div>
                   </CardContent>
                 </Card>
