@@ -547,7 +547,7 @@ export default function ProjectOverview({ project, userRole, onNavigateToSubmiss
               {project.resources.papers.map((paper, index) => (
                 <Card key={paper.id || index} variant="ghost" className="border border-neutral-200 dark:border-neutral-700 hover:shadow-md transition-shadow duration-300">
                   <CardContent size="lg">
-                    <div className="space-y-4">
+                    <div className="space-y-4 pt-6">
                       {/* Paper Header */}
                       <div className="space-y-3">
                         <h4 className="subtitle text-neutral-900 dark:text-neutral-100 leading-tight">

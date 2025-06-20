@@ -135,8 +135,8 @@ export default function StudentDashboardPage() {
             description: projectData.description,
             difficulty: projectData.difficulty,
             duration: projectData.duration,
-            tasks: projectData.tasks || [],
-            resources: projectData.resources || {}
+            tasks: assignment.tasks || [],
+            resources: assignment.resources || {}
           });
         } else {
           console.warn(`Project document with ID ${assignment.projectId} not found for student ${user.uid}. Skipping this assignment.`);
