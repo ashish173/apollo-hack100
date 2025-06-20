@@ -311,7 +311,7 @@ export default function TaskSubmissionModal({
 
   return (
     <Dialog open={isOpen} onOpenChange={handleClose}>
-      <DialogContent size="lg" className="max-w-2xl max-h-[90vh] overflow-y-auto">
+      <DialogContent variant="default" size="xl" className="max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <div className="flex items-start gap-3">
             <div className="w-10 h-10 bg-blueberry-100 dark:bg-blueberry-900 rounded-lg flex items-center justify-center">

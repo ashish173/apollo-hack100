@@ -506,7 +506,7 @@ export default function ProjectDetailView({
   };
 
   const handleViewStudentDetail = (projectId: string) => {
-    window.location.href = `/student/project/${projectId}?source=teacher`;
+    window.location.href = `/student/project/${projectId}`;
   };
 
   return (

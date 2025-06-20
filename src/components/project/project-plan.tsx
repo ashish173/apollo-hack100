@@ -5,14 +5,18 @@ import { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Target, Calendar, Clock, CheckCircle, AlertCircle, PlayCircle, Plus, MoreHorizontal, Edit, Trash2, User, Upload, Send } from 'lucide-react';
+import { Target, Calendar, Clock, CheckCircle, AlertCircle, PlayCircle, Plus, MoreHorizontal, Edit, Trash2, User, Upload, Send, Eye, Lightbulb } from 'lucide-react';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { ProjectData } from './index';
 import { cn } from '@/lib/utils';
 import * as React from 'react';
+import { doc, updateDoc, serverTimestamp, collection, query, where, getDocs } from 'firebase/firestore';
+import { db } from '@/lib/firebase';
 
-// Import the submission modal
+// Import modals
 import TaskSubmissionModal from './task-submission-modal';
+import { useAuth } from '@/context/auth-context';
+import TaskViewModal from './task-view-modal';
 
 interface ProjectPlanProps {
   project: ProjectData;
@@ -21,9 +25,12 @@ interface ProjectPlanProps {
 
 export default function ProjectPlan({ project, userRole }: ProjectPlanProps) {
   const [draggedTask, setDraggedTask] = useState<string | null>(null);
-    const [localTasks, setLocalTasks] = useState(project.tasks || []);
-    const [selectedTask, setSelectedTask] = useState<any>(null);
-    const [isSubmissionModalOpen, setIsSubmissionModalOpen] = useState(false);
+  const [localTasks, setLocalTasks] = useState(project.tasks || []);
+  const [selectedTask, setSelectedTask] = useState<any>(null);
+  const [isSubmissionModalOpen, setIsSubmissionModalOpen] = useState(false);
+  const [isViewModalOpen, setIsViewModalOpen] = useState(false);
+
+  const { user } = useAuth();
 
   // Helper function to get task status badge
   const getTaskStatusBadge = (status?: string) => {
@@ -96,20 +103,20 @@ export default function ProjectPlan({ project, userRole }: ProjectPlanProps) {
     e.preventDefault();
   };
 
-  const handleDrop = (columnId: string) => {
+  const handleDrop = async (columnId: string) => {
     if (!draggedTask) return;
-
+  
     // Map column IDs to task statuses
     const statusMap = {
       'pending': 'pending' as const,
       'in-progress': 'in-progress' as const,
       'completed': 'completed' as const
     };
-
+  
     const newStatus = statusMap[columnId as keyof typeof statusMap];
     if (!newStatus) return;
-
-    // Update the task status locally
+  
+    // Update the task status locally first for immediate UI feedback
     setLocalTasks(prevTasks => 
       prevTasks.map(task => 
         task.taskId === draggedTask 
@@ -117,12 +124,67 @@ export default function ProjectPlan({ project, userRole }: ProjectPlanProps) {
           : task
       )
     );
+  
+    try {
+      console.log("project", project);
+      // Update the specific task status in the tasks array
+      const updatedTasks = (project.tasks || []).map((task: any) => 
+        task.taskId === draggedTask 
+          ? { ...task, status: newStatus }
+          : task
+      );
+  
+      console.log("new status", newStatus);
+      console.log("updated tasks", updatedTasks)
 
-    // In a real app, you would also update Firebase here:
-    // await updateTaskStatus(draggedTask, newStatus);
+      // Update the assignment document with the new tasks array
+      const assignmentDocRef = doc(db, 'assignedProjects', project.assignedProjectId);
+      await updateDoc(assignmentDocRef, {
+        tasks: updatedTasks,
+        // Optionally update overall project status based on task completion
+        status: calculateOverallStatus(updatedTasks),
+        // Update timestamp
+        lastUpdated: serverTimestamp()
+      });
+  
+      console.log(`Task ${draggedTask} moved to ${newStatus} and updated in Firebase`);
+      
+    } catch (error) {
+      console.error("Error updating task status:", error);
+      
+      // Revert local state if Firebase update fails
+      setLocalTasks(prevTasks => 
+        prevTasks.map(task => 
+          task.taskId === draggedTask 
+            ? { ...task, status: task.status } // Revert to original status
+            : task
+        )
+      );
+    } finally {
+      setDraggedTask(null);
+    }
+  };
+  
+  // Helper function to calculate overall project status based on tasks
+  const calculateOverallStatus = (tasks: any[]) => {
+    if (!tasks || tasks.length === 0) return 'assigned';
     
-    console.log(`Task ${draggedTask} moved to ${newStatus}`);
-    setDraggedTask(null);
+    const completedTasks = tasks.filter(task => task.status === 'completed').length;
+    const inProgressTasks = tasks.filter(task => task.status === 'in-progress').length;
+    
+    if (completedTasks === tasks.length) {
+      return 'completed';
+    } else if (inProgressTasks > 0 || completedTasks > 0) {
+      return 'in-progress';
+    } else {
+      return 'assigned';
+    }
+  };
+
+  // Handle task view modal
+  const handleTaskView = (task: any) => {
+    setSelectedTask(task);
+    setIsViewModalOpen(true);
   };
 
   // Handle task submission modal
@@ -146,9 +208,11 @@ export default function ProjectPlan({ project, userRole }: ProjectPlanProps) {
     // Close modal
     setIsSubmissionModalOpen(false);
     setSelectedTask(null);
-    
-    // In real app, refresh submissions data
-    console.log(`Submission completed for task ${taskId}`);
+  };
+
+  const handleViewModalClose = () => {
+    setIsViewModalOpen(false);
+    setSelectedTask(null);
   };
 
   return (
@@ -162,7 +226,7 @@ export default function ProjectPlan({ project, userRole }: ProjectPlanProps) {
                 <Target size={24} className="text-white" />
               </div>
               <div>
-                <CardTitle size="lg" className="text-blueberry-800 dark:text-blueberry-200">Project Progress</CardTitle>
+                <CardTitle className="text-blueberry-800 dark:text-blueberry-200">Project Progress</CardTitle>
                 <CardDescription className="body-text text-blueberry-700 dark:text-blueberry-300">
                   Overall completion status and task breakdown
                 </CardDescription>
@@ -218,7 +282,7 @@ export default function ProjectPlan({ project, userRole }: ProjectPlanProps) {
               <div>
                 <CardTitle className="text-blueberry-700 dark:text-blueberry-300">Task Board</CardTitle>
                 <CardDescription className="body-text text-neutral-600 dark:text-neutral-400">
-                  Drag and drop tasks between columns to update their status
+                  Click on tasks to view details, drag between columns to update status
                 </CardDescription>
               </div>
             </div>
@@ -275,22 +339,35 @@ export default function ProjectPlan({ project, userRole }: ProjectPlanProps) {
                               <Card 
                                 key={task.taskId}
                                 variant="default"
-                                className="group hover:shadow-lg transition-all duration-200 cursor-grab active:cursor-grabbing bg-white dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700"
-                                draggable={userRole === 'student'}
-                                onDragStart={() => handleDragStart(task.taskId)}
+                                className="group hover:shadow-lg transition-all duration-200 cursor-pointer bg-white dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 hover:border-blueberry-300 dark:hover:border-blueberry-600"
+                                draggable={user?.role === "student"}
+                                onDragStart={ () => handleDragStart(task.taskId)}
+                                onClick={() => handleTaskView(task)}
                               >
-                                <CardContent size="lg">
+                                <CardContent>
                                   <div className="space-y-4">
                                     {/* Task Header */}
                                     <div className="flex items-start justify-between gap-2">
                                       <h4 className="body-text font-semibold text-neutral-900 dark:text-neutral-100 line-clamp-2 group-hover:text-blueberry-700 dark:group-hover:text-blueberry-300 transition-colors">
                                         {task.taskName}
                                       </h4>
-                                      {userRole === 'teacher' && (
-                                        <Button variant="ghost" size="sm" className="opacity-0 group-hover:opacity-100 transition-opacity h-6 w-6 p-0">
-                                          <MoreHorizontal size={14} />
-                                        </Button>
-                                      )}
+                                      <div className="flex items-center gap-1">
+                                        {task.hints && task.hints.length > 0 && (
+                                          <div className="w-6 h-6 bg-blueberry-100 dark:bg-blueberry-900 rounded-full flex items-center justify-center">
+                                            <Lightbulb size={12} className="text-blueberry-600 dark:text-blueberry-400" />
+                                          </div>
+                                        )}
+                                        {userRole === 'teacher' && (
+                                          <Button 
+                                            variant="ghost" 
+                                            size="sm" 
+                                            className="opacity-0 group-hover:opacity-100 transition-opacity h-6 w-6 p-0"
+                                            onClick={(e) => e.stopPropagation()}
+                                          >
+                                            <MoreHorizontal size={14} />
+                                          </Button>
+                                        )}
+                                      </div>
                                     </div>
 
                                     {/* Task Details */}
@@ -312,14 +389,34 @@ export default function ProjectPlan({ project, userRole }: ProjectPlanProps) {
                                         <StatusIcon size={12} className="mr-1" />
                                         {statusBadge.text}
                                       </Badge>
-                                      <span className="text-xs text-neutral-400 dark:text-neutral-500 font-mono">
-                                        #{task.taskId}
-                                      </span>
+                                      <div className="flex items-center gap-2">
+                                        {task.hints && task.hints.length > 0 && (
+                                          <Badge variant="soft-primary" size="sm">
+                                            <Lightbulb size={10} className="mr-1" />
+                                            {task.hints.length}
+                                          </Badge>
+                                        )}
+                                        <span className="text-xs text-neutral-400 dark:text-neutral-500 font-mono">
+                                          #{task.taskId}
+                                        </span>
+                                      </div>
                                     </div>
 
                                     {/* Quick Actions */}
                                     {userRole === 'student' && (
                                       <div className="flex gap-2 pt-3 border-t border-neutral-200 dark:border-neutral-700">
+                                        <Button
+                                          variant="outline"
+                                          size="sm"
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            handleTaskView(task);
+                                          }}
+                                          className="flex-1 text-xs border-neutral-300 text-neutral-700 hover:bg-neutral-50 dark:border-neutral-600 dark:text-neutral-400 dark:hover:bg-neutral-900"
+                                        >
+                                          <Eye size={12} className="mr-1" />
+                                          View Details
+                                        </Button>
                                         <Button
                                           variant="outline"
                                           size="sm"
@@ -431,14 +528,18 @@ export default function ProjectPlan({ project, userRole }: ProjectPlanProps) {
               </div>
               <div className="flex-1">
                 <h3 className="subtitle text-blueberry-800 dark:text-blueberry-200 mb-2">How to Use the Task Board</h3>
-                <div className="grid md:grid-cols-2 gap-4 body-text text-blueberry-700 dark:text-blueberry-300">
+                <div className="grid md:grid-cols-3 gap-4 body-text text-blueberry-700 dark:text-blueberry-300">
+                  <div className="space-y-1">
+                    <p className="overline text-blueberry-900 dark:text-blueberry-100">View Details</p>
+                    <p>Click on any task card to view detailed information and available hints</p>
+                  </div>
                   <div className="space-y-1">
                     <p className="overline text-blueberry-900 dark:text-blueberry-100">Update Progress</p>
                     <p>Drag tasks between columns to update their status as you work on them</p>
                   </div>
                   <div className="space-y-1">
-                    <p className="overline text-blueberry-900 dark:text-blueberry-100">Track Deadlines</p>
-                    <p>Check start and end dates to stay on schedule with your project timeline</p>
+                    <p className="overline text-blueberry-900 dark:text-blueberry-100">Submit Work</p>
+                    <p>Use the Submit Work button to upload files and mark tasks as complete</p>
                   </div>
                 </div>
               </div>
@@ -446,6 +547,19 @@ export default function ProjectPlan({ project, userRole }: ProjectPlanProps) {
           </CardContent>
         </Card>
       )}
+
+      {/* Task View Modal */}
+      <TaskViewModal
+        isOpen={isViewModalOpen}
+        onClose={handleViewModalClose}
+        task={selectedTask}
+        project={project}
+        userRole={userRole}
+        onSubmit={(task) => {
+          handleViewModalClose();
+          handleTaskSubmission(task);
+        }}
+      />
 
       {/* Task Submission Modal */}
       <TaskSubmissionModal

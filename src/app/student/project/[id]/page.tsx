@@ -102,7 +102,7 @@ export default function StudentProjectDetailPage() {
         description: projectData.description,
         difficulty: projectData.difficulty,
         duration: projectData.duration,
-        tasks: projectData.tasks || [],
+        tasks: assignmentData.tasks || [],
         resources: projectData.resources || {}
       };
 
