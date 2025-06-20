@@ -206,6 +206,7 @@ export default function ProjectDetail({ project, userRole, onBack }: ProjectDeta
               <ProjectOverview 
                 project={project} 
                 userRole={userRole} 
+                onNavigateToSubmissions={() => setActiveTab("submissions")}
               />
             </TabsContent>
 

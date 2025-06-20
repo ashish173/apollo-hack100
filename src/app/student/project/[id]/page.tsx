@@ -103,7 +103,7 @@ export default function StudentProjectDetailPage() {
         difficulty: projectData.difficulty,
         duration: projectData.duration,
         tasks: assignmentData.tasks || [],
-        resources: projectData.resources || {}
+        resources: assignmentData.resources || {}
       };
 
       setProject(combinedProject);

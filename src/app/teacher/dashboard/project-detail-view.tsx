@@ -444,6 +444,8 @@ export default function ProjectDetailView({
   const [assignments, setAssignments] = useState<StudentAssignment[]>([]);
   const [loadingAssignments, setLoadingAssignments] = useState(true);
   const [isAssignDialogOpen, setIsAssignDialogOpen] = useState(false);
+  const [activeTab, setActiveTab] = useState('overview');
+
 
   const fetchAssignments = useCallback(async () => {
     if (!project.id || !firebaseDbService || !teacherId) return;
@@ -523,7 +525,7 @@ export default function ProjectDetailView({
       </Button>
 
       {/* Main Content */}
-      <Tabs defaultValue="overview" className="space-y-8 bg-white p-4 rounded-md">
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-8 bg-white p-4 rounded-md">
         <div className="border-b border-neutral-200 dark:border-neutral-700 p-6">
           <TabsList className="grid w-full grid-cols-3">
             <TabsTrigger value="overview" icon={<BookOpen className="w-4 h-4" />}>
@@ -539,7 +541,9 @@ export default function ProjectDetailView({
         </div>
 
         <TabsContent value="overview">
-          <ProjectOverview project={project} />
+          <ProjectOverview
+            project={project}
+          />
         </TabsContent>
 
         <TabsContent value="tasks">
