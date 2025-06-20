@@ -74,6 +74,7 @@ interface AssignProjectDialogProps {
   isOpen: boolean;
   onOpenChange: Dispatch<SetStateAction<boolean>>;
   teacherId: string;
+  type?: "projectIdea" | "savedProject"
 }
 
 // Enhanced Project Summary Component
@@ -473,7 +474,8 @@ export default function AssignProjectDialog({
   project, 
   isOpen, 
   onOpenChange, 
-  teacherId 
+  teacherId ,
+  type = "projectIdea"
 }: AssignProjectDialogProps) {
   const [students, setStudents] = useState<UserProfile[]>([]);
   const [selectedStudentUid, setSelectedStudentUid] = useState<string | undefined>(undefined);
@@ -560,20 +562,26 @@ export default function AssignProjectDialog({
 
     setIsAssigning(true);
     try {
-      // Step 1: Create a new project document in 'projects' collection with an auto-generated ID
-      const projectDataForDatabase = {
-        title: project.title,
-        description: project.description,
-        difficulty: project.difficulty,
-        duration: project.duration,
-        projectStartDate: projectStartDate,
-        tasks: processedTasks,
-        teacherId: teacherId,
-        createdAt: serverTimestamp(),
-      };
-      
-      const newProjectRef = await addDoc(collection(firebaseDbService, 'projects'), projectDataForDatabase);
-      const newProjectId = newProjectRef.id;
+      let projectId = null;
+
+      if (type === "savedProject") {
+          projectId = project.id
+      } else {
+        // Step 1: Create a new project document in 'projects' collection with an auto-generated ID
+        const projectDataForDatabase = {
+          title: project.title,
+          description: project.description,
+          difficulty: project.difficulty,
+          duration: project.duration,
+          projectStartDate: projectStartDate,
+          tasks: processedTasks,
+          teacherId: teacherId,
+          createdAt: serverTimestamp(),
+        };
+        
+        const newProjectRef = await addDoc(collection(firebaseDbService, 'projects'), projectDataForDatabase);
+        projectId = newProjectRef.id;
+      }
 
       // Step 2: Create assignment in 'assignedProjects' collection
       const studentTasks = processedTasks.map(task => ({
@@ -593,10 +601,8 @@ export default function AssignProjectDialog({
         blockers: []
       }));
 
-
-
       const assignmentData = {
-        projectId: newProjectId,
+        projectId: projectId,
         studentUid: selectedStudentUid,
         studentName: selectedStudent.displayName || selectedStudent.email || 'N/A',
         teacherUid: teacherId,
@@ -660,17 +666,19 @@ export default function AssignProjectDialog({
           </DialogHeader>
 
           <Tabs defaultValue="overview" className="space-y-6">
-            <TabsList variant="pills" className="grid w-full grid-cols-3">
-              <TabsTrigger value="overview" icon={<Target className="w-4 h-4" />}>
-                Project Overview
-              </TabsTrigger>
-              <TabsTrigger value="student" icon={<Users className="w-4 h-4" />}>
-                Select Student
-              </TabsTrigger>
-              <TabsTrigger value="timeline" icon={<Calendar className="w-4 h-4" />}>
-                Timeline Setup
-              </TabsTrigger>
-            </TabsList>
+            <div className="border-b border-neutral-200 dark:border-neutral-700 p-6">
+              <TabsList className="grid w-full grid-cols-3">
+                <TabsTrigger value="overview" icon={<Target className="w-4 h-4" />}>
+                  Project Overview
+                </TabsTrigger>
+                <TabsTrigger value="student" icon={<Users className="w-4 h-4" />}>
+                  Select Student
+                </TabsTrigger>
+                <TabsTrigger value="timeline" icon={<Calendar className="w-4 h-4" />}>
+                  Timeline Setup
+                </TabsTrigger>
+              </TabsList>
+            </div>
 
             <TabsContent value="overview" className="space-y-6">
               <ProjectSummary project={project} />

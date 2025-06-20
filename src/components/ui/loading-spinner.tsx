@@ -7,7 +7,7 @@ import { Loader2, RotateCcw, RefreshCw } from 'lucide-react';
 import { cn } from "@/lib/utils";
 
 const spinnerVariants = cva(
-  "animate-spin transition-all duration-200",
+  "transition-all duration-200",
   {
     variants: {
       variant: {
@@ -20,7 +20,6 @@ const spinnerVariants = cva(
         muted: "text-neutral-400 dark:text-neutral-500",
         white: "text-white",
         inherit: "text-current",
-        apollo: "text-white", // Special variant for Apollo logo
       },
       size: {
         xs: "w-3 h-3",
@@ -32,9 +31,9 @@ const spinnerVariants = cva(
         custom: "",
       },
       speed: {
-        slow: "animate-spin-slow",
-        default: "animate-spin",
-        fast: "animate-spin-fast",
+        slow: "",
+        default: "",
+        fast: "",
       },
     },
     defaultVariants: {
@@ -62,62 +61,159 @@ const containerVariants = cva(
   }
 );
 
-// Apollo Logo Component for Loading Spinner
-const ApolloSpinnerLogo = ({ 
-  size = "default", 
-  className = "",
-  animate = true 
+// Simple Dots Loader
+const DotsLoader = ({ 
+  size = "default",
+  variant = "default",
+  className = "" 
 }: { 
   size?: "xs" | "sm" | "default" | "lg" | "xl" | "2xl";
+  variant?: string;
   className?: string;
-  animate?: boolean;
 }) => {
   const sizeMap = {
-    xs: { container: "w-6 h-6", svg: "16", text: "text-xs" },
-    sm: { container: "w-8 h-8", svg: "20", text: "text-sm" },
-    default: { container: "w-12 h-12", svg: "24", text: "text-base" },
-    lg: { container: "w-16 h-16", svg: "32", text: "text-lg" },
-    xl: { container: "w-20 h-20", svg: "40", text: "text-xl" },
-    "2xl": { container: "w-24 h-24", svg: "48", text: "text-2xl" }
+    xs: "w-1 h-1",
+    sm: "w-1.5 h-1.5", 
+    default: "w-2 h-2",
+    lg: "w-3 h-3",
+    xl: "w-4 h-4",
+    "2xl": "w-5 h-5"
   };
 
-  const sizeConfig = sizeMap[size];
+  const gapMap = {
+    xs: "gap-1",
+    sm: "gap-1", 
+    default: "gap-1.5",
+    lg: "gap-2",
+    xl: "gap-2.5",
+    "2xl": "gap-3"
+  };
+
+  const dotSize = sizeMap[size];
+  const gap = gapMap[size];
+
+  const getVariantColor = (variant: string) => {
+    switch (variant) {
+      case 'primary': return 'bg-blueberry-600 dark:bg-blueberry-400';
+      case 'secondary': return 'bg-neutral-500 dark:bg-neutral-400';
+      case 'success': return 'bg-success-500 dark:bg-success-400';
+      case 'warning': return 'bg-warning-500 dark:bg-warning-400';
+      case 'error': return 'bg-error-500 dark:bg-error-400';
+      case 'muted': return 'bg-neutral-400 dark:bg-neutral-500';
+      case 'white': return 'bg-white';
+      default: return 'bg-blueberry-500 dark:bg-blueberry-400';
+    }
+  };
+
+  const colorClass = getVariantColor(variant);
 
   return (
-    <div className={cn(
-      `${sizeConfig.container} bg-gradient-to-br from-blueberry-500 to-blueberry-600 rounded-xl flex items-center justify-center shadow-lg`,
-      animate && "animate-spin",
-      className
-    )}>
+    <div className={cn(`flex items-center ${gap}`, className)}>
+      <div 
+        className={cn(`${dotSize} ${colorClass} rounded-full`)}
+        style={{
+          animation: 'dotPulse 1.4s ease-in-out infinite',
+          animationDelay: '0s'
+        }}
+      />
+      <div 
+        className={cn(`${dotSize} ${colorClass} rounded-full`)}
+        style={{
+          animation: 'dotPulse 1.4s ease-in-out infinite',
+          animationDelay: '0.2s'
+        }}
+      />
+      <div 
+        className={cn(`${dotSize} ${colorClass} rounded-full`)}
+        style={{
+          animation: 'dotPulse 1.4s ease-in-out infinite',
+          animationDelay: '0.4s'
+        }}
+      />
+    </div>
+  );
+};
+
+// Circle Spinner
+const CircleSpinner = ({ 
+  size = "default",
+  variant = "default",
+  className = "" 
+}: { 
+  size?: "xs" | "sm" | "default" | "lg" | "xl" | "2xl";
+  variant?: string;
+  className?: string;
+}) => {
+  const sizeMap = {
+    xs: "w-4 h-4",
+    sm: "w-5 h-5",
+    default: "w-6 h-6", 
+    lg: "w-8 h-8",
+    xl: "w-12 h-12",
+    "2xl": "w-16 h-16"
+  };
+
+  const strokeMap = {
+    xs: "2",
+    sm: "2",
+    default: "2",
+    lg: "3", 
+    xl: "3",
+    "2xl": "4"
+  };
+
+  const getVariantColor = (variant: string) => {
+    switch (variant) {
+      case 'primary': return 'stroke-blueberry-600 dark:stroke-blueberry-400';
+      case 'secondary': return 'stroke-neutral-500 dark:stroke-neutral-400';
+      case 'success': return 'stroke-success-500 dark:stroke-success-400';
+      case 'warning': return 'stroke-warning-500 dark:stroke-warning-400';
+      case 'error': return 'stroke-error-500 dark:stroke-error-400';
+      case 'muted': return 'stroke-neutral-400 dark:stroke-neutral-500';
+      case 'white': return 'stroke-white';
+      default: return 'stroke-blueberry-500 dark:stroke-blueberry-400';
+    }
+  };
+
+  const circleSize = sizeMap[size];
+  const strokeWidth = strokeMap[size];
+  const colorClass = getVariantColor(variant);
+
+  return (
+    <div className={cn(circleSize, className)}>
       <svg 
-        width={sizeConfig.svg} 
-        height={sizeConfig.svg} 
-        viewBox="0 0 100 100" 
-        xmlns="http://www.w3.org/2000/svg" 
-        className="text-white"
+        className="w-full h-full" 
+        viewBox="0 0 50 50"
+        style={{
+          animation: 'spin 2s linear infinite'
+        }}
       >
-        {/* Animated Apollo logo with pulsing effect */}
-        <rect 
-          x="15" 
-          y="15" 
-          width="40" 
-          height="40" 
-          rx="8" 
-          ry="8" 
-          fill="currentColor"
-          className={animate ? "animate-pulse" : ""}
+        <circle
+          cx="25"
+          cy="25"
+          r="20"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth={strokeWidth}
+          strokeLinecap="round"
+          strokeDasharray="31.416"
+          strokeDashoffset="31.416"
+          className={cn(colorClass, "opacity-25")}
         />
-        <rect 
-          x="35" 
-          y="35" 
-          width="40" 
-          height="40" 
-          rx="8" 
-          ry="8" 
-          fill="currentColor" 
-          opacity="0.7"
-          className={animate ? "animate-pulse" : ""}
-          style={animate ? { animationDelay: '0.2s' } : {}}
+        <circle
+          cx="25"
+          cy="25"
+          r="20"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth={strokeWidth}
+          strokeLinecap="round"
+          strokeDasharray="31.416"
+          strokeDashoffset="15.708"
+          className={colorClass}
+          style={{
+            animation: 'dash 1.5s ease-in-out infinite'
+          }}
         />
       </svg>
     </div>
@@ -129,10 +225,10 @@ export interface LoadingSpinnerProps extends VariantProps<typeof spinnerVariants
   iconClassName?: string;
   label?: string;
   description?: string;
-  icon?: 'loader' | 'rotate' | 'refresh' | 'apollo';
+  type?: 'dots' | 'circle' | 'icon';
+  icon?: 'loader' | 'rotate' | 'refresh';
   size?: VariantProps<typeof spinnerVariants>['size'] | number;
   showLabel?: boolean;
-  showBranding?: boolean; // Show "Apollo" text with logo
 }
 
 const LoadingSpinner = React.forwardRef<HTMLDivElement, LoadingSpinnerProps>(
@@ -145,24 +241,27 @@ const LoadingSpinner = React.forwardRef<HTMLDivElement, LoadingSpinnerProps>(
     layout,
     label = "Loading",
     description,
+    type = 'dots', // Default to dots loader
     icon = 'loader',
     showLabel = false,
-    showBranding = false,
     ...props
   }, ref) => {
     const IconComponent = {
       loader: Loader2,
       rotate: RotateCcw,
       refresh: RefreshCw,
-      apollo: null, // Handled separately
     }[icon];
 
     const isCustomSize = typeof size === 'number';
     const spinnerSize = isCustomSize ? 'custom' : size;
-    const isApolloIcon = icon === 'apollo';
 
-    // For Apollo icon, use Apollo variant automatically
-    const effectiveVariant = isApolloIcon ? 'apollo' : variant;
+    const getSpeedDuration = (speed?: string) => {
+      switch (speed) {
+        case 'slow': return '3s';
+        case 'fast': return '0.8s';
+        default: return '1.5s';
+      }
+    };
 
     return (
       <div
@@ -171,51 +270,35 @@ const LoadingSpinner = React.forwardRef<HTMLDivElement, LoadingSpinnerProps>(
         {...props}
       >
         <div className="flex flex-col items-center gap-4">
-          {/* Icon/Logo */}
-          <div className="flex items-center gap-3">
-            {isApolloIcon ? (
-              <ApolloSpinnerLogo 
-                size={spinnerSize as any}
-                className={iconClassName}
-                animate={speed !== undefined}
-              />
-            ) : IconComponent ? (
-              <IconComponent
-                className={cn(
-                  spinnerVariants({ variant: effectiveVariant, size: spinnerSize, speed }),
-                  iconClassName
-                )}
-                style={isCustomSize ? { width: `${size}px`, height: `${size}px` } : undefined}
-                aria-label={label}
-              />
-            ) : null}
-            
-            {/* Optional Apollo Branding */}
-            {isApolloIcon && showBranding && (
-              <div className="text-center">
-                <h3 className={cn(
-                  "font-bold bg-gradient-to-r from-blueberry-600 to-blueberry-700 bg-clip-text text-transparent",
-                  spinnerSize === 'xs' ? 'text-sm' : 
-                  spinnerSize === 'sm' ? 'text-base' :
-                  spinnerSize === 'lg' ? 'text-xl' :
-                  spinnerSize === 'xl' ? 'text-2xl' :
-                  spinnerSize === '2xl' ? 'text-3xl' : 'text-lg'
-                )}>
-                  Apollo
-                </h3>
-                <p className={cn(
-                  "text-blueberry-600 dark:text-blueberry-400 font-medium tracking-wider uppercase",
-                  spinnerSize === 'xs' ? 'text-xs' : 
-                  spinnerSize === 'sm' ? 'text-xs' :
-                  spinnerSize === 'lg' ? 'text-sm' :
-                  spinnerSize === 'xl' ? 'text-base' :
-                  spinnerSize === '2xl' ? 'text-lg' : 'text-xs'
-                )}>
-                  Education Platform
-                </p>
-              </div>
-            )}
-          </div>
+          {/* Spinner */}
+          {type === 'dots' && (
+            <DotsLoader 
+              size={spinnerSize as any}
+              variant={variant}
+              className={iconClassName}
+            />
+          )}
+          
+          {type === 'circle' && (
+            <CircleSpinner 
+              size={spinnerSize as any}
+              variant={variant}
+              className={iconClassName}
+            />
+          )}
+          
+          {type === 'icon' && IconComponent && (
+            <IconComponent
+              className={cn(
+                spinnerVariants({ variant, size: spinnerSize }),
+                iconClassName
+              )}
+              style={{
+                animation: `spin ${getSpeedDuration(speed)} linear infinite`
+              }}
+              aria-label={label}
+            />
+          )}
           
           {/* Labels */}
           {(showLabel || description) && (
@@ -254,8 +337,54 @@ const LoadingSpinner = React.forwardRef<HTMLDivElement, LoadingSpinnerProps>(
 
 LoadingSpinner.displayName = "LoadingSpinner";
 
+// Add custom CSS animations
+const spinnerCSS = `
+@keyframes dotPulse {
+  0%, 80%, 100% {
+    transform: scale(0.8);
+    opacity: 0.5;
+  }
+  40% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes dash {
+  0% {
+    stroke-dasharray: 1, 150;
+    stroke-dashoffset: 0;
+  }
+  50% {
+    stroke-dasharray: 90, 150;
+    stroke-dashoffset: -35;
+  }
+  100% {
+    stroke-dasharray: 90, 150;
+    stroke-dashoffset: -124;
+  }
+}
+`;
+
+// Inject CSS if not already present
+if (typeof document !== 'undefined' && !document.getElementById('spinner-css')) {
+  const style = document.createElement('style');
+  style.id = 'spinner-css';
+  style.textContent = spinnerCSS;
+  document.head.appendChild(style);
+}
+
 // Named export (as used in Apollo Design System)
-export { LoadingSpinner, ApolloSpinnerLogo };
+export { LoadingSpinner };
 
 // Also provide a default export for convenience
 export default LoadingSpinner;

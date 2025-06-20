@@ -574,6 +574,7 @@ export default function ProjectDetailView({
           isOpen={isAssignDialogOpen}
           onOpenChange={setIsAssignDialogOpen}
           teacherId={teacherId}
+          type="savedProject"
         />
       )}
     </div>
