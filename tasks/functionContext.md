@@ -43,7 +43,7 @@
 
 ### Functions:
 
-- `extractUserDetailsFromPDF(pdf)`: Extracts structured data (candidate name, interviewer name, email, etc.).
+- `extractDetailsFromPDF(pdf)`: Extracts structured data (candidate name, interviewer name, email, etc.).
 - `extractSlotsFromEmail(emailContent)`: Parses time slot responses from candidate or interviewer emails.
 - `generateEmailPrompt(data)`: Returns a prompt with necessary context for generating a template (for LLMs).
 - `formatParsedResponse(data)`: Formats the extracted slot data for use downstream.
