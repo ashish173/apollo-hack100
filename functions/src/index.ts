@@ -6,16 +6,17 @@ import { generateProjectPlan } from "./ai/flows/generate-project-plan";
 import { suggestTaskHints } from "./ai/flows/suggest-task-hints";
 import { generateCurriculumSuggestions } from "./ai/flows/generate-curriculum-suggestions";
 
-// Existing v2 functions and params
-const { onRequest } = require("firebase-functions/v2/https"); // Used by existing functions
-const { defineString } = require("firebase-functions/params"); // Used by existing functions
+// Existing v2 functions and params (now using import style)
+import { onRequest as v2OnRequest, HttpsError as V2HttpsError } from "firebase-functions/v2/https";
+import { defineString as v2DefineString, defineSecret as v2DefineSecret } from "firebase-functions/params";
+import { onCall as v2OnCall } from "firebase-functions/v2/https"; // For v2 callable
 
 // --- New Imports for Google API Integration ---
 import * as admin from "firebase-admin";
-import * as functions from "firebase-functions"; // v1 functions for Google API integration
-import { google, Auth } from "googleapis";
+// import * as functions from "firebase-functions"; // REMOVED v1 functions
+import { google } from "googleapis"; // Auth was not a separate import needed from googleapis
 import { OAuth2Client } from "google-auth-library";
-import axios from "axios"; // Added for revokeGoogleAccess_v1
+import axios from "axios";
 
 // --- Initialize Firebase Admin SDK (if not already initialized) ---
 if (admin.apps.length === 0) {
@@ -24,62 +25,60 @@ if (admin.apps.length === 0) {
 const db = admin.firestore();
 
 // --- Configuration for existing AI functions ---
-const anthropicApiKey = defineString("ANTHROPIC_API_KEY");
+// Assuming anthropicApiKey was intended to be a secret or a param
+const ANTHROPIC_API_KEY_PARAM = v2DefineString("ANTHROPIC_API_KEY"); // Or v2DefineSecret if it's a secret
+
+// --- Configuration for Google OAuth using v2 Parameters ---
+// These parameters should be set by the user, e.g., via `firebase functions:params:set ...` or in .env files
+// For secrets like client_secret, it's better to use defineSecret if available and configured with Secret Manager.
+const OAUTH_CLIENT_ID_PARAM = v2DefineString("OAUTH_CLIENT_ID");
+const OAUTH_CLIENT_SECRET_PARAM = v2DefineSecret("OAUTH_CLIENT_SECRET"); // Using defineSecret for the client secret
+const GCP_PROJECT_ID_PARAM = v2DefineString("GCP_PROJECT_ID");
+const FUNCTIONS_REGION_PARAM = v2DefineString("FUNCTIONS_REGION", { default: "us-central1" }); // Corrected Pdefault to default
 
 
-// --- Configuration for Google OAuth ---
-// IMPORTANT: Set these in your Firebase environment configuration
-// firebase functions:config:set oauth.client_id="YOUR_CLIENT_ID"
-// firebase functions:config:set oauth.client_secret="YOUR_CLIENT_SECRET"
-// firebase functions:config:set oauth.project_id="YOUR_GCP_PROJECT_ID" (e.g. my-firebase-project)
-// firebase functions:config:set oauth.region="us-central1" (or your function's region)
+// Note: The direct instantiation of baseOAuth2Client and REDIRECT_URI at the global scope
+// using .value() from these params can be problematic if these params are not set,
+// as .value() can throw if called outside a function context or if the param isn't set.
+// It's safer to construct these inside the functions or use a getter function.
+// For now, we will retrieve them inside each function.
 
-const OAUTH_CLIENT_ID = functions.config().oauth?.client_id;
-const OAUTH_CLIENT_SECRET = functions.config().oauth?.client_secret;
-const GCP_PROJECT_ID = functions.config().oauth?.project_id;
-const FUNCTIONS_REGION = functions.config().oauth?.region || "us-central1";
-
-const REDIRECT_URI = `https://${FUNCTIONS_REGION}-${GCP_PROJECT_ID}.cloudfunctions.net/oauthCallback_v1`; // Added _v1 to distinguish if needed
-
-if (!OAUTH_CLIENT_ID || !OAUTH_CLIENT_SECRET || !GCP_PROJECT_ID) {
-  console.error(
-    "OAuth client ID, secret, or GCP Project ID is not configured in Firebase functions config. " +
-    "Run: firebase functions:config:set oauth.client_id=\"YOUR_ID\" oauth.client_secret=\"YOUR_SECRET\" oauth.project_id=\"YOUR_GCP_PROJECT_ID\" [oauth.region=\"YOUR_REGION\"]"
-  );
-}
-
-const baseOAuth2Client: OAuth2Client = new google.auth.OAuth2(
-  OAUTH_CLIENT_ID,
-  OAUTH_CLIENT_SECRET,
-  REDIRECT_URI
-);
-
-// --- Helper Function to Get Authenticated Google API Client ---
+// --- Helper Function to Get Authenticated Google API Client (modified for v2 params) ---
+// This helper is used by onCall functions. For onRequest, OAuth2Client is created directly.
 /**
  * Creates and returns an OAuth2Client authenticated with the user's stored refresh token.
  * Refreshes the access token if necessary.
  * @param {string} uid Firebase User ID.
  * @param {string[]} requiredScopes Scopes needed for the intended API call.
  * @return {Promise<OAuth2Client>} Authenticated OAuth2Client.
- * @throws {functions.https.HttpsError} If user is not authorized or token refresh fails.
+ * @throws {V2HttpsError} If user is not authorized or token refresh fails.
  */
-async function getUserGoogleClient(uid: string, requiredScopes: string[]): Promise<OAuth2Client> {
+async function getUserGoogleClient(uid: string, requiredScopes: string[]): Promise<OAuth2Client> { // Used by onCall functions
   const userTokensRef = db.collection("user_tokens").doc(uid);
   const doc = await userTokensRef.get();
 
   if (!doc.exists) {
     logger.error(`No tokens found for user ${uid}. Re-authorization needed.`);
-    throw new functions.https.HttpsError("permission-denied", "User credentials not found. Please authorize the application for the required Google services.");
+    throw new V2HttpsError("permission-denied", "User credentials not found. Please authorize the application for the required Google services.");
   }
 
   const tokens = doc.data();
   if (!tokens?.refresh_token) {
     logger.error(`No refresh token for user ${uid}. Re-authorization needed.`);
     await userTokensRef.delete(); // Clean up invalid token entry
-    throw new functions.https.HttpsError("permission-denied", "User refresh token not found. Please re-authorize the application.");
+    throw new V2HttpsError("permission-denied", "User refresh token not found. Please re-authorize the application.");
   }
 
-  const client = new google.auth.OAuth2(OAUTH_CLIENT_ID, OAUTH_CLIENT_SECRET);
+  // Retrieve param values safely
+  const clientId = OAUTH_CLIENT_ID_PARAM.value();
+  const clientSecret = OAUTH_CLIENT_SECRET_PARAM.value(); // .value() for secrets works inside functions
+
+  if (!clientId || !clientSecret) {
+      logger.error("OAuth Client ID or Secret is not configured properly in function parameters.");
+      throw new V2HttpsError("failed-precondition", "Server OAuth configuration is incomplete.");
+  }
+
+  const client = new google.auth.OAuth2(clientId, clientSecret);
   client.setCredentials({ refresh_token: tokens.refresh_token });
 
   // Optional: Check if stored scopes cover requiredScopes.
@@ -94,134 +93,175 @@ async function getUserGoogleClient(uid: string, requiredScopes: string[]): Promi
     try {
       const { credentials } = await client.refreshAccessToken();
       client.setCredentials(credentials); // Update client with new tokens
-      // Optionally, update stored access_token and expiry_date in Firestore if you use them elsewhere.
-      // For server-side functions, relying on refresh_token for each new client instance is often sufficient.
       logger.info(`Token refreshed for user ${uid}.`);
     } catch (error: any) {
       logger.error(`Failed to refresh token for user ${uid}:`, error);
-      // If refresh fails (e.g., token revoked by user), delete stored token and throw.
       await userTokensRef.delete();
-      throw new functions.https.HttpsError("permission-denied", `Failed to refresh access token: ${error.message}. Please re-authorize the application.`);
+      throw new V2HttpsError("permission-denied", `Failed to refresh access token: ${error.message}. Please re-authorize the application.`);
     }
   }
   return client;
 }
 
+// --- Google API Integration Functions (v2) ---
 
-// --- Google API Integration Functions (v1) ---
+// Renaming existing AI function exports to avoid conflict if they use 'onRequest' from require
+// This assumes your existing AI functions are defined elsewhere or you'll adapt them.
+// For now, I'm focusing on converting the Google API functions.
+// If claudeChat, generateProjectIdeasFn etc. are in this file, they need to use v2OnRequest too.
+// Example: exports.claudeChat = v2OnRequest({ cors: true }, async (req, res) => { ... });
 
-export const initiateAuth_v1 = functions.https.onRequest(async (req, res) => {
-  const scopesQuery = req.query.scopes as string;
-  const uid = req.query.uid as string;
+export const initiateAuth_v1 = v2OnRequest(
+  {
+    region: FUNCTIONS_REGION_PARAM.value(), // .value() is fine here as region is needed at deployment
+    secrets: [OAUTH_CLIENT_SECRET_PARAM] // Make secret available
+  },
+  async (req, res) => {
+    const clientId = OAUTH_CLIENT_ID_PARAM.value();
+    const clientSecret = OAUTH_CLIENT_SECRET_PARAM.value();
+    const gcpProjectId = GCP_PROJECT_ID_PARAM.value();
+    const functionsRegion = FUNCTIONS_REGION_PARAM.value();
 
-  if (!OAUTH_CLIENT_ID) { // Check if config loaded
-      res.status(500).send("OAuth client not configured on server.");
-      return;
-  }
-
-  if (!scopesQuery) {
-    res.status(400).send("Missing 'scopes' query parameter.");
-    return;
-  }
-  if (!uid) {
-    res.status(400).send("Missing 'uid' query parameter. User must be signed in.");
-    return;
-  }
-
-  const scopes = scopesQuery.split(" ");
-  const stateData = {
-    uid: uid,
-    scopes: scopes,
-    frontendRedirect: req.headers.referer || "/",
-  };
-  const state = Buffer.from(JSON.stringify(stateData)).toString('base64');
-
-  const authorizationUrl = baseOAuth2Client.generateAuthUrl({
-    access_type: "offline",
-    scope: scopes,
-    prompt: "consent",
-    state: state,
-  });
-  res.redirect(authorizationUrl);
-});
-
-export const oauthCallback_v1 = functions.https.onRequest(async (req, res) => {
-  const code = req.query.code as string;
-  const state = req.query.state as string;
-
-  if (!OAUTH_CLIENT_ID) { // Check if config loaded
-      res.status(500).send("OAuth client not configured on server.");
-      return;
-  }
-
-  if (!code) {
-    res.status(400).send("Missing 'code' in query parameter.");
-    return;
-  }
-  if (!state) {
-    res.status(400).send("Missing 'state' in query parameter.");
-    return;
-  }
-
-  let parsedState: { uid: string, scopes: string[], frontendRedirect: string };
-  try {
-    parsedState = JSON.parse(Buffer.from(state, 'base64').toString('utf-8'));
-  } catch (error) {
-    logger.error("Invalid state parameter:", error);
-    res.status(400).send("Invalid state parameter.");
-    return;
-  }
-
-  const { uid, scopes, frontendRedirect } = parsedState;
-  if (!uid) {
-    logger.error("UID missing in state from OAuth callback.");
-    res.status(400).send("Error: User context lost. Please try again.");
-    return;
-  }
-
-  try {
-    const { tokens } = await baseOAuth2Client.getToken(code);
-    if (tokens.refresh_token) {
-      await db.collection("user_tokens").doc(uid).set(
-        {
-          refresh_token: tokens.refresh_token,
-          granted_scopes: admin.firestore.FieldValue.arrayUnion(...scopes), // Store granted scopes
-          last_updated: admin.firestore.FieldValue.serverTimestamp(),
-        },
-        { merge: true }
-      );
-      logger.info(`Refresh token stored/updated for UID: ${uid}`);
-    } else {
-      await db.collection("user_tokens").doc(uid).update({
-        granted_scopes: admin.firestore.FieldValue.arrayUnion(...scopes),
-        last_updated_no_new_refresh_token: admin.firestore.FieldValue.serverTimestamp(),
-      });
-      logger.info(`Access token obtained for UID: ${uid} (no new refresh token). Scopes updated.`);
+    if (!clientId || !clientSecret || !gcpProjectId || !functionsRegion) {
+        logger.error("OAuth parameters not fully configured.");
+        res.status(500).send("OAuth client configuration error on server.");
+        return;
     }
 
-    const redirectUrl = new URL(frontendRedirect || '/');
-    redirectUrl.searchParams.set('oauth_status', 'success');
-    // Determine service based on scopes for better feedback
-    let serviceName = 'google';
-    if (scopes.some(s => s.includes('calendar'))) serviceName = 'calendar';
-    if (scopes.some(s => s.includes('gmail'))) serviceName = 'gmail'; // Gmail might override calendar if both present
-    redirectUrl.searchParams.set('service', serviceName);
-    redirectUrl.searchParams.set('uid_placeholder', uid);
-    res.redirect(redirectUrl.toString());
-  } catch (error: any) {
-    logger.error("Error exchanging auth code or storing tokens for UID " + uid + ":", error);
-    const redirectUrl = new URL(frontendRedirect || '/');
-    redirectUrl.searchParams.set('oauth_status', 'error');
-    redirectUrl.searchParams.set('error_message', error.message || 'Token exchange failed.');
-    res.redirect(redirectUrl.toString());
-  }
-});
+    const redirectUri = `https://${functionsRegion}-${gcpProjectId}.cloudfunctions.net/oauthCallback_v1`;
+    const oauth2Client = new google.auth.OAuth2(clientId, clientSecret, redirectUri);
 
-export const revokeGoogleAccess_v1 = functions.https.onCall(async (data, context) => {
-  if (!context.auth) {
-    throw new functions.https.HttpsError("unauthenticated", "Authentication required to revoke access.");
+    const scopesQuery = req.query.scopes as string;
+    const uid = req.query.uid as string;
+
+    if (!scopesQuery) {
+      res.status(400).send("Missing 'scopes' query parameter.");
+      return;
+    }
+    if (!uid) {
+      res.status(400).send("Missing 'uid' query parameter. User must be signed in.");
+      return;
+    }
+
+    const scopes = scopesQuery.split(" ");
+    const stateData = {
+      uid: uid,
+      scopes: scopes,
+      frontendRedirect: req.headers.referer || "/", // Keep using referer or pass explicit redirect
+    };
+    const state = Buffer.from(JSON.stringify(stateData)).toString('base64');
+
+    const authorizationUrl = oauth2Client.generateAuthUrl({
+      access_type: "offline",
+      scope: scopes,
+      prompt: "consent",
+      state: state,
+    });
+    res.redirect(authorizationUrl);
   }
-  const uid = context.auth.uid;
+);
+
+export const oauthCallback_v1 = v2OnRequest(
+  {
+    region: FUNCTIONS_REGION_PARAM.value(),
+    secrets: [OAUTH_CLIENT_SECRET_PARAM]
+  },
+  async (req, res) => {
+    const clientId = OAUTH_CLIENT_ID_PARAM.value();
+    const clientSecret = OAUTH_CLIENT_SECRET_PARAM.value();
+    const gcpProjectId = GCP_PROJECT_ID_PARAM.value();
+    const functionsRegion = FUNCTIONS_REGION_PARAM.value();
+
+    if (!clientId || !clientSecret || !gcpProjectId || !functionsRegion) {
+        logger.error("OAuth parameters not fully configured for callback.");
+        res.status(500).send("OAuth client callback configuration error on server.");
+        return;
+    }
+
+    const redirectUri = `https://${functionsRegion}-${gcpProjectId}.cloudfunctions.net/oauthCallback_v1`;
+    const oauth2Client = new google.auth.OAuth2(clientId, clientSecret, redirectUri);
+
+    const code = req.query.code as string;
+    const state = req.query.state as string;
+
+    if (!code) {
+      res.status(400).send("Missing 'code' in query parameter.");
+      return;
+    }
+    if (!state) {
+      res.status(400).send("Missing 'state' in query parameter.");
+      return;
+    }
+
+    let parsedState: { uid: string, scopes: string[], frontendRedirect: string };
+    try {
+      parsedState = JSON.parse(Buffer.from(state, 'base64').toString('utf-8'));
+    } catch (error) {
+      logger.error("Invalid state parameter:", error);
+      res.status(400).send("Invalid state parameter.");
+      return;
+    }
+
+    const { uid, scopes, frontendRedirect } = parsedState;
+    if (!uid) {
+      logger.error("UID missing in state from OAuth callback.");
+      res.status(400).send("Error: User context lost. Please try again.");
+      return;
+    }
+
+    try {
+      const { tokens } = await oauth2Client.getToken(code);
+      if (tokens.refresh_token) {
+        await db.collection("user_tokens").doc(uid).set(
+          {
+            refresh_token: tokens.refresh_token,
+            granted_scopes: admin.firestore.FieldValue.arrayUnion(...scopes),
+            last_updated: admin.firestore.FieldValue.serverTimestamp(),
+          },
+          { merge: true }
+        );
+        logger.info(`Refresh token stored/updated for UID: ${uid}`);
+      } else {
+        await db.collection("user_tokens").doc(uid).update({
+          granted_scopes: admin.firestore.FieldValue.arrayUnion(...scopes),
+          last_updated_no_new_refresh_token: admin.firestore.FieldValue.serverTimestamp(),
+        });
+        logger.info(`Access token obtained for UID: ${uid} (no new refresh token). Scopes updated.`);
+      }
+
+      const redirectUrl = new URL(frontendRedirect || '/'); // Use a safe default
+      redirectUrl.searchParams.set('oauth_status', 'success');
+      let serviceName = 'google'; // Default service name
+      if (scopes.some(s => s.includes('calendar'))) serviceName = 'calendar';
+      if (scopes.some(s => s.includes('gmail'))) serviceName = 'gmail';
+      redirectUrl.searchParams.set('service', serviceName);
+      redirectUrl.searchParams.set('uid_placeholder', uid);
+      res.redirect(redirectUrl.toString());
+
+    } catch (error: any) {
+      logger.error("Error exchanging auth code or storing tokens for UID " + uid + ":", error);
+      const redirectUrl = new URL(frontendRedirect || '/');
+      redirectUrl.searchParams.set('oauth_status', 'error');
+      redirectUrl.searchParams.set('error_message', error.message || 'Token exchange failed.');
+      res.redirect(redirectUrl.toString());
+    }
+  }
+);
+
+// Note: The onCall functions will be converted in the next step.
+// For now, only initiateAuth_v1 and oauthCallback_v1 are converted.
+// The HttpsError in getUserGoogleClient was already V2HttpsError.
+
+export const revokeGoogleAccess_v1 = v2OnCall({ region: FUNCTIONS_REGION_PARAM.value() }, async (request) => {
+  if (!request.auth) { // Changed from context.auth
+    throw new V2HttpsError("unauthenticated", "Authentication required to revoke access.");
+  }
+  const uid = request.auth.uid; // Changed from context.auth.uid
+  const serviceToRevoke = request.data?.service as string; // Changed from data.service
+
+  if (!serviceToRevoke || !['calendar', 'gmail', 'all'].includes(serviceToRevoke)) {
+    throw new V2HttpsError("invalid-argument", "Invalid 'service' parameter. Must be 'calendar', 'gmail', or 'all'.");
+  }
   const serviceToRevoke = data?.service as string; // 'calendar', 'gmail', or 'all'
 
   if (!serviceToRevoke || !['calendar', 'gmail', 'all'].includes(serviceToRevoke)) {

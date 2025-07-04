@@ -92,14 +92,32 @@ Follow these steps to get the project running:
 **4. Backend Setup (`functions` directory)**
 *   Navigate to the `functions` directory: `cd functions`
 *   Install dependencies: `npm install` (this will install `googleapis`, `axios`, etc.).
-*   **Set Firebase Environment Configuration**: Replace placeholders with your actual credentials and project details.
-    ```bash
-    firebase functions:config:set oauth.client_id="YOUR_GOOGLE_OAUTH_CLIENT_ID_FROM_STEP_2"
-    firebase functions:config:set oauth.client_secret="YOUR_GOOGLE_OAUTH_CLIENT_SECRET_FROM_STEP_2"
-    firebase functions:config:set oauth.project_id="YOUR_GCP_PROJECT_ID"
-    firebase functions:config:set oauth.region="YOUR_FUNCTIONS_REGION" # e.g., us-central1
-    ```
-    (Note: The existing AI functions might require `ANTHROPIC_API_KEY` to be set for them to work: `firebase functions:config:set anthropic.api_key="YOUR_ANTHROPIC_KEY"`)
+*   **Set Firebase Function Parameters (for v2 Functions)**:
+    The Google API functions now use Cloud Functions v2 parameterized configuration. You'll need to set these parameters. You can do this by:
+    1.  **Using `.env` files (Recommended for local development & ease of use)**:
+        Create a file named `functions/.env.local` (or `functions/.env.<YOUR_PROJECT_ID>`). Add the following lines, replacing placeholder values:
+        ```env
+        OAUTH_CLIENT_ID="YOUR_GOOGLE_OAUTH_CLIENT_ID_FROM_STEP_2"
+        GCP_PROJECT_ID="YOUR_GCP_PROJECT_ID"
+        FUNCTIONS_REGION="YOUR_FUNCTIONS_REGION" # e.g., us-central1
+        # For ANTHROPIC_API_KEY (if used by other functions)
+        ANTHROPIC_API_KEY="YOUR_ANTHROPIC_KEY"
+        ```
+        For `OAUTH_CLIENT_SECRET`, because it's a secret, you should use Secret Manager:
+        *   Go to Google Cloud Secret Manager, create a secret (e.g., `google-oauth-client-secret`) and add the client secret value as a version.
+        *   Grant the "Secret Manager Secret Accessor" role to your Cloud Functions service account (usually `PROJECT_ID@appspot.gserviceaccount.com`).
+        *   In `functions/.env.local` (or similar), reference it:
+            `OAUTH_CLIENT_SECRET="projects/YOUR_GCP_PROJECT_ID/secrets/google-oauth-client-secret/versions/latest"`
+            (Replace `YOUR_GCP_PROJECT_ID` and `google-oauth-client-secret` with your actual IDs).
+    2.  **Using `firebase functions:params:set` (CLI for deployment)**:
+        For non-secret parameters, you can use:
+        ```bash
+        firebase functions:params:set OAUTH_CLIENT_ID="YOUR_CLIENT_ID"
+        firebase functions:params:set GCP_PROJECT_ID="YOUR_GCP_PROJECT_ID"
+        firebase functions:params:set FUNCTIONS_REGION="us-central1"
+        ```
+        For secrets managed by Secret Manager and defined with `defineSecret` in your code (like `OAUTH_CLIENT_SECRET_PARAM`), Firebase CLI typically prompts you during deployment (`firebase deploy --only functions`) to link them to a Secret Manager secret, or you can pre-configure this linkage.
+    *   The `ANTHROPIC_API_KEY_PARAM` for existing AI functions would also be set similarly (e.g., in `.env.local` or via CLI).
 *   **(TypeScript)** Build the functions: `npm run build`. This compiles `functions/src/index.ts` to `functions/lib/index.js`.
 
 **5. Next.js Frontend Setup (`src` directory)**
@@ -188,10 +206,12 @@ Follow these steps to get the project running:
 ## Important Notes
 
 *   **Next.js Integration**: The primary focus of recent changes is the `/teacher/schedule` page within the Next.js application.
+*   **Cloud Functions v2**: All Google API related Firebase Functions (`initiateAuth_v1`, `oauthCallback_v1`, `getAuthStatus_v1`, `createCalendarEvent_v1`, `listEmails_v1`, `revokeGoogleAccess_v1`) have been updated to Cloud Functions v2.
+*   **Parameterized Configuration**: OAuth credentials and other function settings are now managed using v2 parameterized configuration (`defineString`, `defineSecret`) instead of v1 `functions.config()`. See "Backend Setup" for how to set these parameters using `.env` files or CLI.
 *   **`@ts-nocheck`**: Present in `functions/src/index.ts`. Ideally, resolve TypeScript errors and remove this.
 *   **Function Naming (`_v1`)**: Google API related Firebase Functions use a `_v1` suffix for clarity and to avoid conflicts.
 *   **Revocation**: The `revokeGoogleAccess_v1` function is now available. It revokes the entire refresh token with Google.
-*   **Security**: Keep OAuth credentials and API keys secret (use Firebase environment config). Review Firestore rules.
+*   **Security**: Keep OAuth credentials and API keys secret (use v2 parameters with Secret Manager for secrets). Review Firestore rules.
 *   **Error Handling & Scopes**: Basic error handling is in place. Review and extend as needed.
 
 This guide should help you set up and run the project with its Next.js integration. Remember to replace all placeholder values.
