@@ -6,10 +6,12 @@ import { generateProjectPlan } from "./ai/flows/generate-project-plan";
 import { suggestTaskHints } from "./ai/flows/suggest-task-hints";
 import { generateCurriculumSuggestions } from "./ai/flows/generate-curriculum-suggestions";
 
-// Existing v2 functions and params (now using import style)
-import { onRequest as v2OnRequest, HttpsError as V2HttpsError } from "firebase-functions/v2/https";
+// v2 Function Imports
+import { HttpsError as V2HttpsError } from "firebase-functions/v2/https";
+import { onCall as v2OnCall } from "firebase-functions/v2/https";
+import { onRequest as v2OnRequest } from "firebase-functions/v2/https"; // Consolidated onRequest
 import { defineString as v2DefineString, defineSecret as v2DefineSecret } from "firebase-functions/params";
-import { onCall as v2OnCall } from "firebase-functions/v2/https"; // For v2 callable
+
 
 // --- New Imports for Google API Integration ---
 import * as admin from "firebase-admin";
@@ -519,9 +521,8 @@ export const listEmails_v1 = v2OnCall(
 });
 
 
-// --- Existing AI Related Functions ---
-// (claudeChat, generateProjectIdeasFn, etc. remain below)
-exports.claudeChat = onRequest({ cors: true }, async (req, res) => {
+// --- Existing AI Related Functions (Now using v2OnRequest and ES Module exports) ---
+export const claudeChat = v2OnRequest({ cors: true, secrets: [ANTHROPIC_API_KEY_PARAM] }, async (req, res) => {
   // Only allow POST requests
   if (req.method !== "POST") {
     return res.status(405).json({ error: "Method not allowed" });
@@ -535,10 +536,10 @@ exports.claudeChat = onRequest({ cors: true }, async (req, res) => {
     }
 
     // Get the API key from environment variable
-    const ANTHROPIC_API_KEY = anthropicApiKey.value();
+    const ANTHROPIC_API_KEY = ANTHROPIC_API_KEY_PARAM.value(); // Use the defined param
 
     if (!ANTHROPIC_API_KEY) {
-      console.error("Anthropic API key not configured");
+      logger.error("Anthropic API key not configured or available."); // Use logger
       return res.status(500).json({ error: "API key not configured" });
     }
 
@@ -635,73 +636,53 @@ exports.claudeChat = onRequest({ cors: true }, async (req, res) => {
   }
 });
 
-exports.generateProjectIdeasFn = onRequest({ cors: true }, async (req, res) => {
+export const generateProjectIdeasFn = v2OnRequest({ cors: true }, async (req, res) => {
   try {
     const response = await generateProjectIdeas(req.body);
     logger.info("inside generateProjectIdeasFn response ", response);
-
-    return res.status(200).json({
-      response: response,
-    });
-
-    return;
-  } catch (error) {
-    return {
-      error: "Firebase error",
-    };
+    return res.status(200).json({ response });
+  } catch (error: any) {
+    logger.error("Error in generateProjectIdeasFn:", error);
+    return res.status(500).json({ error: "Internal server error", details: error.message });
   }
 });
 
-exports.generateProjectPlanFn = onRequest({ cors: true }, async (req, res) => {
+export const generateProjectPlanFn = v2OnRequest({ cors: true }, async (req, res) => {
   try {
     const response = await generateProjectPlan(req.body);
     logger.info("inside generateProjectPlanFn response ", response);
-
-    return res.status(200).json({
-      response: response,
-    });
-
-    return;
-  } catch (error) {
-    return {
-      error: "Firebase error",
-    };
+    return res.status(200).json({ response });
+  } catch (error: any) {
+    logger.error("Error in generateProjectPlanFn:", error);
+    return res.status(500).json({ error: "Internal server error", details: error.message });
   }
 });
 
-exports.suggestTaskHintsFn = onRequest({ cors: true }, async (req, res) => {
+export const suggestTaskHintsFn = v2OnRequest({ cors: true }, async (req, res) => {
   try {
     const response = await suggestTaskHints(req.body);
     logger.info("inside suggestTaskHints response ", response);
-
-    return res.status(200).json({
-      response: response,
-    });
-
-    return;
-  } catch (error) {
-    return {
-      error: "Firebase error",
-    };
+    return res.status(200).json({ response });
+  } catch (error: any) {
+    logger.error("Error in suggestTaskHintsFn:", error);
+    return res.status(500).json({ error: "Internal server error", details: error.message });
   }
 });
 
-exports.generateCurriculumSuggestionsFn = onRequest(
-  { cors: true },
+export const generateCurriculumSuggestionsFn = v2OnRequest(
+  { cors: true, secrets: [ANTHROPIC_API_KEY_PARAM] }, // Assuming this function might also need the API key
   async (req, res) => {
     try {
+      // If generateCurriculumSuggestions uses the API key, it should be accessed via ANTHROPIC_API_KEY_PARAM.value()
+      // For example: const apiKey = ANTHROPIC_API_KEY_PARAM.value();
+      // And then pass apiKey to generateCurriculumSuggestions if it needs it.
+      // This detail depends on the implementation of generateCurriculumSuggestions.
       const response = await generateCurriculumSuggestions(req.body);
       logger.info("inside generateCurriculumSuggestionsFn response ", response);
-
-      return res.status(200).json({
-        response: response,
-      });
-
-      return;
-    } catch (error) {
-      return {
-        error: "Firebase error",
-      };
+      return res.status(200).json({ response });
+    } catch (error: any) {
+      logger.error("Error in generateCurriculumSuggestionsFn:", error);
+      return res.status(500).json({ error: "Internal server error", details: error.message });
     }
   }
 );
