@@ -27,17 +27,18 @@ const SchedulePage = () => {
 
     try {
       const functionsInstance = getFunctions(getApp());
-      if (process.env.NODE_ENV === 'development' && (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1")) {
-        try {
-          // console.log("Attempting to connect to Functions Emulator for getAuthStatus_v1");
-          connectFunctionsEmulator(functionsInstance, "localhost", 5001);
-        } catch (e: any) {
-          // Emulator might already be connected, or other connection issue. Log as warning.
-          if (e.code !== 'functions/emulator-already-connected') {
-            console.warn("Functions emulator connection issue (may be harmless if already connected):", e.message);
-          }
-        }
-      }
+      // Skipping the emulator for now
+      // if (process.env.NODE_ENV === 'development' && (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1")) {
+      //   try {
+      //     // console.log("Attempting to connect to Functions Emulator for getAuthStatus_v1");
+      //     connectFunctionsEmulator(functionsInstance, "localhost", 5001);
+      //   } catch (e: any) {
+      //     // Emulator might already be connected, or other connection issue. Log as warning.
+      //     if (e.code !== 'functions/emulator-already-connected') {
+      //       console.warn("Functions emulator connection issue (may be harmless if already connected):", e.message);
+      //     }
+      //   }
+      // }
       const getAuthStatusFn = httpsCallable(functionsInstance, 'getAuthStatus_v1');
       const response = await getAuthStatusFn({ services: ['calendar', 'gmail'] });
       const statusData = response.data as { status: { calendar: boolean, gmail: boolean } };
@@ -117,7 +118,12 @@ const SchedulePage = () => {
 
     if (process.env.NODE_ENV === 'development' && (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1")) {
       // Construct emulator URL. Ensure functions emulator is running at localhost:5001.
-      initiateAuthUrl = `http://localhost:5001/${projectId}/${functionsRegion}/${functionName}?scopes=${encodeURIComponent(scopes)}&uid=${user.uid}`;
+      
+      // commented for usage 
+      // initiateAuthUrl = `http://localhost:5001/${projectId}/${functionsRegion}/${functionName}?scopes=${encodeURIComponent(scopes)}&uid=${user.uid}`;
+      
+      // Temporary fix for using live functions URL
+      initiateAuthUrl = `https://${functionsRegion}-${projectId}.cloudfunctions.net/${functionName}?scopes=${encodeURIComponent(scopes)}&uid=${user.uid}`;
       // console.log("Using emulator URL for auth: ", initiateAuthUrl);
     } else {
       // Deployed: Construct absolute URL for the function.
@@ -153,16 +159,17 @@ const SchedulePage = () => {
 
     try {
       const functionsInstance = getFunctions(getApp());
-      if (process.env.NODE_ENV === 'development' && (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1")) {
-         try {
-            // console.log("Attempting to connect to Functions Emulator for revokeGoogleAccess_v1");
-            connectFunctionsEmulator(functionsInstance, "localhost", 5001);
-        } catch (e: any) {
-          if (e.code !== 'functions/emulator-already-connected') { // SDK might throw if already connected
-            console.warn("Functions emulator connection issue (revoke):", e.message);
-          }
-        }
-      }
+      // skipping the emulator for now
+      // if (process.env.NODE_ENV === 'development' && (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1")) {
+      //    try {
+      //       // console.log("Attempting to connect to Functions Emulator for revokeGoogleAccess_v1");
+      //       connectFunctionsEmulator(functionsInstance, "localhost", 5001);
+      //   } catch (e: any) {
+      //     if (e.code !== 'functions/emulator-already-connected') { // SDK might throw if already connected
+      //       console.warn("Functions emulator connection issue (revoke):", e.message);
+      //     }
+      //   }
+      // }
       const revokeAccessFn = httpsCallable(functionsInstance, 'revokeGoogleAccess_v1');
       // Pass 'all' because revoking a refresh token typically revokes all its scopes.
       // The backend function `revokeGoogleAccess_v1` is designed to handle this by deleting the main refresh token.

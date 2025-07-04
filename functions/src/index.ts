@@ -28,7 +28,7 @@ const db = admin.firestore();
 
 // --- Configuration for existing AI functions ---
 // Assuming anthropicApiKey was intended to be a secret or a param
-const ANTHROPIC_API_KEY_PARAM = v2DefineString("ANTHROPIC_API_KEY"); // Or v2DefineSecret if it's a secret
+const ANTHROPIC_API_KEY_PARAM = v2DefineSecret("ANTHROPIC_API_KEY"); // Or v2DefineSecret if it's a secret
 
 // --- Configuration for Google OAuth using v2 Parameters ---
 // These parameters should be set by the user, e.g., via `firebase functions:params:set ...` or in .env files
