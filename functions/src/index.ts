@@ -256,8 +256,9 @@ export const oauthCallback_v1 = v2OnRequest(
 
 export const revokeGoogleAccess_v1 = v2OnCall(
   {
-    region: FUNCTIONS_REGION_PARAM, // Pass param object directly
-    secrets: [OAUTH_CLIENT_SECRET_PARAM] // Ensure secrets used by getUserGoogleClient are available if not already via global param access
+    region: FUNCTIONS_REGION_PARAM,
+    secrets: [OAUTH_CLIENT_SECRET_PARAM],
+    cors: true // Added CORS option
   },
   async (request) => {
     if (!request.auth) {
@@ -354,8 +355,8 @@ export const revokeGoogleAccess_v1 = v2OnCall(
 
 export const getAuthStatus_v1 = v2OnCall(
   {
-    region: FUNCTIONS_REGION_PARAM, // Pass param object directly
-    // No secrets needed directly by this function's top level, only by getUserGoogleClient if it were used, but it's not.
+    region: FUNCTIONS_REGION_PARAM,
+    cors: true // Added CORS option
   },
   async (request) => {
     if (!request.auth) {
@@ -394,8 +395,9 @@ export const getAuthStatus_v1 = v2OnCall(
 
 export const createCalendarEvent_v1 = v2OnCall(
   {
-    region: FUNCTIONS_REGION_PARAM, // Pass param object directly
-    secrets: [OAUTH_CLIENT_SECRET_PARAM] // For getUserGoogleClient
+    region: FUNCTIONS_REGION_PARAM,
+    secrets: [OAUTH_CLIENT_SECRET_PARAM], // For getUserGoogleClient
+    cors: true // Added CORS option
   },
   async (request) => {
     if (!request.auth) {
@@ -457,8 +459,9 @@ export const createCalendarEvent_v1 = v2OnCall(
 
 export const listEmails_v1 = v2OnCall(
   {
-    region: FUNCTIONS_REGION_PARAM, // Pass param object directly
-    secrets: [OAUTH_CLIENT_SECRET_PARAM] // For getUserGoogleClient
+    region: FUNCTIONS_REGION_PARAM,
+    secrets: [OAUTH_CLIENT_SECRET_PARAM], // For getUserGoogleClient
+    cors: true // Added CORS option
   },
   async (request) => {
     if (!request.auth) {

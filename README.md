@@ -208,6 +208,7 @@ Follow these steps to get the project running:
 *   **Next.js Integration**: The primary focus of recent changes is the `/teacher/schedule` page within the Next.js application.
 *   **Cloud Functions v2**: All Google API related Firebase Functions (`initiateAuth_v1`, `oauthCallback_v1`, `getAuthStatus_v1`, `createCalendarEvent_v1`, `listEmails_v1`, `revokeGoogleAccess_v1`) have been updated to Cloud Functions v2.
 *   **Parameterized Configuration**: OAuth credentials and other function settings are now managed using v2 parameterized configuration (`defineString`, `defineSecret`) instead of v1 `functions.config()`. See "Backend Setup" for how to set these parameters using `.env` files or CLI.
+*   **CORS Configuration for Callable Functions**: The v2 callable functions (`getAuthStatus_v1`, `createCalendarEvent_v1`, `listEmails_v1`, `revokeGoogleAccess_v1`) have been configured with `cors: true` in their options. For production, it's highly recommended to restrict this to your specific frontend origins, e.g., `cors: ['http://localhost:3000', 'https://your-deployed-nextjs-app.com']`. This can be configured in `functions/src/index.ts`.
 *   **`@ts-nocheck`**: Present in `functions/src/index.ts`. Ideally, resolve TypeScript errors and remove this.
 *   **Function Naming (`_v1`)**: Google API related Firebase Functions use a `_v1` suffix for clarity and to avoid conflicts.
 *   **Revocation**: The `revokeGoogleAccess_v1` function is now available. It revokes the entire refresh token with Google.
