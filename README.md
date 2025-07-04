@@ -2,40 +2,55 @@
 
 ## Project Overview
 
-This project demonstrates how to integrate Google Calendar (event creation with Google Meet links) and Google Gmail (reading email messages) into a web application using Firebase. It features Firebase Authentication for user sign-in, Firebase Functions for backend logic and secure Google API calls, and Firestore for storing user-specific OAuth refresh tokens. The frontend is built with plain HTML, CSS, and JavaScript.
+This project integrates Google Calendar (event creation with Google Meet links) and Google Gmail (reading email messages) into a web application, primarily focusing on a Next.js frontend for a "Teacher" role, while also retaining Firebase Functions for backend logic. It uses Firebase Authentication (Google provider) for user sign-in and Firestore for storing OAuth refresh tokens.
 
-The Google API integration code has been merged into an existing Firebase Functions setup that also includes AI-related functionalities using the Anthropic Claude API.
+The Google API integration code within Firebase Functions is merged into an existing setup that also includes AI-related functionalities using the Anthropic Claude API.
 
 ## Features
 
-*   **User Authentication**: Google Sign-in via Firebase Authentication.
-*   **Google API Authorization**:
-    *   OAuth 2.0 flow to obtain user consent for accessing Google Calendar and Gmail.
-    *   Secure storage of refresh tokens in Firestore, associated with user UIDs.
-    *   Frontend UI to display authorization status for each service.
-*   **Google Calendar Integration**:
-    *   Create calendar events in the user's primary calendar.
-    *   Optionally add a Google Meet link to the created event.
-*   **Google Gmail Integration**:
-    *   List recent email messages from the user's Gmail account (displays subject, sender, date, snippet).
-*   **Firebase Functions**: Backend logic for handling OAuth flow and making Google API calls securely.
+*   **User Authentication**: Google Sign-in via Firebase Authentication for the Next.js teacher portal.
+*   **Google API Authorization (Next.js Teacher Portal)**:
+    *   Dedicated page (`/teacher/schedule`) for managing Google service authorizations.
+    *   OAuth 2.0 flow to obtain user consent for Google Calendar and Gmail.
+    *   Secure storage of refresh tokens in Firestore.
+    *   UI to display authorization status and buttons to "Authorize" or "Revoke Access".
+    *   Token revocation capability.
+*   **Google Calendar & Gmail Integration (via Firebase Functions)**:
+    *   Firebase Functions (`createCalendarEvent_v1`, `listEmails_v1`) enable creating calendar events (with Meet links) and listing Gmail messages. These can be called from the Next.js app once authorized.
+*   **Firebase Functions**: Handles OAuth flow, Google API calls, and token revocation securely.
 *   **Firestore**: Securely stores user refresh tokens.
-*   **Frontend**: A simple web page (`public/index.html`) to interact with the services.
+*   **Next.js Frontend**: Teacher-specific UI at `/teacher/schedule` for managing integrations.
+*   **Standalone Demo (Optional)**: Original plain HTML/JS demo in `public/` for broader testing of the core Firebase Functions.
 
 ## File Structure
 
 ```
 .
+├── src/                      # Next.js App Structure
+│   ├── app/
+│   │   ├── teacher/
+│   │   │   ├── schedule/
+│   │   │   │   └── page.tsx  # Google Auth Management page for Teachers
+│   │   │   └── dashboard/
+│   │   │       └── layout.tsx # Teacher dashboard layout (sidebar modified)
+│   │   └── ...               # Other Next.js app routes and components
+│   ├── components/
+│   │   └── ui/
+│   │       └── sidebar.tsx   # Sidebar component (modified)
+│   ├── context/
+│   │   └── auth-context.tsx  # Assumed Firebase Auth context
+│   └── lib/
+│       └── firebase.ts       # Assumed Firebase initialization file
 ├── functions/                # Firebase Functions (Backend)
 │   ├── src/
 │   │   ├── ai/               # Existing AI-related flows
 │   │   └── index.ts          # Main backend code (Google API + AI functions)
 │   ├── package.json
-│   └── ...                   # Other function config files (tsconfig.json, .eslintrc.js)
-├── public/                   # Frontend files (Firebase Hosting)
-│   ├── index.html            # Main HTML page
-│   ├── app.js                # Frontend JavaScript logic
-│   └── style.css             # Basic styling
+│   └── ...
+├── public/                   # Standalone demo files (optional to keep)
+│   ├── index.html
+│   ├── app.js
+│   └── style.css
 ├── firestore.rules           # Security rules for Firestore
 ├── firebase.json             # Firebase project configuration
 └── README.md                 # This file
@@ -76,7 +91,7 @@ Follow these steps to get the project running:
 
 **4. Backend Setup (`functions` directory)**
 *   Navigate to the `functions` directory: `cd functions`
-*   Install dependencies: `npm install`
+*   Install dependencies: `npm install` (this will install `googleapis`, `axios`, etc.).
 *   **Set Firebase Environment Configuration**: Replace placeholders with your actual credentials and project details.
     ```bash
     firebase functions:config:set oauth.client_id="YOUR_GOOGLE_OAUTH_CLIENT_ID_FROM_STEP_2"
@@ -84,93 +99,99 @@ Follow these steps to get the project running:
     firebase functions:config:set oauth.project_id="YOUR_GCP_PROJECT_ID"
     firebase functions:config:set oauth.region="YOUR_FUNCTIONS_REGION" # e.g., us-central1
     ```
-    (Note: The existing AI functions might require `ANTHROPIC_API_KEY` to be set as well for them to work: `firebase functions:config:set anthropic.api_key="YOUR_ANTHROPIC_KEY"`)
-*   **(TypeScript)** Build the functions: `npm run build`. This compiles `src/index.ts` to `lib/index.js` (as per `package.json`).
+    (Note: The existing AI functions might require `ANTHROPIC_API_KEY` to be set for them to work: `firebase functions:config:set anthropic.api_key="YOUR_ANTHROPIC_KEY"`)
+*   **(TypeScript)** Build the functions: `npm run build`. This compiles `functions/src/index.ts` to `functions/lib/index.js`.
 
-**5. Frontend Setup (`public` directory)**
-*   **Firebase SDK Snippet**: Open `public/index.html`. Before the `<script src="app.js"></script>` line, you need to add your Firebase project's SDK configuration snippet. You can get this from your Firebase project settings in the console ("Your apps" -> "Web app" -> "SDK setup and configuration" -> "Config"). It looks like this:
-    ```html
-    <!-- TODO: Add your Firebase project's SDK configuration snippet here -->
-    <!--
-    <script src="/__/firebase/9.x.x/firebase-app-compat.js"></script>
-    <script src="/__/firebase/9.x.x/firebase-auth-compat.js"></script>
-    <script src="/__/firebase/9.x.x/firebase-functions-compat.js"></script>
-    <script src="/__/firebase/init.js"></script>
-    -->
-    <!-- Example Firebase SDK setup: -->
-    <script>
-      // IMPORTANT: Replace with your web app's Firebase configuration
-      // const firebaseConfig = {
-      //   apiKey: "AIza...",
-      //   authDomain: "your-project-id.firebaseapp.com",
-      //   projectId: "your-project-id",
-      //   storageBucket: "your-project-id.appspot.com",
-      //   messagingSenderId: "...",
-      //   appId: "1:...",
-      //   measurementId: "G-..." // Optional, for Google Analytics
-      // };
-      // // Initialize Firebase
-      // if (typeof firebase !== 'undefined') {
-      //    firebase.initializeApp(firebaseConfig);
-      // }
-    </script>
+**5. Next.js Frontend Setup (`src` directory)**
+*   **Firebase SDK Initialization**: Ensure Firebase is initialized in your Next.js app. This is typically done in a central file (e.g., `src/lib/firebase.ts` or similar, imported by your `AuthContext` or root layout). Use environment variables (e.g., `NEXT_PUBLIC_FIREBASE_PROJECT_ID`) for your Firebase config.
+    Example (`src/lib/firebase.ts` - adapt to your project):
+    ```typescript
+    import { initializeApp, getApps, getApp } from 'firebase/app';
+    // Import other Firebase services as needed (auth, firestore, functions)
+
+    const firebaseConfig = {
+      apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
+      authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
+      projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
+      // ... other config from your Firebase console
+    };
+
+    const app = !getApps().length ? initializeApp(firebaseConfig) : getApp();
+    // export const auth = getAuth(app);
+    // export const functions = getFunctions(app); // etc.
+    export default app; // Or export individual services
     ```
-    Make sure to uncomment and fill in your actual `firebaseConfig` object. The `/__/firebase/init.js` script is typically used when deploying to Firebase Hosting, which automatically serves the correct config. For local development without emulating hosting's auto-config, you'll need to provide the config object manually.
-*   **Emulator Project ID (for local testing)**: If you plan to use Firebase Emulators for local testing, open `public/app.js`. Locate the following lines (around line 260 and 290 in the modified file):
-    `const emuProjectId = functions.app?.options?.projectId || "my-firebase-project-id";`
-    If `functions.app?.options?.projectId` doesn't automatically resolve to your actual project ID when using emulators (it might if `firebase.initializeApp` is called before this line with the correct config), you **must** replace `"my-firebase-project-id"` with your actual Firebase Project ID. This is critical for the OAuth `initiateAuth_v1` redirect URLs to work correctly with the emulators.
+*   **Auth Context**: The `/teacher/schedule` page uses `useAuth` from ` '@/context/auth-context' `. Ensure this context correctly provides the Firebase user object.
+*   **Emulator Project ID (for local testing of `/teacher/schedule`)**:
+    The `src/app/teacher/schedule/page.tsx` component attempts to construct URLs for the `initiateAuth_v1` function. When using Firebase Emulators locally, it needs your Firebase Project ID. It tries to get this from `firebaseApp.options.projectId`. If this is not available or incorrect in your local dev setup, calls to authorize services via the emulator will fail. Ensure your client-side Firebase app initialization is complete and correct.
+
+**6. Standalone Demo (`public` directory - Optional)**
+*   The files in `public/` (`index.html`, `app.js`) provide a basic, standalone demo of the Google service functions.
+*   If you keep this demo, follow its original setup instructions for Firebase SDK snippet and emulator Project ID in `public/app.js`.
+*   This demo is separate from the Next.js teacher portal integration. You can remove these files if the Next.js integration is your sole focus.
 
 ## Deployment
 
 1.  **Deploy Firestore Rules**:
     `firebase deploy --only firestore:rules`
 2.  **Deploy Firebase Functions**:
-    First, ensure your functions are built: `(cd functions && npm run build && cd ..)`
-    Then deploy: `firebase deploy --only functions`
-3.  **Deploy Hosting (Frontend Files)**:
-    `firebase deploy --only hosting`
+    Ensure functions are built: `(cd functions && npm run build && cd ..)`
+    Deploy: `firebase deploy --only functions`
+3.  **Deploy Next.js Application**:
+    *   If using Firebase Hosting for your Next.js app: Build your Next.js app (`npm run build` in your Next.js project root). Then configure `firebase.json` for Next.js hosting (often involves rewrites to a Cloud Function or Cloud Run serving your Next.js app, or using modern Firebase Hosting's direct Next.js support). Then `firebase deploy --only hosting`.
+    *   If hosting Next.js elsewhere (e.g., Vercel, Netlify): Follow their deployment guides. Your Firebase Functions will still be accessible at their cloud URLs.
+4.  **Deploy Standalone Demo (if kept)**:
+    `firebase deploy --only hosting` (if `public` is your hosting root and Next.js isn't using it).
 
-After deployment, your application should be live at your Firebase Hosting URL (e.g., `https://<YOUR_FIREBASE_PROJECT_ID>.web.app`).
+## Running Locally
 
-## Running Locally (with Firebase Emulators)
+**A. Firebase Emulators (for Functions, Firestore, Auth)**
+1.  Ensure Java JDK is installed.
+2.  Configure `firebase.json` for emulators (see example below). Pay attention to function runtime if specified.
+3.  Start emulators: `firebase emulators:start --only auth,functions,firestore` (add `hosting` if using it for the standalone demo or Next.js).
+    Emulator UI: `http://localhost:4000`
 
-This is highly recommended for development.
-1.  Ensure you have the Java JDK installed (required by Firestore and other emulators).
-2.  **Configure `firebase.json` (Recommended)**:
-    Your `firebase.json` should define which emulators to use and their ports. Example:
+**B. Next.js Development Server**
+1.  Navigate to your Next.js project root.
+2.  Run `npm run dev`. This usually starts on `http://localhost:3000`.
+3.  The `/teacher/schedule` page in your Next.js app will attempt to connect to the Firebase Functions emulator (if running) for calls like `getAuthStatus_v1` and `revokeGoogleAccess_v1`. The `initiateAuth_v1` redirect will also target the emulator URL.
+
+**Example `firebase.json` for Emulators & Hosting (Standalone Demo)**:
     ```json
     {
-      "firestore": { "rules": "firestore.rules", "indexes": "firestore.indexes.json" },
-      "functions": { "source": "functions", "runtime": "nodejs20" },
-      "hosting": {
-        "public": "public",
+      "firestore": { "rules": "firestore.rules" },
+      "functions": [ /* Or single object if not using codebases */
+        { "source": "functions", "codebase": "default", "runtime": "nodejs20" } // Or your node version
+      ],
+      "hosting": { // For standalone demo or if Next.js is also hosted via Firebase
+        "public": "public", // Or your Next.js build output folder (e.g., 'out')
         "ignore": ["firebase.json", "**/.*", "**/node_modules/**"],
-        "rewrites": [ { "source": "/initiateAuth_v1", "function": "initiateAuth_v1" }, { "source": "/oauthCallback_v1", "function": "oauthCallback_v1" } ]
+        "rewrites": [
+          // For standalone demo using relative paths for functions
+          { "source": "/initiateAuth_v1", "function": "initiateAuth_v1" },
+          { "source": "/oauthCallback_v1", "function": "oauthCallback_v1" },
+          // If hosting Next.js app, add rewrites for it here if needed
+          { "source": "**", "destination": "/index.html" } // If public is SPA
+        ]
       },
       "emulators": {
         "auth": { "port": 9099 },
-        "functions": { "port": 5001, "runtime": "nodejs20" },
+        "functions": { "port": 5001 },
         "firestore": { "port": 8080 },
         "hosting": { "port": 5000 },
         "ui": { "enabled": true, "port": 4000 }
       }
     }
     ```
-    *Note the `rewrites` in hosting: this allows relative URLs like `/initiateAuth_v1` from the frontend to correctly route to your functions when using `firebase serve` or `firebase emulators:start`.*
-3.  **Start Emulators**:
-    `firebase emulators:start --only auth,functions,firestore,hosting`
-    (Or simply `firebase emulators:start` if `firebase.json` is fully configured).
-4.  Open your browser to `http://localhost:5000` (or the port specified for the hosting emulator). The Emulator UI will be at `http://localhost:4000`.
-5.  The `public/app.js` script attempts to connect to emulators if it detects `localhost`. Remember to check the Project ID for emulator URLs as mentioned in "Frontend Setup".
+    *Adjust `hosting.public` and `rewrites` based on whether you're serving the standalone demo or your Next.js app via Firebase Hosting.*
 
 ## Important Notes
 
-*   **`@ts-nocheck`**: The `functions/src/index.ts` file includes a `@ts-nocheck` directive. This was part of the original codebase. For robust long-term maintenance and to fully leverage TypeScript's benefits, type errors within this file should be addressed, and this directive ideally removed.
-*   **Function Naming Suffix (`_v1`)**: All Google API related Firebase Functions and their client-side calls use a `_v1` suffix. This ensures they are uniquely named and clearly distinguished, especially important in the mixed JS/TS and v1/v2 Cloud Functions environment of the original `functions/src/index.ts`.
-*   **Security**:
-    *   Always keep your OAuth Client Secret and any API keys confidential. Use Firebase environment configuration as shown.
-    *   The provided `firestore.rules` are a starting point. Review and adapt them to your application's specific security needs.
-*   **Error Handling**: The application includes basic error handling. For production, consider more comprehensive logging and user feedback.
-*   **Scopes**: The application requests specific OAuth scopes. If you need more permissions, update the `scopes` parameter when calling `initiateAuth_v1` and ensure users re-authorize.
+*   **Next.js Integration**: The primary focus of recent changes is the `/teacher/schedule` page within the Next.js application.
+*   **`@ts-nocheck`**: Present in `functions/src/index.ts`. Ideally, resolve TypeScript errors and remove this.
+*   **Function Naming (`_v1`)**: Google API related Firebase Functions use a `_v1` suffix for clarity and to avoid conflicts.
+*   **Revocation**: The `revokeGoogleAccess_v1` function is now available. It revokes the entire refresh token with Google.
+*   **Security**: Keep OAuth credentials and API keys secret (use Firebase environment config). Review Firestore rules.
+*   **Error Handling & Scopes**: Basic error handling is in place. Review and extend as needed.
 
-This guide should help you get the project set up and running. Remember to replace all placeholder values with your actual project IDs and credentials.
+This guide should help you set up and run the project with its Next.js integration. Remember to replace all placeholder values.

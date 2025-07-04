@@ -15,6 +15,7 @@ import * as admin from "firebase-admin";
 import * as functions from "firebase-functions"; // v1 functions for Google API integration
 import { google, Auth } from "googleapis";
 import { OAuth2Client } from "google-auth-library";
+import axios from "axios"; // Added for revokeGoogleAccess_v1
 
 // --- Initialize Firebase Admin SDK (if not already initialized) ---
 if (admin.apps.length === 0) {
@@ -213,6 +214,98 @@ export const oauthCallback_v1 = functions.https.onRequest(async (req, res) => {
     redirectUrl.searchParams.set('oauth_status', 'error');
     redirectUrl.searchParams.set('error_message', error.message || 'Token exchange failed.');
     res.redirect(redirectUrl.toString());
+  }
+});
+
+export const revokeGoogleAccess_v1 = functions.https.onCall(async (data, context) => {
+  if (!context.auth) {
+    throw new functions.https.HttpsError("unauthenticated", "Authentication required to revoke access.");
+  }
+  const uid = context.auth.uid;
+  const serviceToRevoke = data?.service as string; // 'calendar', 'gmail', or 'all'
+
+  if (!serviceToRevoke || !['calendar', 'gmail', 'all'].includes(serviceToRevoke)) {
+    throw new functions.https.HttpsError("invalid-argument", "Invalid 'service' parameter. Must be 'calendar', 'gmail', or 'all'.");
+  }
+
+  const userTokensRef = db.collection("user_tokens").doc(uid);
+  const doc = await userTokensRef.get();
+
+  if (!doc.exists) {
+    logger.info(`No tokens found for user ${uid} to revoke. Already effectively revoked.`);
+    return { success: true, message: "No active authorization found for this user." };
+  }
+
+  const tokensData = doc.data();
+  const refreshToken = tokensData?.refresh_token;
+
+  if (!refreshToken) {
+    logger.info(`No refresh token found for user ${uid} to revoke. Already effectively revoked or token data incomplete.`);
+    // Clean up potentially incomplete doc
+    await userTokensRef.update({
+        refresh_token: admin.firestore.FieldValue.delete(),
+        granted_scopes: admin.firestore.FieldValue.delete(), // Clear scopes as well
+    });
+    return { success: true, message: "No active refresh token found." };
+  }
+
+  let firestoreUpdateData: {[key: string]: any} = {};
+  let revocationMessage = "";
+
+  // For Google, revoking a refresh token revokes all its permissions.
+  // Granular revocation by scope isn't done by revoking the token itself, but by the user managing app permissions in their Google account.
+  // Our action here is to revoke the token with Google and then update our Firestore record.
+  // If 'all' or if any specific service is revoked, we revoke the master refresh token.
+  // The distinction of 'calendar' vs 'gmail' in our Firestore `granted_scopes` is more for our app to know what was *intended* to be authorized.
+
+  try {
+    const response = await axios.post(`https://oauth2.googleapis.com/revoke?token=${refreshToken}`, null, {
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    });
+
+    if (response.status === 200) {
+      logger.info(`Successfully revoked token for user ${uid} with Google.`);
+      // Regardless of 'serviceToRevoke', if Google confirms revocation, the refresh token is invalid.
+      // We should remove it and all associated scopes.
+      firestoreUpdateData = {
+        refresh_token: admin.firestore.FieldValue.delete(),
+        granted_scopes: admin.firestore.FieldValue.delete(),
+        last_revoked: admin.firestore.FieldValue.serverTimestamp(),
+      };
+      revocationMessage = `Access for all Google services has been revoked for user ${uid}.`;
+
+      await userTokensRef.update(firestoreUpdateData);
+      logger.info(`Cleared refresh token and scopes for user ${uid} in Firestore.`);
+      return { success: true, message: revocationMessage };
+
+    } else {
+      // This case might not be typically hit if Google returns 200 even for already invalid tokens.
+      // But good to have for unexpected responses.
+      logger.warn(`Google token revocation for UID ${uid} returned status ${response.status}:`, response.data);
+      // Don't delete from Firestore if Google didn't confirm, could be a temporary issue.
+      throw new functions.https.HttpsError("internal", `Google revocation failed with status: ${response.status}. Please try again.`);
+    }
+  } catch (error: any) {
+    if (axios.isAxiosError(error) && error.response) {
+      // Google often returns 200 even if the token is already invalid or malformed.
+      // Specific error codes (e.g., 400 for invalid_token) might be in error.response.data.error.
+      // If Google indicates the token is invalid, we can proceed to clear it from Firestore.
+      logger.warn(`Error during Google token revocation request for UID ${uid}: (status: ${error.response.status})`, error.response.data);
+      if (error.response.status === 400) { // Bad request, e.g. token already revoked or invalid
+        logger.info(`Token for UID ${uid} was likely already invalid/revoked by Google. Clearing from Firestore.`);
+        firestoreUpdateData = {
+          refresh_token: admin.firestore.FieldValue.delete(),
+          granted_scopes: admin.firestore.FieldValue.delete(),
+          last_revoked_due_to_error: admin.firestore.FieldValue.serverTimestamp(),
+        };
+        await userTokensRef.update(firestoreUpdateData);
+        return { success: true, message: "Token was already invalid or revoked. Cleaned up local record." };
+      }
+      throw new functions.https.HttpsError("internal", `Failed to revoke Google token: ${error.response.data.error_description || error.message}`);
+    }
+    // Non-Axios error or no response
+    logger.error(`Unexpected error during token revocation for UID ${uid}:`, error);
+    throw new functions.https.HttpsError("internal", `An unexpected error occurred during token revocation: ${error.message}`);
   }
 });
 
