@@ -113,8 +113,8 @@ async function getUserGoogleClient(uid: string, requiredScopes: string[]): Promi
 
 export const initiateAuth_v1 = v2OnRequest(
   {
-    region: FUNCTIONS_REGION_PARAM.value(), // .value() is fine here as region is needed at deployment
-    secrets: [OAUTH_CLIENT_SECRET_PARAM] // Make secret available
+    region: FUNCTIONS_REGION_PARAM, // Pass param object directly
+    secrets: [OAUTH_CLIENT_SECRET_PARAM]
   },
   async (req, res) => {
     const clientId = OAUTH_CLIENT_ID_PARAM.value();
@@ -163,7 +163,7 @@ export const initiateAuth_v1 = v2OnRequest(
 
 export const oauthCallback_v1 = v2OnRequest(
   {
-    region: FUNCTIONS_REGION_PARAM.value(),
+    region: FUNCTIONS_REGION_PARAM, // Pass param object directly
     secrets: [OAUTH_CLIENT_SECRET_PARAM]
   },
   async (req, res) => {
@@ -252,23 +252,24 @@ export const oauthCallback_v1 = v2OnRequest(
 // For now, only initiateAuth_v1 and oauthCallback_v1 are converted.
 // The HttpsError in getUserGoogleClient was already V2HttpsError.
 
-export const revokeGoogleAccess_v1 = v2OnCall({ region: FUNCTIONS_REGION_PARAM.value() }, async (request) => {
-  if (!request.auth) { // Changed from context.auth
-    throw new V2HttpsError("unauthenticated", "Authentication required to revoke access.");
-  }
-  const uid = request.auth.uid; // Changed from context.auth.uid
-  const serviceToRevoke = request.data?.service as string; // Changed from data.service
+export const revokeGoogleAccess_v1 = v2OnCall(
+  {
+    region: FUNCTIONS_REGION_PARAM, // Pass param object directly
+    secrets: [OAUTH_CLIENT_SECRET_PARAM] // Ensure secrets used by getUserGoogleClient are available if not already via global param access
+  },
+  async (request) => {
+    if (!request.auth) {
+      throw new V2HttpsError("unauthenticated", "Authentication required to revoke access.");
+    }
+    const uid = request.auth.uid;
+    const serviceToRevoke = request.data?.service as string;
 
-  if (!serviceToRevoke || !['calendar', 'gmail', 'all'].includes(serviceToRevoke)) {
-    throw new V2HttpsError("invalid-argument", "Invalid 'service' parameter. Must be 'calendar', 'gmail', or 'all'.");
-  }
-  const serviceToRevoke = data?.service as string; // 'calendar', 'gmail', or 'all'
+    if (!serviceToRevoke || !['calendar', 'gmail', 'all'].includes(serviceToRevoke)) {
+      throw new V2HttpsError("invalid-argument", "Invalid 'service' parameter. Must be 'calendar', 'gmail', or 'all'.");
+    }
+    // Note: Removed duplicate serviceToRevoke definition and the v1 error throw that was still present.
 
-  if (!serviceToRevoke || !['calendar', 'gmail', 'all'].includes(serviceToRevoke)) {
-    throw new functions.https.HttpsError("invalid-argument", "Invalid 'service' parameter. Must be 'calendar', 'gmail', or 'all'.");
-  }
-
-  const userTokensRef = db.collection("user_tokens").doc(uid);
+    const userTokensRef = db.collection("user_tokens").doc(uid);
   const doc = await userTokensRef.get();
 
   if (!doc.exists) {
@@ -323,7 +324,7 @@ export const revokeGoogleAccess_v1 = v2OnCall({ region: FUNCTIONS_REGION_PARAM.v
       // But good to have for unexpected responses.
       logger.warn(`Google token revocation for UID ${uid} returned status ${response.status}:`, response.data);
       // Don't delete from Firestore if Google didn't confirm, could be a temporary issue.
-      throw new functions.https.HttpsError("internal", `Google revocation failed with status: ${response.status}. Please try again.`);
+      throw new V2HttpsError("internal", `Google revocation failed with status: ${response.status}. Please try again.`);
     }
   } catch (error: any) {
     if (axios.isAxiosError(error) && error.response) {
@@ -341,20 +342,25 @@ export const revokeGoogleAccess_v1 = v2OnCall({ region: FUNCTIONS_REGION_PARAM.v
         await userTokensRef.update(firestoreUpdateData);
         return { success: true, message: "Token was already invalid or revoked. Cleaned up local record." };
       }
-      throw new functions.https.HttpsError("internal", `Failed to revoke Google token: ${error.response.data.error_description || error.message}`);
+      throw new V2HttpsError("internal", `Failed to revoke Google token: ${error.response.data.error_description || error.message}`);
     }
     // Non-Axios error or no response
     logger.error(`Unexpected error during token revocation for UID ${uid}:`, error);
-    throw new functions.https.HttpsError("internal", `An unexpected error occurred during token revocation: ${error.message}`);
+    throw new V2HttpsError("internal", `An unexpected error occurred during token revocation: ${error.message}`);
   }
 });
 
-export const getAuthStatus_v1 = functions.https.onCall(async (data, context) => {
-  if (!context.auth) {
-    throw new functions.https.HttpsError("unauthenticated", "Authentication required.");
-  }
-  const uid = context.auth.uid;
-  const servicesToChecks = data?.services as string[] || ['calendar', 'gmail'];
+export const getAuthStatus_v1 = v2OnCall(
+  {
+    region: FUNCTIONS_REGION_PARAM, // Pass param object directly
+    // No secrets needed directly by this function's top level, only by getUserGoogleClient if it were used, but it's not.
+  },
+  async (request) => {
+    if (!request.auth) {
+      throw new V2HttpsError("unauthenticated", "Authentication required.");
+    }
+    const uid = request.auth.uid;
+    const servicesToChecks = request.data?.services as string[] || ['calendar', 'gmail'];
   const status: { [key: string]: boolean } = {};
 
   try {
@@ -378,24 +384,29 @@ export const getAuthStatus_v1 = functions.https.onCall(async (data, context) => 
       }
     }
     return { status };
-  } catch (error) {
+  } catch (error: any) { // Added type any for error
     logger.error(`Error fetching auth status for UID ${uid}:`, error);
-    throw new functions.https.HttpsError("internal", "Failed to retrieve authorization status.");
+    throw new V2HttpsError("internal", `Failed to retrieve authorization status: ${error.message}`);
   }
 });
 
-export const createCalendarEvent_v1 = functions.https.onCall(async (data, context) => {
-  if (!context.auth) {
-    throw new functions.https.HttpsError("unauthenticated", "Authentication required.");
-  }
-  const uid = context.auth.uid;
-  const { summary, description, startTime, endTime, attendees, addMeet } = data;
+export const createCalendarEvent_v1 = v2OnCall(
+  {
+    region: FUNCTIONS_REGION_PARAM, // Pass param object directly
+    secrets: [OAUTH_CLIENT_SECRET_PARAM] // For getUserGoogleClient
+  },
+  async (request) => {
+    if (!request.auth) {
+      throw new V2HttpsError("unauthenticated", "Authentication required.");
+    }
+    const uid = request.auth.uid;
+    const { summary, description, startTime, endTime, attendees, addMeet } = request.data;
 
-  if (!summary || !startTime || !endTime) {
-    throw new functions.https.HttpsError("invalid-argument", "Missing required fields: summary, startTime, endTime.");
-  }
+    if (!summary || !startTime || !endTime) {
+      throw new V2HttpsError("invalid-argument", "Missing required fields: summary, startTime, endTime.");
+    }
 
-  const requiredScopes = ['https://www.googleapis.com/auth/calendar.events'];
+    const requiredScopes = ['https://www.googleapis.com/auth/calendar.events'];
   try {
     const client = await getUserGoogleClient(uid, requiredScopes);
     const calendar = google.calendar({ version: 'v3', auth: client });
@@ -437,19 +448,24 @@ export const createCalendarEvent_v1 = functions.https.onCall(async (data, contex
     };
   } catch (error: any) {
     logger.error(`Error creating calendar event for UID ${uid}:`, error);
-    if (error instanceof functions.https.HttpsError) throw error;
-    throw new functions.https.HttpsError("internal", `Failed to create calendar event: ${error.message}`);
+    if (error instanceof V2HttpsError) throw error; // Check against V2HttpsError
+    throw new V2HttpsError("internal", `Failed to create calendar event: ${error.message}`);
   }
 });
 
-export const listEmails_v1 = functions.https.onCall(async (data, context) => {
-  if (!context.auth) {
-    throw new functions.https.HttpsError("unauthenticated", "Authentication required.");
-  }
-  const uid = context.auth.uid;
-  const maxResults = data?.maxResults || 10;
+export const listEmails_v1 = v2OnCall(
+  {
+    region: FUNCTIONS_REGION_PARAM, // Pass param object directly
+    secrets: [OAUTH_CLIENT_SECRET_PARAM] // For getUserGoogleClient
+  },
+  async (request) => {
+    if (!request.auth) {
+      throw new V2HttpsError("unauthenticated", "Authentication required.");
+    }
+    const uid = request.auth.uid;
+    const maxResults = request.data?.maxResults || 10;
 
-  const requiredScopes = ['https://www.googleapis.com/auth/gmail.readonly'];
+    const requiredScopes = ['https://www.googleapis.com/auth/gmail.readonly'];
   try {
     const client = await getUserGoogleClient(uid, requiredScopes);
     const gmail = google.gmail({ version: 'v1', auth: client });
@@ -497,8 +513,8 @@ export const listEmails_v1 = functions.https.onCall(async (data, context) => {
     return { emails: emailDetails.filter(e => e !== null) };
   } catch (error: any) {
     logger.error(`Error listing emails for UID ${uid}:`, error);
-    if (error instanceof functions.https.HttpsError) throw error;
-    throw new functions.https.HttpsError("internal", `Failed to list emails: ${error.message}`);
+    if (error instanceof V2HttpsError) throw error; // Check against V2HttpsError
+    throw new V2HttpsError("internal", `Failed to list emails: ${error.message}`);
   }
 });
 
