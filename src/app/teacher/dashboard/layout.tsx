@@ -5,7 +5,7 @@ import { useEffect } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import Link from 'next/link';
 import { useAuth } from '@/context/auth-context';
-import { LayoutDashboard, Users, Briefcase, Book, LogOut, Bell, Search } from 'lucide-react';
+import { LayoutDashboard, Users, Briefcase, Book, LogOut, Bell, Search, CalendarClock } from 'lucide-react'; // Added CalendarClock
 
 // Apollo Design System Components
 import { LoadingSpinner } from '@/components/ui/loading-spinner';
@@ -62,6 +62,13 @@ const navigationItems = [
     label: 'Admin Work',
     icon: <Briefcase />,
     description: 'Administrative tasks',
+    badge: null,
+  },
+  {
+    href: '/teacher/schedule', // New schedule page route
+    label: 'Schedule & Integrations',
+    icon: <CalendarClock />,
+    description: 'Manage calendar and service integrations',
     badge: null,
   },
 ];

@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Google Services Integration</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <h1>Google Services Integration</h1>
+
+    <!-- Firebase Auth (Google Sign-in) - User will handle this part -->
+    <div id="auth-container">
+        <p><em>Sign in with Google to use this application. (Firebase SDK will handle this)</em></p>
+        <div id="user-info" style="display: none;">
+            <p>Signed in as: <span id="user-email"></span></p>
+            <button id="sign-out-button">Sign Out</button>
+        </div>
+    </div>
+
+    <hr>
+
+    <h2>Service Authorization Status</h2>
+    <div id="auth-status-container">
+        <div>
+            <span>Google Calendar & Meet: </span>
+            <span id="calendar-auth-status">Unknown</span>
+            <button id="authorize-calendar-button" style="display: none;">Authorize Calendar & Meet</button>
+        </div>
+        <div>
+            <span>Google Gmail: </span>
+            <span id="gmail-auth-status">Unknown</span>
+            <button id="authorize-gmail-button" style="display: none;">Authorize Gmail</button>
+        </div>
+    </div>
+
+    <hr>
+
+    <h2>Create Google Calendar Event (with Meet)</h2>
+    <div id="calendar-event-container" style="display: none;">
+        <label for="event-summary">Summary:</label>
+        <input type="text" id="event-summary" value="Team Meeting"><br><br>
+
+        <label for="event-description">Description:</label>
+        <input type="text" id="event-description" value="Discuss project updates"><br><br>
+
+        <label for="event-start">Start DateTime:</label>
+        <input type="datetime-local" id="event-start"><br><br>
+
+        <label for="event-end">End DateTime:</label>
+        <input type="datetime-local" id="event-end"><br><br>
+
+        <label for="event-attendees">Attendees (comma-separated emails):</label>
+        <input type="text" id="event-attendees" value=""><br><br>
+
+        <label for="event-add-meet">
+            <input type="checkbox" id="event-add-meet" checked> Add Google Meet Link
+        </label><br><br>
+
+        <button id="create-event-button">Create Event</button>
+        <p id="event-creation-status"></p>
+    </div>
+
+    <hr>
+
+    <h2>Read Gmail Messages</h2>
+    <div id="gmail-container" style="display: none;">
+        <button id="fetch-emails-button">Fetch Recent Emails</button>
+        <p id="email-fetch-status"></p>
+        <ul id="email-list"></ul>
+    </div>
+
+    <!-- Firebase SDK -->
+    <!-- These will be added by the user when setting up Firebase in their project -->
+    <!-- <script src="/__/firebase/9.x.x/firebase-app-compat.js"></script>
+    <script src="/__/firebase/9.x.x/firebase-auth-compat.js"></script>
+    <script src="/__/firebase/9.x.x/firebase-functions-compat.js"></script>
+    <script src="/__/firebase/init.js"></script> -->
+
+    <script src="app.js"></script>
+</body>
+</html>
