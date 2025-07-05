@@ -10,8 +10,20 @@ const SchedulePage = () => {
   const { user } = useAuth(); // Get user from AuthContext. User object from Firebase Auth.
   const [calendarAuthorized, setCalendarAuthorized] = useState(false);
   const [gmailAuthorized, setGmailAuthorized] = useState(false);
-  const [loadingStatus, setLoadingStatus] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const [loadingStatus, setLoadingStatus] = useState(true); // For auth status
+  const [error, setError] = useState<string | null>(null); // For general errors
+
+  // State for Calendar Event Creation
+  const [eventSummary, setEventSummary] = useState('');
+  const [eventDescription, setEventDescription] = useState('');
+  const [eventStartTime, setEventStartTime] = useState('');
+  const [eventEndTime, setEventEndTime] = useState('');
+  const [eventAttendees, setEventAttendees] = useState('');
+  const [addMeetLink, setAddMeetLink] = useState(true);
+  const [creatingEvent, setCreatingEvent] = useState(false);
+  const [eventCreationMessage, setEventCreationMessage] = useState<string | null>(null);
+  const [eventCreationError, setEventCreationError] = useState<string | null>(null);
+
 
   const fetchAuthStatus = useCallback(async () => {
     if (!user) {
@@ -27,18 +39,17 @@ const SchedulePage = () => {
 
     try {
       const functionsInstance = getFunctions(getApp());
-      // Skipping the emulator for now
-      // if (process.env.NODE_ENV === 'development' && (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1")) {
-      //   try {
-      //     // console.log("Attempting to connect to Functions Emulator for getAuthStatus_v1");
-      //     connectFunctionsEmulator(functionsInstance, "localhost", 5001);
-      //   } catch (e: any) {
-      //     // Emulator might already be connected, or other connection issue. Log as warning.
-      //     if (e.code !== 'functions/emulator-already-connected') {
-      //       console.warn("Functions emulator connection issue (may be harmless if already connected):", e.message);
-      //     }
-      //   }
-      // }
+      if (process.env.NODE_ENV === 'development' && (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1")) {
+        try {
+          // console.log("Attempting to connect to Functions Emulator for getAuthStatus_v1");
+          connectFunctionsEmulator(functionsInstance, "localhost", 5001);
+        } catch (e: any) {
+          // Emulator might already be connected, or other connection issue. Log as warning.
+          if (e.code !== 'functions/emulator-already-connected') {
+            console.warn("Functions emulator connection issue (may be harmless if already connected):", e.message);
+          }
+        }
+      }
       const getAuthStatusFn = httpsCallable(functionsInstance, 'getAuthStatus_v1');
       const response = await getAuthStatusFn({ services: ['calendar', 'gmail'] });
       const statusData = response.data as { status: { calendar: boolean, gmail: boolean } };
@@ -95,7 +106,9 @@ const SchedulePage = () => {
 
     let scopes = "";
     if (serviceTarget === 'calendar') {
-      scopes = "https://www.googleapis.com/auth/calendar https://www.googleapis.com/auth/calendar.events";
+      // Using only calendar.events as it should be sufficient for creating events and adding attendees.
+      // The broader /auth/calendar scope is likely not needed for current features.
+      scopes = "https://www.googleapis.com/auth/calendar.events";
     } else if (serviceTarget === 'gmail') {
       scopes = "https://www.googleapis.com/auth/gmail.readonly";
     } else {
@@ -118,12 +131,7 @@ const SchedulePage = () => {
 
     if (process.env.NODE_ENV === 'development' && (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1")) {
       // Construct emulator URL. Ensure functions emulator is running at localhost:5001.
-      
-      // commented for usage 
-      // initiateAuthUrl = `http://localhost:5001/${projectId}/${functionsRegion}/${functionName}?scopes=${encodeURIComponent(scopes)}&uid=${user.uid}`;
-      
-      // Temporary fix for using live functions URL
-      initiateAuthUrl = `https://${functionsRegion}-${projectId}.cloudfunctions.net/${functionName}?scopes=${encodeURIComponent(scopes)}&uid=${user.uid}`;
+      initiateAuthUrl = `http://localhost:5001/${projectId}/${functionsRegion}/${functionName}?scopes=${encodeURIComponent(scopes)}&uid=${user.uid}`;
       // console.log("Using emulator URL for auth: ", initiateAuthUrl);
     } else {
       // Deployed: Construct absolute URL for the function.
@@ -159,17 +167,16 @@ const SchedulePage = () => {
 
     try {
       const functionsInstance = getFunctions(getApp());
-      // skipping the emulator for now
-      // if (process.env.NODE_ENV === 'development' && (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1")) {
-      //    try {
-      //       // console.log("Attempting to connect to Functions Emulator for revokeGoogleAccess_v1");
-      //       connectFunctionsEmulator(functionsInstance, "localhost", 5001);
-      //   } catch (e: any) {
-      //     if (e.code !== 'functions/emulator-already-connected') { // SDK might throw if already connected
-      //       console.warn("Functions emulator connection issue (revoke):", e.message);
-      //     }
-      //   }
-      // }
+      if (process.env.NODE_ENV === 'development' && (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1")) {
+         try {
+            // console.log("Attempting to connect to Functions Emulator for revokeGoogleAccess_v1");
+            connectFunctionsEmulator(functionsInstance, "localhost", 5001);
+        } catch (e: any) {
+          if (e.code !== 'functions/emulator-already-connected') { // SDK might throw if already connected
+            console.warn("Functions emulator connection issue (revoke):", e.message);
+          }
+        }
+      }
       const revokeAccessFn = httpsCallable(functionsInstance, 'revokeGoogleAccess_v1');
       // Pass 'all' because revoking a refresh token typically revokes all its scopes.
       // The backend function `revokeGoogleAccess_v1` is designed to handle this by deleting the main refresh token.
@@ -192,6 +199,74 @@ const SchedulePage = () => {
       setLoadingStatus(false); // Ensure loading is stopped on error if fetchAuthStatus isn't called
     }
     // setLoadingStatus(false) is effectively handled by fetchAuthStatus or the error catch block.
+  };
+
+  const handleCreateEvent = async () => {
+    if (!user) {
+      setEventCreationError("You must be logged in to create an event.");
+      return;
+    }
+    if (!eventSummary || !eventStartTime || !eventEndTime) {
+      setEventCreationError("Please fill in Summary, Start Time, and End Time for the event.");
+      return;
+    }
+    if (new Date(eventStartTime) >= new Date(eventEndTime)) {
+      setEventCreationError("Event end time must be after start time.");
+      return;
+    }
+
+    setCreatingEvent(true);
+    setEventCreationMessage(null);
+    setEventCreationError(null);
+
+    const attendeesArray = eventAttendees.split(',')
+      .map(email => email.trim())
+      .filter(email => email.length > 0);
+
+    try {
+      const functionsInstance = getFunctions(getApp());
+      if (process.env.NODE_ENV === 'development' && (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1")) {
+        try {
+          connectFunctionsEmulator(functionsInstance, "localhost", 5001);
+        } catch (e: any) {
+          if (e.code !== 'functions/emulator-already-connected') {
+            console.warn("Functions emulator connection issue (createEvent):", e.message);
+          }
+        }
+      }
+      const createEventFn = httpsCallable(functionsInstance, 'createCalendarEvent_v1');
+      const result = await createEventFn({
+        summary: eventSummary,
+        description: eventDescription,
+        startTime: new Date(eventStartTime).toISOString(),
+        endTime: new Date(eventEndTime).toISOString(),
+        attendees: attendeesArray,
+        addMeet: addMeetLink,
+        timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+      });
+
+      const resultData = result.data as { eventId?: string; eventUrl?: string; meetLink?: string; message?: string };
+
+      if (resultData.eventId) {
+        setEventCreationMessage(
+        `Event created! ID: ${resultData.eventId}. URL: ${resultData.eventUrl || 'N/A'}. Meet: ${resultData.meetLink || 'N/A'}`
+        );
+        // Clear form
+        setEventSummary('');
+        setEventDescription('');
+        setEventStartTime('');
+        setEventEndTime('');
+        setEventAttendees('');
+        setAddMeetLink(true);
+      } else {
+        throw new Error(resultData.message || "Unknown error creating event.");
+      }
+    } catch (err: any) {
+      console.error("Error creating event:", err);
+      setEventCreationError(err.message || "Failed to create event.");
+    } finally {
+      setCreatingEvent(false);
+    }
   };
 
   // Loading state from useAuth() can also be used here if provided by the context
@@ -254,6 +329,99 @@ const SchedulePage = () => {
               </button>
             )}
             <p className="mt-2 text-xs text-gray-500">Allows creating calendar events and adding Google Meet links.</p>
+
+            {/* Calendar Event Creation Form - Shown if Authorized */}
+            {calendarAuthorized && (
+              <div className="mt-6 pt-6 border-t border-gray-200">
+                <h3 className="text-lg font-medium mb-4 text-gray-700">Create Calendar Event</h3>
+                <form onSubmit={(e) => { e.preventDefault(); /* handleCreateEvent will be called by button */ }} className="space-y-4">
+                  <div>
+                    <label htmlFor="event-summary" className="block text-sm font-medium text-gray-700">Summary/Title</label>
+                    <input
+                      type="text"
+                      id="event-summary"
+                      value={eventSummary}
+                      onChange={(e) => setEventSummary(e.target.value)}
+                      className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label htmlFor="event-description" className="block text-sm font-medium text-gray-700">Description (Optional)</label>
+                    <textarea
+                      id="event-description"
+                      value={eventDescription}
+                      onChange={(e) => setEventDescription(e.target.value)}
+                      rows={3}
+                      className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                    />
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <label htmlFor="event-start-time" className="block text-sm font-medium text-gray-700">Start Time</label>
+                      <input
+                        type="datetime-local"
+                        id="event-start-time"
+                        value={eventStartTime}
+                        onChange={(e) => setEventStartTime(e.target.value)}
+                        className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                        required
+                      />
+                    </div>
+                    <div>
+                      <label htmlFor="event-end-time" className="block text-sm font-medium text-gray-700">End Time</label>
+                      <input
+                        type="datetime-local"
+                        id="event-end-time"
+                        value={eventEndTime}
+                        onChange={(e) => setEventEndTime(e.target.value)}
+                        className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                        required
+                      />
+                    </div>
+                  </div>
+                  <div>
+                    <label htmlFor="event-attendees" className="block text-sm font-medium text-gray-700">Attendees (comma-separated emails)</label>
+                    <textarea
+                      id="event-attendees"
+                      value={eventAttendees}
+                      onChange={(e) => setEventAttendees(e.target.value)}
+                      rows={2}
+                      placeholder="guest1@example.com, guest2@example.com"
+                      className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                    />
+                  </div>
+                  <div className="flex items-center">
+                    <input
+                      id="add-meet-link"
+                      type="checkbox"
+                      checked={addMeetLink}
+                      onChange={(e) => setAddMeetLink(e.target.checked)}
+                      className="h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                    />
+                    <label htmlFor="add-meet-link" className="ml-2 block text-sm text-gray-900">
+                      Add Google Meet Link
+                    </label>
+                  </div>
+                  <div>
+                    <button
+                      type="button"
+                      onClick={handleCreateEvent}
+                      disabled={creatingEvent || !calendarAuthorized || !user}
+                      className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      {creatingEvent ? 'Creating...' : 'Create Event'}
+                    </button>
+                  </div>
+                  {eventCreationMessage && (
+                    <p className="mt-2 text-sm text-green-600">{eventCreationMessage}</p>
+                  )}
+                  {eventCreationError && (
+                    <p className="mt-2 text-sm text-red-600">{eventCreationError}</p>
+                  )}
+                </form>
+              </div>
+            )}
           </div>
 
           {/* Google Gmail Integration */}

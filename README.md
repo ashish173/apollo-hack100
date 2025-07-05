@@ -9,18 +9,22 @@ The Google API integration code within Firebase Functions is merged into an exis
 ## Features
 
 *   **User Authentication**: Google Sign-in via Firebase Authentication for the Next.js teacher portal.
-*   **Google API Authorization (Next.js Teacher Portal)**:
-    *   Dedicated page (`/teacher/schedule`) for managing Google service authorizations.
-    *   OAuth 2.0 flow to obtain user consent for Google Calendar and Gmail.
+*   **Google API Authorization & Event Creation (Next.js Teacher Portal)**:
+    *   Dedicated page (`/teacher/schedule`) for:
+        *   Managing Google service authorizations (Calendar/Meet, Gmail).
+        *   Creating Google Calendar events with guest invitations and Google Meet links (if Calendar is authorized).
+    *   OAuth 2.0 flow to obtain user consent. The application requests `https://www.googleapis.com/auth/calendar.events` for calendar operations and `https://www.googleapis.com/auth/gmail.readonly` for Gmail.
     *   Secure storage of refresh tokens in Firestore.
     *   UI to display authorization status and buttons to "Authorize" or "Revoke Access".
     *   Token revocation capability.
 *   **Google Calendar & Gmail Integration (via Firebase Functions)**:
-    *   Firebase Functions (`createCalendarEvent_v1`, `listEmails_v1`) enable creating calendar events (with Meet links) and listing Gmail messages. These can be called from the Next.js app once authorized.
-*   **Firebase Functions**: Handles OAuth flow, Google API calls, and token revocation securely.
+    *   Firebase Function `createCalendarEvent_v1` creates calendar events and ensures guest notifications are sent using the `sendUpdates: 'all'` parameter.
+    *   Firebase Function `listEmails_v1` enables listing Gmail messages.
+    *   These can be called from the Next.js app once the respective service is authorized.
+*   **Firebase Functions**: Handles OAuth flow, Google API calls, and token revocation securely. All Google API related functions are built using Cloud Functions v2.
 *   **Firestore**: Securely stores user refresh tokens.
-*   **Next.js Frontend**: Teacher-specific UI at `/teacher/schedule` for managing integrations.
-*   **Standalone Demo (Optional)**: Original plain HTML/JS demo in `public/` for broader testing of the core Firebase Functions.
+*   **Next.js Frontend**: Teacher-specific UI at `/teacher/schedule` for managing integrations and creating calendar events.
+*   **Standalone Demo (Optional)**: Original plain HTML/JS demo in `public/` for broader testing of the core Firebase Functions (does not include the latest event creation UI from the Next.js page).
 
 ## File Structure
 
@@ -205,14 +209,19 @@ Follow these steps to get the project running:
 
 ## Important Notes
 
-*   **Next.js Integration**: The primary focus of recent changes is the `/teacher/schedule` page within the Next.js application.
+*   **Next.js Integration**: The primary focus of recent changes is the `/teacher/schedule` page within the Next.js application, which now handles both Google service authorization and calendar event creation.
 *   **Cloud Functions v2**: All Google API related Firebase Functions (`initiateAuth_v1`, `oauthCallback_v1`, `getAuthStatus_v1`, `createCalendarEvent_v1`, `listEmails_v1`, `revokeGoogleAccess_v1`) have been updated to Cloud Functions v2.
-*   **Parameterized Configuration**: OAuth credentials and other function settings are now managed using v2 parameterized configuration (`defineString`, `defineSecret`) instead of v1 `functions.config()`. See "Backend Setup" for how to set these parameters using `.env` files or CLI.
-*   **CORS Configuration for Callable Functions**: The v2 callable functions (`getAuthStatus_v1`, `createCalendarEvent_v1`, `listEmails_v1`, `revokeGoogleAccess_v1`) have been configured with `cors: true` in their options. For production, it's highly recommended to restrict this to your specific frontend origins, e.g., `cors: ['http://localhost:3000', 'https://your-deployed-nextjs-app.com']`. This can be configured in `functions/src/index.ts`.
+*   **Parameterized Configuration**: OAuth credentials and other function settings are now managed using v2 parameterized configuration (`defineString`, `defineSecret`). See "Backend Setup" for how to set these.
+*   **CORS Configuration for Callable Functions**: The v2 callable functions have `cors: true` set. **For production, restrict this to your specific frontend origins** (e.g., `cors: ['http://localhost:3000', 'https://your-deployed-nextjs-app.com']`) in `functions/src/index.ts` for security.
+*   **OAuth Scopes**:
+    *   Calendar: `https://www.googleapis.com/auth/calendar.events` (for creating/managing events and attendees).
+    *   Gmail: `https://www.googleapis.com/auth/gmail.readonly` (for reading emails).
+    *   Users may need to re-authorize if scopes change.
+*   **Guest Invitations**: The `createCalendarEvent_v1` function is configured to send updates/invitations to guests added to events.
 *   **`@ts-nocheck`**: Present in `functions/src/index.ts`. Ideally, resolve TypeScript errors and remove this.
-*   **Function Naming (`_v1`)**: Google API related Firebase Functions use a `_v1` suffix for clarity and to avoid conflicts.
-*   **Revocation**: The `revokeGoogleAccess_v1` function is now available. It revokes the entire refresh token with Google.
+*   **Function Naming (`_v1`)**: Google API related Firebase Functions use a `_v1` suffix for clarity.
+*   **Revocation**: The `revokeGoogleAccess_v1` function revokes the entire refresh token with Google.
 *   **Security**: Keep OAuth credentials and API keys secret (use v2 parameters with Secret Manager for secrets). Review Firestore rules.
-*   **Error Handling & Scopes**: Basic error handling is in place. Review and extend as needed.
+*   **Error Handling**: Basic error handling is in place. Review and extend as needed.
 
 This guide should help you set up and run the project with its Next.js integration. Remember to replace all placeholder values.

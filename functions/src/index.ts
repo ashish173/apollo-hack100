@@ -28,7 +28,7 @@ const db = admin.firestore();
 
 // --- Configuration for existing AI functions ---
 // Assuming anthropicApiKey was intended to be a secret or a param
-const ANTHROPIC_API_KEY_PARAM = v2DefineSecret("ANTHROPIC_API_KEY"); // Or v2DefineSecret if it's a secret
+const ANTHROPIC_API_KEY_PARAM = v2DefineString("ANTHROPIC_API_KEY"); // Or v2DefineSecret if it's a secret
 
 // --- Configuration for Google OAuth using v2 Parameters ---
 // These parameters should be set by the user, e.g., via `firebase functions:params:set ...` or in .env files
@@ -420,11 +420,11 @@ export const createCalendarEvent_v1 = v2OnCall(
       description: description || '',
       start: {
         dateTime: startTime, // ISO 8601 format e.g., '2024-03-10T10:00:00-07:00'
-        timeZone: data.timeZone || Intl.DateTimeFormat().resolvedOptions().timeZone, // Optional: data.timeZone
+        timeZone: request.data.timeZone || Intl.DateTimeFormat().resolvedOptions().timeZone,
       },
       end: {
         dateTime: endTime,
-        timeZone: data.timeZone || Intl.DateTimeFormat().resolvedOptions().timeZone,
+        timeZone: request.data.timeZone || Intl.DateTimeFormat().resolvedOptions().timeZone,
       },
       attendees: attendees?.map((email: string) => ({ email })) || [],
     };
@@ -442,6 +442,7 @@ export const createCalendarEvent_v1 = v2OnCall(
       calendarId: 'primary',
       requestBody: event,
       conferenceDataVersion: addMeet ? 1 : 0,
+      sendUpdates: attendees && attendees.length > 0 ? 'all' : 'none', // Send updates if there are attendees
     });
 
     logger.info(`Calendar event created for UID ${uid}:`, response.data.id);
@@ -478,7 +479,7 @@ export const listEmails_v1 = v2OnCall(
     const response = await gmail.users.messages.list({
       userId: 'me',
       maxResults: maxResults,
-      q: data?.query || '', // Optional query string (e.g., 'is:unread')
+      q: request.data?.query || '', // Optional query string (e.g., 'is:unread')
     });
 
     const messages = response.data.messages || [];
