@@ -2,15 +2,13 @@ import { onRequest } from 'firebase-functions/v2/https';
 import * as admin from 'firebase-admin';
 import { google } from 'googleapis';
 import { FieldValue } from 'firebase-admin/firestore';
-import * as functions from 'firebase-functions';
 
 if (!admin.apps.length) {
   admin.initializeApp();
 }
 
-// For debugging only: Hardcoded client ID and secret (not recommended for production)
-const CLIENT_ID = functions.config().oauth.client_id;
-const CLIENT_SECRET = functions.config().oauth.client_secret;
+const CLIENT_ID = process.env.OAUTH_CLIENT_ID;
+const CLIENT_SECRET = process.env.OAUTH_CLIENT_SECRET;
 const REDIRECT_URI = 'https://oauth2callback-fvtj5v3sya-uc.a.run.app';
 
 const oAuth2Client = new google.auth.OAuth2(CLIENT_ID, CLIENT_SECRET, REDIRECT_URI);

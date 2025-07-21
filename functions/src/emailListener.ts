@@ -2,14 +2,13 @@ import { onSchedule } from 'firebase-functions/v2/scheduler';
 import { google } from 'googleapis';
 import * as admin from 'firebase-admin';
 import { logger } from 'firebase-functions/v2';
-import * as functions from 'firebase-functions';
 
 if (!admin.apps.length) {
   admin.initializeApp();
 }
 
-const CLIENT_ID = functions.config().oauth.client_id;
-const CLIENT_SECRET = functions.config().oauth.client_secret;
+const CLIENT_ID = process.env.OAUTH_CLIENT_ID;
+const CLIENT_SECRET = process.env.OAUTH_CLIENT_SECRET;
 const REDIRECT_URI = 'https://oauth2callback-fvtj5v3sya-uc.a.run.app';
 
 interface EmailMessage {
@@ -73,7 +72,7 @@ export const checkIncomingEmails = onSchedule({
  */
 async function processInterviewEmails(interviewId: string, interviewData: any) {
   // Get the recruiter's Gmail tokens
-  const recruiterUid = interviewData.created_by; // Assuming this field exists
+  const recruiterUid = interviewData.created_by;
   if (!recruiterUid) {
     logger.warn(`No recruiter UID found for interview ${interviewId}`);
     return;
@@ -105,8 +104,11 @@ async function processInterviewEmails(interviewId: string, interviewData: any) {
   const candidateEmail = interviewData.candidateEmail;
   const interviewerEmail = interviewData.interviewerEmail;
   
-  // Query for emails from candidate or interviewer
-  const query = `(from:${candidateEmail} OR from:${interviewerEmail})`;
+  // Add a 10-minute time filter to the Gmail query
+  const now = Math.floor(Date.now() / 1000); // current time in seconds
+  const tenMinutesAgo = now - 10 * 60; // 10 minutes ago in seconds
+  // Query for emails from candidate or interviewer in the last 10 minutes
+  const query = `(from:${candidateEmail} OR from:${interviewerEmail}) after:${tenMinutesAgo}`;
   
   logger.info(`Searching for emails with query: ${query}`);
 
@@ -153,8 +155,20 @@ async function processEmailMessage(interviewId: string, messageId: string, gmail
     const headers = message.payload.headers;
     const from = headers.find(h => h.name === 'From')?.value || '';
     const to = headers.find(h => h.name === 'To')?.value || '';
-    const subject = headers.find(h => h.name === 'Subject')?.value || '';
+    let subject = headers.find(h => h.name === 'Subject')?.value || '';
     
+    // Try to extract interviewId from subject
+    const extractedInterviewId = extractInterviewIdFromSubject(subject);
+    if (extractedInterviewId && extractedInterviewId !== interviewId) {
+      // If the extracted interviewId does not match the current one, skip processing
+      logger.info(`Message ${messageId} subject interviewId (${extractedInterviewId}) does not match expected interviewId (${interviewId}), skipping.`);
+      return;
+    }
+    // If not present, append interviewId to subject for new outgoing emails
+    if (!extractInterviewIdFromSubject(subject)) {
+      subject = `${subject} [InterviewID: ${interviewId}]`;
+    }
+
     // Extract email content
     let content = '';
     if (message.payload.body?.data) {
@@ -172,6 +186,7 @@ async function processEmailMessage(interviewId: string, messageId: string, gmail
     const existingConversationSnapshot = await admin.firestore()
       .collection('conversations')
       .where('message_id', '==', messageId)
+      .where('interview_id', '==', interviewId)
       .limit(1)
       .get();
 
@@ -179,7 +194,7 @@ async function processEmailMessage(interviewId: string, messageId: string, gmail
       const conversationDoc = existingConversationSnapshot.docs[0];
       const conversationData = conversationDoc.data();
       if (conversationData.processState === true) {
-        logger.info(`Message ${messageId} already processed, skipping`);
+        logger.info(`Message ${messageId} already processed for interview ${interviewId}, skipping`);
         return;
       } else {
         // Process with AI and update processState after
@@ -207,7 +222,7 @@ async function processEmailMessage(interviewId: string, messageId: string, gmail
         createdAt: admin.firestore.FieldValue.serverTimestamp(),
       });
 
-    logger.info(`Created conversation document: ${conversationRef.id}`);
+    logger.info(`Created conversation document: ${conversationRef.id} for interview ${interviewId}`);
 
     // Process with AI and update processState after
     await triggerAIProcessing(conversationRef.id, interviewId, messageId);
@@ -227,20 +242,36 @@ async function processEmailMessage(interviewId: string, messageId: string, gmail
  */
 async function triggerAIProcessing(conversationId: string, interviewId: string, messageId: string) {
   try {
-    // Create AI request document
-    await admin.firestore()
+    // Check if an aiRequests document already exists for this interview
+    const aiRequestSnapshot = await admin.firestore()
       .collection('aiRequests')
-      .add({
-        conversation_id: conversationId, // This is now the Firestore doc ID
-        interview_id: interviewId,
-        message_id: messageId,
-        nextStep: 'pending',
-        status: 'pending',
-        createdAt: admin.firestore.FieldValue.serverTimestamp(),
-      });
+      .where('interview_id', '==', interviewId)
+      .limit(1)
+      .get();
 
-    logger.info(`Created AI request for conversation ${conversationId}`);
-    
+    if (aiRequestSnapshot.empty) {
+      // Create AI request document if it doesn't exist for this interview
+      await admin.firestore()
+        .collection('aiRequests')
+        .add({
+          conversation_id: conversationId, // Store the latest conversation/message
+          interview_id: interviewId,
+          message_id: messageId,
+          nextStep: 'pending',
+          status: 'pending',
+          createdAt: admin.firestore.FieldValue.serverTimestamp(),
+        });
+      logger.info(`Created AI request for interview ${interviewId}`);
+    } else {
+      logger.info(`AI request already exists for interview ${interviewId}`);
+      // Optionally, update the existing doc with the latest conversation/message info
+      const aiRequestDoc = aiRequestSnapshot.docs[0];
+      await aiRequestDoc.ref.update({
+        conversation_id: conversationId,
+        message_id: messageId,
+        updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+      });
+    }
     // Call the AI processing function
     const response = await fetch('https://us-central1-role-auth-7bc43.cloudfunctions.net/processEmailWithAI', {
       method: 'POST',
@@ -292,4 +323,10 @@ function extractNewMessageContent(rawContent: string): string {
 function extractEmail(str: string) {
   const match = str.match(/<([^>]+)>/);
   return match ? match[1] : str.trim();
+} 
+
+// Helper to extract interviewId from subject line
+function extractInterviewIdFromSubject(subject: string): string | null {
+  const match = subject.match(/\[InterviewID: ([^\]]+)\]/);
+  return match ? match[1] : null;
 } 
