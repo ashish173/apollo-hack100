@@ -3,6 +3,7 @@ import * as admin from 'firebase-admin';
 import { ai } from './ai-instance';
 import cors from 'cors';
 import { z } from 'genkit';
+import { createInterviewCalendarEvent } from '../services/calendarService';
 
 if (!admin.apps.length) {
   admin.initializeApp();
@@ -68,13 +69,13 @@ Please respond in the following JSON format:
   "nextActionTaker": "scheduler|interviewer|candidate|human",
   "nextActionMetadata": {
     "emailContent": "Generate a clear, professional email to the next action taker (interviewer or candidate) if needed.
+                    - Use simple HTML for formatting (e.g.,<p>for paragraph or <br> for line breaks if HTML is supported).
                     - When generating an email, always greet the recipient with their role (for eg:- Candidate or Interviewer), a clear body with line breaks, and a polite sign-off.
                     - Never mention a 'scheduler' in the email content or sign-off. The sign-off should always be the recruiter's name, or 'Recruiter Team'.
-                    - If writing to the interviewer, summarize the candidate’s available slots. 
-                    - If writing to the candidate, summarize the interviewer’s available slots. If no overlap, ask the candidate to suggest new times. 
+                    - If writing to the interviewer, summarize the candidate available slots. 
+                    - If writing to the candidate, summarize the interviewer available slots. If no overlap, ask the candidate to suggest new times. 
                     - Leave this field empty if the next action taker is 'human' or 'scheduler'. 
-                    - Format the email, the email should be ready to send to the next Action taker, polite, and easy to understand.
-                    - Use plain text or simple HTML for formatting (e.g.,<p>for paragraph or <br> for line breaks if HTML is supported).
+                    - Format the email, the email should be ready to send to the next NAction taker, polite, and easy to understand.
                     - Always mention time slots in ISO 8601 format or as a clear, human-readable format (e.g., 'Saturday, July 19, 2025 at 5:00 PM') and never use vague terms like 'tomorrow' or 'next week'.
                     - For any time slot mentioned in relative terms (e.g., 'tomorrow 5 pm', 'next Monday', 'day after tomorrow', 'next week'), resolve it to an absolute date and time using the timestamp at the start of the message as the reference point. 
                     - Output all slots in ISO 8601 format. The timestamp for each message is provided in the conversation history in square brackets before the sender.",
@@ -89,7 +90,16 @@ Rules:
 - If both interviewer and candidate have provided slots but there is no overlap, set nextActionTaker to "candidate" and nextStep to "email_to_candidate". In the emailContent, include the interviewer's available slots and ask the candidate to suggest new times that overlap.
 - If the situation is unclear or complex, set nextActionTaker to "human" and nextStep to "human_intervention_needed".
 - Time slots should be in ISO format or clear date/time format. Only include relevant email content in the metadata fields.
-- Identify implicit confirmations of time slots(eg:- "yes i am available", "this works for me." etc)
+- Identify implicit confirmations of time slots(eg:- "yes i am available", "yes this time works for me", "this works for me." etc)
+- If interviewer confirms and replies like they are avialable or this time works for me or some other explict availability, use candidate slot as interviewr slots
+- If interviewer replies they are not available but does not provide any alternate availability:
+  - nextActionTaker: 'interviewer'
+  - nextStep: 'email_to_interviewer'
+  - The email should summarize the candidate's slots and politely ask the interviewer to suggest new ones.
+- "If the candidate confirms availability for one or more slots using phrases like 'Both work for me', 'Either is fine', 'I'm good with both', or similar confirmations, and the slots match the interviewer's availability,
+  - find matching slot,
+  - set nextActionTaker to 'scheduler'
+  - nextStep to 'confirmation_of_event'. No further email is needed."
   Always follow the above rules strictly and do not guess. The emailContent should be a complete, ready-to-send email, not instructions.
 `,
 });
@@ -159,7 +169,7 @@ async function handleNextStepActions({
   switch (nextStep) {
     case 'email_to_candidate': {
       // Send email to candidate
-      await sendEmailViaFunction({
+      const emailSendResult = await sendEmailViaFunction({
         to: interviewData.candidateEmail,
         from: recruiterEmail,
         subject: conversationData.subject,
@@ -169,8 +179,8 @@ async function handleNextStepActions({
       // Add new Conversation document for outgoing email
       await admin.firestore().collection('conversations').add({
         interview_id: interviewId,
-        // For outgoing messages, generate a new message_id using timestamp
-        message_id: `outgoing_${Date.now()}`,
+        // Use real Gmail messageId if available, else synthetic
+        message_id: emailSendResult?.messageId || `outgoing_${Date.now()}`,
         to: interviewData.candidateEmail,
         from: recruiterEmail,
         subject: conversationData.subject,
@@ -184,7 +194,7 @@ async function handleNextStepActions({
     }
     case 'email_to_interviewer': {
       // Send email to interviewer
-      await sendEmailViaFunction({
+      const emailSendResult = await sendEmailViaFunction({
         to: interviewData.interviewerEmail,
         from: recruiterEmail,
         subject: conversationData.subject,
@@ -194,8 +204,8 @@ async function handleNextStepActions({
       // Add new Conversation document for outgoing email
       await admin.firestore().collection('conversations').add({
         interview_id: interviewId,
-        // For outgoing messages, generate a new message_id using timestamp
-        message_id: `outgoing_${Date.now()}`,
+        // Use real Gmail messageId if available, else synthetic
+        message_id: emailSendResult?.messageId || `outgoing_${Date.now()}`,
         to: interviewData.interviewerEmail,
         from: recruiterEmail,
         subject: conversationData.subject,
@@ -213,12 +223,51 @@ async function handleNextStepActions({
       break;
     }
     case 'confirmation_of_event': {
-      // Update Interview document with meeting time (first matching slot)
       const meetingTime = aiResponse.matchingSlots && aiResponse.matchingSlots.length > 0 ? aiResponse.matchingSlots[0] : null;
       if (meetingTime) {
-        await interviewRef.update({ meetingTime: { timeStamp: meetingTime }, status: 'Scheduled' });
-        // Placeholder: schedule calendar event and update Interview with event details
-        // await scheduleCalendarEvent({ ... });
+        // Always update the interview document with the matching slot
+        await interviewRef.update({ matchingSlot: meetingTime });
+        try {
+          // Prepare event details
+          const recruiterUid = interviewData.created_by;
+          const candidateEmail = interviewData.candidateEmail;
+          const interviewerEmail = interviewData.interviewerEmail;
+
+          // Get OAuth tokens from Firestore
+          const tokenDoc = await admin.firestore().collection('gmailTokens').doc(recruiterUid).get();
+          if (!tokenDoc.exists) throw new Error('No Gmail tokens found for recruiter');
+          const tokenData = tokenDoc.data()!;
+
+          // Use the new calendar service
+          const calendarResult = await createInterviewCalendarEvent({
+            recruiterToken: tokenData.refresh_token,
+            candidateEmail,
+            interviewerEmail,
+            subject: conversationData.subject,
+            meetingTime,
+            agenda: interviewData.agenda,
+            instructions: interviewData.instructions,
+            resumeUrl: interviewData.resumeUrl,
+          });
+
+          // Update interview document with event details (using correct meeting object structure)
+          await interviewRef.update({
+            meeting: {
+              link: calendarResult.meetLink,
+              timeStamp: meetingTime,
+              calendar_event_id: calendarResult.eventId,
+              platform: 'Google Meet'
+            },
+            status: 'Scheduled'
+          });
+        } catch (error) {
+          // Log the error for debugging/monitoring
+          console.error('Calendar event creation failed:', error);
+          // Optionally, alert the recruiter (e.g., send an email notification)
+          // await sendEmailViaFunction({ to: recruiterEmail, ... });
+          // Set the interview status to 'failed' in Firestore
+          await interviewRef.update({ status: 'failed' });
+        }
       }
       break;
     }
@@ -363,6 +412,7 @@ export const processEmailWithAI = onRequest({ region: 'us-central1' }, (req, res
       const aiRequestSnapshot = await admin.firestore()
         .collection('aiRequests')
         .where('conversation_id', '==', conversationId)
+        .where('interview_id', '==', interviewId)
         .limit(1)
         .get();
 

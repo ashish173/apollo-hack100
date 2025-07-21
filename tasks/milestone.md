@@ -13,9 +13,10 @@
         2.1 save resume to firebase storage.
         2.2 create and save document in "Interview" collection {interview_id:"123", candidate_email: "xyz", interviewer_email:"abc", status: "email_to_candidate", resume: "url"}
     3.  Sending email to candidate and update Interview status.
-        3.1 get email send permission of recruiter mailbox.
+        3.1 check email send permission of recruiter mailbox.
         3.2 `emailService` -> send email to candidate, takes parameter{to:"", from:"", subject:"" , content:""}
-            3.2.1 create Conversation document{conversation_id:"", message_id:"", interview_id:"", to:"", from:"", subject:"" , content:""}
+            3.2.1 add interview id in subject: for future references.
+            3.2.2 create Conversation document{conversation_id:"", message_id:"", interview_id:"", to:"", from:"", subject:"" , content:""}
         3.3 update {status: "email_to_candidate"} in `Interview` document
 
 ## Milestone 2: listen email
@@ -27,7 +28,7 @@
         4.3 fetch incomming message on existing conversation
             4.3.1 if realtime email trigger is not possible 
                 4.3.1.1 fetch all Interview document with status!="completed".
-                4.3.1.2 fetch all email from recruiter mail box based on the email id since last 5 minuets.
+                4.3.1.2 fetch all email from recruiter mail box based on the email id since last 10 minuets.
                 4.3.1.3 when found one, saves 'email message id' as {message_id:""}, process state as "false" and 'email response' to `Conversation` collection
                 {conversation_id:"", interview_id"", message_id:"", to:"", from:"", content:"", subject:"", processState:"false"} 
             4.3.2 if realtime email trigger is possible

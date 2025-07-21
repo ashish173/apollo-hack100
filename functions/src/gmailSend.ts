@@ -2,11 +2,9 @@ import { onRequest } from 'firebase-functions/v2/https';
 import { google } from 'googleapis';
 import * as admin from 'firebase-admin';
 import cors from 'cors';
-import * as functions from 'firebase-functions';
 
-// For debugging only: Hardcoded client ID and secret (not recommended for production)
-const CLIENT_ID = functions.config().oauth.client_id;
-const CLIENT_SECRET = functions.config().oauth.client_secret;
+const CLIENT_ID = process.env.OAUTH_CLIENT_ID;
+const CLIENT_SECRET = process.env.OAUTH_CLIENT_SECRET;
 const REDIRECT_URI = 'https://oauth2callback-fvtj5v3sya-uc.a.run.app';
 
 const corsHandler = cors({ origin: true });
@@ -37,7 +35,7 @@ export const sendGmailEmail = onRequest({ region: 'us-central1' }, (req, res) =>
       const data = doc.data();
       if (!data || !data.refresh_token) {
         res.status(400).json({ success: false, error: 'No Gmail refresh token found for user.' });
-        return;
+        return; 
       }
       // 2. Set up OAuth2 client
       const oAuth2Client = new google.auth.OAuth2(CLIENT_ID, CLIENT_SECRET, REDIRECT_URI);
