@@ -341,7 +341,7 @@ const InterviewDetailsPage = () => {
       <hr className="my-4" />
       {/* Message-driven Timeline with Waiting and Status Events */}
       <div className="w-full">
-        {allTimelineEvents.map((event, idx) => (
+        {allTimelineEvents.slice().reverse().map((event, idx) => (
           <div key={(event as any).waitingKey || (event as any).message_id || event.stepLabel || idx} className="flex flex-row items-stretch w-full min-h-[64px]">
               {/* Timeline Dot and Line */}
               <div className="flex flex-col items-center relative" style={{ width: 28 }}>
