@@ -35,14 +35,27 @@ const InterviewCreate = () => {
 
   useEffect(() => {
     if (!loading && user) {
+      const db = getFirestore();
+  
       const checkGmailConnection = async () => {
-        const db = getFirestore();
         const tokenDoc = await getDoc(doc(db, 'gmailTokens', user.uid));
         setGmailConnected(!!(tokenDoc.exists() && tokenDoc.data().refresh_token));
       };
+  
       checkGmailConnection();
+  
+      const handleMessage = (event: MessageEvent) => {
+        if (event.data?.type === 'GMAIL_AUTH_SUCCESS') {
+          console.log('✅ Received Gmail auth success');
+          checkGmailConnection(); // refresh UI state
+        }
+      };
+  
+      window.addEventListener('message', handleMessage);
+      return () => window.removeEventListener('message', handleMessage);
     }
   }, [user, loading]);
+  
 
   if (loading || !user) {
     return null;
