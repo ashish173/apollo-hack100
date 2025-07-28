@@ -63,7 +63,22 @@ export const oauth2callback = onRequest({ region: 'us-central1' }, async (req, r
       last_updated: FieldValue.serverTimestamp(),
       email: userEmail,
     });
-    res.redirect('Gmail connected! You can close this window.');
+    res.set('Content-Type', 'text/html');
+    res.status(200).send(`
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <title>Gmail Connected</title>
+        </head>
+        <body>
+          <p style="font-family: sans-serif;">✅ Gmail connected! You can close this window.</p>
+          <script>
+            window.opener?.postMessage({ type: 'GMAIL_AUTH_SUCCESS' }, '*');
+            setTimeout(() => window.close(), 1000);
+          </script>
+        </body>
+      </html>
+    `);
   } else {
     res.status(400).send('Failed to get refresh token.');
   }
