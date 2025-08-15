@@ -25,8 +25,7 @@ export default function StudentAssessmentPage() {
   const [goals, setGoals] = useState<string[]>([]);
   const [answers, setAnswers] = useState<Record<string, string>>({});
 
-  const [currentSectionIndex, setCurrentSectionIndex] = useState(0);
-  const [currentQuestionInSection, setCurrentQuestionInSection] = useState(0);
+  const [currentStepIndex, setCurrentStepIndex] = useState(0);
   const [view, setView] = useState<'assessment' | 'report'>('assessment');
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
@@ -39,14 +38,12 @@ export default function StudentAssessmentPage() {
       const userAssessmentRef = doc(db, 'userAssessments', user.uid);
       getDoc(userAssessmentRef).then(docSnap => {
         if (docSnap.exists()) {
-          // User has an existing assessment
           const data = docSnap.data();
           setAssessmentData(data);
           setAnswers(data.answers || {});
           setGoals(data.goals && data.goals.length > 0 ? data.goals : ['']);
           setIsLoading(false);
         } else {
-          // New user, snapshot the template
           const templateRef = doc(db, 'personalityAssessmentTemplates', TEMPLATE_ID);
           getDoc(templateRef).then(templateSnap => {
             if (templateSnap.exists()) {
@@ -84,7 +81,6 @@ export default function StudentAssessmentPage() {
   // --- Auto-saving Logic ---
   useEffect(() => {
     if (isLoading || !assessmentData) return;
-
     const interval = setInterval(() => {
       setIsSaving(true);
       const userAssessmentRef = doc(db, 'userAssessments', user.uid);
@@ -99,95 +95,78 @@ export default function StudentAssessmentPage() {
         console.error("Auto-save failed:", err);
         setIsSaving(false);
       });
-    }, 10000); // Auto-save every 10 seconds
-
+    }, 10000);
     return () => clearInterval(interval);
   }, [answers, goals, user, isLoading, assessmentData]);
 
-  // --- Dynamic Sections Logic ---
-  const assessmentSections = useMemo(() => {
-    if (!assessmentData) return [];
+  // --- Flattened Steps Logic ---
+  const { steps, sectionPills } = useMemo(() => {
+    if (!assessmentData) return { steps: [], sectionPills: [] };
 
+    const flatSteps: any[] = [];
+    const pillData: any[] = [];
+
+    // Section 1
+    if (assessmentData.section1Questions?.length > 0) {
+        pillData.push({ title: 'Section 1', stepIndex: flatSteps.length });
+        assessmentData.section1Questions.forEach((q: any) => {
+            flatSteps.push({ type: 'question', question: q, sectionTitle: 'Section 1' });
+        });
+    }
+
+    // Goal Setting
+    pillData.push({ title: 'Goal Setting', stepIndex: flatSteps.length });
+    flatSteps.push({ type: 'goal_setting', sectionTitle: 'Goal Setting' });
+
+    // Goal Sections
     const definedGoals = goals.filter(g => g.trim() !== '');
-    const goalSections = definedGoals.map((goal, index) => ({
-        id: `goal_${index + 1}`,
-        title: `Goal ${index + 1}`,
-        isGoalSection: true,
-        goal,
-        questions: assessmentData.goalQuestions
-    }));
+    definedGoals.forEach((goal, index) => {
+        const goalTitle = `Goal ${index + 1}`;
+        pillData.push({ title: goalTitle, stepIndex: flatSteps.length });
+        assessmentData.goalQuestions.forEach((q: any) => {
+            flatSteps.push({ type: 'question', question: q, sectionTitle: goalTitle, goal, isGoalQuestion: true, parentId: `goal_${index + 1}` });
+        });
+    });
 
-    const baseSections = [
-        { id: 's1', title: 'Section 1', questions: assessmentData.section1Questions },
-        { id: 's2_goals', title: 'Goal Setting' },
-        ...goalSections,
-        { id: 's2_fixed', title: 'Section 2', questions: assessmentData.section2FixedQuestions }
-    ];
+    // Section 2 Fixed
+    if (assessmentData.section2FixedQuestions?.length > 0) {
+        pillData.push({ title: 'Section 2', stepIndex: flatSteps.length });
+        assessmentData.section2FixedQuestions.forEach((q: any) => {
+            flatSteps.push({ type: 'question', question: q, sectionTitle: 'Section 2' });
+        });
+    }
 
-    return baseSections.filter(s => (s.questions && s.questions.length > 0) || s.id === 's2_goals');
+    return { steps: flatSteps, sectionPills: pillData };
   }, [assessmentData, goals]);
 
-  // --- Question Navigation Logic ---
-  useEffect(() => {
-    // Reset question index when section changes
-    setCurrentQuestionInSection(0);
-  }, [currentSectionIndex]);
-
-  useEffect(() => {
-    // Scroll to the current question when it changes
-    const currentSection = assessmentSections[currentSectionIndex];
-    if (currentSection && currentSection.questions && currentSection.questions.length > 0) {
-      let questionId = currentSection.questions[currentQuestionInSection]?.id;
-      if (questionId) {
-        // Goal sections have composite IDs for their questions
-        const elementId = currentSection.isGoalSection ? `question-${currentSection.id}-${questionId}` : `question-${questionId}`;
-        const element = document.getElementById(elementId);
-        if (element) {
-          element.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        }
-      }
-    }
-  }, [currentQuestionInSection, currentSectionIndex, assessmentSections]);
 
   if (authLoading || isLoading) {
     return <div className="flex h-screen items-center justify-center"><LoadingSpinner size="xl" label="Loading Your Assessment..." /></div>;
   }
-
   if (!user) {
     return <p className="text-center mt-10">You must be logged in to take the assessment.</p>;
   }
-
   if (!assessmentData) {
      return <p className="text-center mt-10">Could not load assessment data. Please try again later.</p>;
   }
 
-  const totalSections = assessmentSections.length;
-  const progressPercentage = totalSections > 0 ? ((currentSectionIndex + 1) / totalSections) * 100 : 0;
-  const currentSection = assessmentSections[currentSectionIndex];
-  const questionsInCurrentSection = currentSection?.questions?.length || 0;
+  const currentStep = steps[currentStepIndex];
+  const progressPercentage = steps.length > 0 ? ((currentStepIndex + 1) / steps.length) * 100 : 0;
 
   const handleNext = () => {
-    if (currentSectionIndex < totalSections - 1) {
-      setCurrentSectionIndex(currentSectionIndex + 1);
+    if (currentStepIndex < steps.length - 1) {
+      setCurrentStepIndex(currentStepIndex + 1);
     }
   };
 
   const handlePrev = () => {
-    if (currentSectionIndex > 0) {
-      setCurrentSectionIndex(currentSectionIndex - 1);
+    if (currentStepIndex > 0) {
+      setCurrentStepIndex(currentStepIndex - 1);
     }
   };
 
-  const handleGoToSection = (index: number) => {
-    setCurrentSectionIndex(index);
-  };
-
-  const handleQuestionNav = (direction: 'next' | 'prev') => {
-    if (direction === 'next' && currentQuestionInSection < questionsInCurrentSection - 1) {
-      setCurrentQuestionInSection(prev => prev + 1);
-    } else if (direction === 'prev' && currentQuestionInSection > 0) {
-      setCurrentQuestionInSection(prev => prev - 1);
-    }
+  const handleGoToSection = (stepIndex: number) => {
+    setCurrentStepIndex(stepIndex);
   };
 
   const handleGoalChange = (index: number, value: string) => {
@@ -224,16 +203,78 @@ export default function StudentAssessmentPage() {
     setIsGeneratingPdf(false);
   };
 
+  const renderStepContent = () => {
+    if (!currentStep) return null;
+
+    switch (currentStep.type) {
+      case 'goal_setting':
+        return (
+          <div>
+            <h2 className="text-2xl font-bold mb-6">{currentStep.sectionTitle}</h2>
+            <p className="mb-4 text-muted-foreground">Define up to {MAX_GOALS} personal or professional goals.</p>
+            <div className="space-y-4">
+              {goals.map((goal, index) => (
+                  <Input
+                      key={index}
+                      value={goal}
+                      onChange={(e) => handleGoalChange(index, e.target.value)}
+                      placeholder={`Goal ${index + 1}`}
+                      className="text-lg"
+                  />
+              ))}
+            </div>
+            {goals.length < MAX_GOALS && (
+               <Button onClick={addGoal} variant="link" className="mt-2">Add another goal</Button>
+            )}
+          </div>
+        );
+
+      case 'question':
+        const questionId = currentStep.isGoalQuestion ? `${currentStep.parentId}_${currentStep.question.id}` : currentStep.question.id;
+        return (
+          <div>
+            <h2 className="text-2xl font-bold mb-2">{currentStep.sectionTitle}</h2>
+            {currentStep.isGoalQuestion && (
+                <p className="mb-4 p-2 bg-blue-50 border-l-4 border-blue-500 text-blue-800">
+                    Regarding your goal: <span className="font-bold">{currentStep.goal}</span>
+                </p>
+            )}
+            <div className="mt-6">
+                <label className="block text-lg font-semibold mb-2">{currentStep.question.title}</label>
+                <p className="text-sm text-muted-foreground mb-3">{currentStep.question.helpText}</p>
+                <Textarea
+                  rows={8}
+                  placeholder="Your answer..."
+                  className="text-base"
+                  value={answers[questionId] || ''}
+                  onChange={(e) => handleAnswerChange(questionId, e.target.value)}
+                />
+            </div>
+          </div>
+        );
+
+      default:
+        return null;
+    }
+  };
+
   if (view === 'report') {
+    const goalReportSections = goals.filter(g => g.trim() !== '').map((goal, index) => {
+        const parentId = `goal_${index + 1}`;
+        return {
+            id: parentId,
+            title: `Goal ${index + 1}`,
+            goal: goal,
+            questions: assessmentData.goalQuestions.map((q:any) => ({...q, answer: answers[`${parentId}_${q.id}`] || ''}))
+        }
+    });
+
     const reportData = {
         section1: {
             title: "Section 1",
             questions: assessmentData.section1Questions.map((q:any) => ({...q, answer: answers[q.id] || ''}))
         },
-        goalSections: assessmentSections.filter(s => s.isGoalSection).map((s:any) => ({
-            ...s,
-            questions: s.questions.map((q:any) => ({...q, answer: answers[`${s.id}_${q.id}`] || ''}))
-        })),
+        goalSections: goalReportSections,
         section2Fixed: {
             title: "Section 2",
             questions: assessmentData.section2FixedQuestions.map((q:any) => ({...q, answer: answers[q.id] || ''}))
@@ -284,119 +325,33 @@ export default function StudentAssessmentPage() {
           <div className="pt-4">
             <Progress value={progressPercentage} className="mb-2"/>
             <div className="flex flex-wrap gap-2">
-              {assessmentSections.map((section, index) => (
+              {sectionPills.map((pill) => (
                 <Button
-                  key={section.id}
-                  variant={index === currentSectionIndex ? 'default' : 'outline'}
+                  key={pill.title}
+                  variant={currentStep.sectionTitle === pill.title ? 'default' : 'outline'}
                   size="sm"
-                  onClick={() => handleGoToSection(index)}
+                  onClick={() => handleGoToSection(pill.stepIndex)}
                   className="text-xs sm:text-sm"
                 >
-                  {section.title}
+                  {pill.title}
                 </Button>
               ))}
             </div>
           </div>
         </CardHeader>
 
-        <CardContent>
-          <h2 className="text-2xl font-bold mb-6">{currentSection.title}</h2>
-
-          {currentSection.id === 's2_goals' && (
-            <div>
-              <p className="mb-4 text-muted-foreground">Define up to {MAX_GOALS} personal or professional goals you want to work on.</p>
-              <div className="space-y-4">
-                {goals.map((goal, index) => (
-                    <Input
-                        key={index}
-                        value={goal}
-                        onChange={(e) => handleGoalChange(index, e.target.value)}
-                        placeholder={`Goal ${index + 1}`}
-                        className="text-lg"
-                    />
-                ))}
-              </div>
-              {goals.length < MAX_GOALS && (
-                 <Button onClick={addGoal} variant="link" className="mt-2">Add another goal</Button>
-              )}
-            </div>
-          )}
-
-          {currentSection.questions && (
-            <div className="relative">
-                {currentSection.questions.map((q: any, index: number) => (
-                    <div key={q.id} id={`question-${q.id}`} className="mb-8 p-6 border-l-4 rounded-r-lg transition-all duration-300"
-                         style={{ borderColor: index === currentQuestionInSection ? '#3b82f6' : 'transparent' }}>
-                        <label className="block text-lg font-semibold mb-2">{q.title}</label>
-                        <p className="text-sm text-muted-foreground mb-3">{q.helpText}</p>
-              <Textarea
-                rows={5}
-                placeholder="Your answer..."
-                className="text-base"
-                value={answers[q.id] || ''}
-                onChange={(e) => handleAnswerChange(q.id, e.target.value)}
-              />
-                    </div>
-                ))}
-                <div className="sticky bottom-4 w-full flex justify-center">
-                    <div className="flex items-center gap-2 p-2 bg-background/80 backdrop-blur-sm border rounded-full shadow-lg">
-                         <Button variant="outline" size="icon" onClick={() => handleQuestionNav('prev')} disabled={currentQuestionInSection === 0}>
-                            <ArrowUp className="h-5 w-5" />
-                        </Button>
-                        <span className="text-sm font-medium text-muted-foreground">
-                            Question {currentQuestionInSection + 1} of {questionsInCurrentSection}
-                        </span>
-                        <Button variant="outline" size="icon" onClick={() => handleQuestionNav('next')} disabled={currentQuestionInSection === questionsInCurrentSection - 1}>
-                            <ArrowDown className="h-5 w-5" />
-                        </Button>
-                    </div>
-                </div>
-            </div>
-          )}
-
-            {currentSection.isGoalSection && (
-              <div className="relative">
-                <p className="mb-4 p-4 bg-blue-50 border border-blue-200 rounded-lg text-blue-800">
-                    Your Goal: <span className="font-bold">{currentSection.goal}</span>
-                </p>
-                {currentSection.questions.map((q: any, index: number) => (
-                    <div key={q.id} id={`question-${currentSection.id}-${q.id}`} className="mb-8 p-6 border-l-4 rounded-r-lg transition-all duration-300"
-                         style={{ borderColor: index === currentQuestionInSection ? '#3b82f6' : 'transparent' }}>
-                        <label className="block text-lg font-semibold mb-2">{q.title}</label>
-                        <p className="text-sm text-muted-foreground mb-3">{q.helpText}</p>
-                        <Textarea
-                            rows={3}
-                            placeholder="Your answer for this goal..."
-                            className="text-base"
-                            value={answers[`${currentSection.id}_${q.id}`] || ''}
-                            onChange={(e) => handleAnswerChange(`${currentSection.id}_${q.id}`, e.target.value)}
-                        />
-                    </div>
-                ))}
-                <div className="sticky bottom-4 w-full flex justify-center">
-                    <div className="flex items-center gap-2 p-2 bg-background/80 backdrop-blur-sm border rounded-full shadow-lg">
-                         <Button variant="outline" size="icon" onClick={() => handleQuestionNav('prev')} disabled={currentQuestionInSection === 0}>
-                            <ArrowUp className="h-5 w-5" />
-                        </Button>
-                        <span className="text-sm font-medium text-muted-foreground">
-                            Question {currentQuestionInSection + 1} of {questionsInCurrentSection}
-                        </span>
-                        <Button variant="outline" size="icon" onClick={() => handleQuestionNav('next')} disabled={currentQuestionInSection === questionsInCurrentSection - 1}>
-                            <ArrowDown className="h-5 w-5" />
-                        </Button>
-                    </div>
-                </div>
-              </div>
-            )}
-
+        <CardContent className="min-h-[300px]">
+          {renderStepContent()}
         </CardContent>
 
         <div className="p-6 bg-muted/50 flex justify-between items-center rounded-b-lg">
-            <Button variant="outline" onClick={handlePrev} disabled={currentSectionIndex === 0}>
+            <Button variant="outline" onClick={handlePrev} disabled={currentStepIndex === 0}>
                 <ChevronLeft className="mr-2 h-4 w-4"/> Previous
             </Button>
-            <p className="text-sm text-muted-foreground">Section {currentSectionIndex + 1} of {totalSections}</p>
-            {currentSectionIndex === totalSections - 1 ? (
+            <p className="text-sm text-muted-foreground">
+                Step {currentStepIndex + 1} of {steps.length}
+            </p>
+            {currentStepIndex === steps.length - 1 ? (
                 <Button variant="success" onClick={handleFinish}>
                     <Check className="mr-2 h-4 w-4"/> Finish & View Report
                 </Button>
