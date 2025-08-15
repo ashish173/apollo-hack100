@@ -49,7 +49,6 @@ import {
   TooltipTrigger 
 } from '@/components/ui/tooltip';
 
-import { generateProjectPlan } from '@/ai/flows/generate-project-plan';
 import { addDays } from 'date-fns';
 import { cn } from '@/lib/utils';
 import AssignProjectDialog from '@/components/teacher/assign-project-dialog';

@@ -35,7 +35,6 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
 import { useToast } from '@/hooks/use-toast';
 import AssignProjectDialog from '@/components/teacher/assign-project-dialog';
-import { generateProjectIdeas } from '@/ai/flows/generate-project-ideas';
 import IdeaDetail from './idea-detail';
 
 export interface ProjectIdea {
