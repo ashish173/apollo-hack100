@@ -1,0 +1,221 @@
+'use client';
+
+import { useState, useEffect } from 'react';
+import { useAuth } from '@/context/auth-context';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
+import { Plus, Trash2 } from 'lucide-react';
+import { LoadingSpinner } from '@/components/ui/loading-spinner';
+import { getAssessmentTemplate, updateAssessmentTemplate } from '@/services/assessmentService';
+import { useToast } from '@/components/ui/use-toast';
+
+// Define types for questions
+interface Question {
+  id: string;
+  title: string;
+  helpText: string;
+}
+
+export default function AssessmentAdminPage() {
+  const { user, loading: authLoading } = useAuth();
+  const { toast } = useToast();
+
+  const [section1Questions, setSection1Questions] = useState<Question[]>([]);
+  const [section2FixedQuestions, setSection2FixedQuestions] = useState<Question[]>([]);
+  const [goalQuestions, setGoalQuestions] = useState<Question[]>([]);
+
+  const [isLoading, setIsLoading] = useState(true);
+  const [isSaving, setIsSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (user) {
+      getAssessmentTemplate()
+        .then(result => {
+          const data = result.data as any;
+          setSection1Questions(data.section1Questions || []);
+          setGoalQuestions(data.goalQuestions || []);
+          setSection2FixedQuestions(data.section2FixedQuestions || []);
+        })
+        .catch(err => {
+          console.error(err);
+          setError('Failed to load assessment template. It might not have been created yet.');
+          // Initialize with empty arrays if template doesn't exist
+          setSection1Questions([]);
+          setGoalQuestions([]);
+          setSection2FixedQuestions([]);
+        })
+        .finally(() => {
+          setIsLoading(false);
+        });
+    }
+  }, [user]);
+
+  const handleSaveChanges = async () => {
+    setIsSaving(true);
+    try {
+      await updateAssessmentTemplate({
+        section1Questions,
+        goalQuestions,
+        section2FixedQuestions,
+      });
+      toast({
+        title: "Success!",
+        description: "The assessment template has been saved.",
+        variant: "success",
+      });
+    } catch (err) {
+      console.error(err);
+      toast({
+        title: "Error",
+        description: "Failed to save the template. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  if (authLoading || isLoading) {
+    return <div className="flex h-screen items-center justify-center"><LoadingSpinner size="xl" label="Loading Template..."/></div>;
+  }
+
+  if (!user) {
+    return <p>You must be logged in to view this page.</p>;
+  }
+
+  const handleQuestionChange = (section: 's1' | 's2' | 'goal', index: number, field: 'title' | 'helpText', value: string) => {
+    const updater = (setter: React.Dispatch<React.SetStateAction<Question[]>>) => {
+      setter(prev => {
+        const newQuestions = [...prev];
+        newQuestions[index] = { ...newQuestions[index], [field]: value };
+        return newQuestions;
+      });
+    };
+    if (section === 's1') updater(setSection1Questions);
+    else if (section === 's2') updater(setSection2FixedQuestions);
+    else if (section === 'goal') updater(setGoalQuestions);
+  };
+
+  const addQuestion = (section: 's1' | 's2') => {
+    const newQuestion: Question = { id: `new_${Date.now()}`, title: '', helpText: '' };
+    const updater = (setter: React.Dispatch<React.SetStateAction<Question[]>>) => {
+        setter(prev => [...prev, newQuestion]);
+    }
+    if (section === 's1') updater(setSection1Questions);
+    else if (section === 's2') updater(setSection2FixedQuestions);
+  }
+
+  const deleteQuestion = (section: 's1' | 's2', index: number) => {
+     const updater = (setter: React.Dispatch<React.SetStateAction<Question[]>>) => {
+        setter(prev => prev.filter((_, i) => i !== index));
+    }
+    if (section === 's1') updater(setSection1Questions);
+    else if (section === 's2') updater(setSection2FixedQuestions);
+  }
+
+  return (
+    <div className="container mx-auto p-4 md:p-8">
+      <Card className="mb-8">
+        <CardHeader>
+          <CardTitle className="text-2xl">Personality Assessment Management</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <p className="text-muted-foreground">
+            Here you can define the questions for the personality assessment. Changes will apply to new assessments.
+          </p>
+           {error && <p className="text-red-500 mt-4">{error}</p>}
+        </CardContent>
+      </Card>
+
+      {/* Section 1 Questions */}
+      <Card className="mb-6">
+        <CardHeader>
+          <CardTitle>Section 1: Fixed Questions</CardTitle>
+        </CardHeader>
+        <CardContent>
+          {section1Questions.map((q, index) => (
+            <div key={q.id} className="mb-4 p-4 border rounded-lg relative">
+              <Input
+                placeholder="Question Title"
+                value={q.title}
+                onChange={(e) => handleQuestionChange('s1', index, 'title', e.target.value)}
+                className="mb-2 font-bold"
+              />
+              <Textarea
+                placeholder="Help Text"
+                value={q.helpText}
+                onChange={(e) => handleQuestionChange('s1', index, 'helpText', e.target.value)}
+              />
+               <Button variant="ghost" size="icon" className="absolute top-2 right-2" onClick={() => deleteQuestion('s1', index)}>
+                <Trash2 className="h-4 w-4 text-red-500"/>
+              </Button>
+            </div>
+          ))}
+          <Button variant="outline" onClick={() => addQuestion('s1')}><Plus className="mr-2 h-4 w-4" /> Add Question</Button>
+        </CardContent>
+      </Card>
+
+      {/* Section 2 Goal Questions */}
+      <Card className="mb-6">
+        <CardHeader>
+          <CardTitle>Section 2: Goal-Based Questions</CardTitle>
+          <p className="text-sm text-muted-foreground">These 5 questions will be repeated for every goal the user sets.</p>
+        </CardHeader>
+        <CardContent>
+          {goalQuestions.map((q, index) => (
+            <div key={q.id} className="mb-4 p-4 border rounded-lg">
+              <Input
+                placeholder="Question Title"
+                value={q.title}
+                 onChange={(e) => handleQuestionChange('goal', index, 'title', e.target.value)}
+                className="mb-2 font-bold"
+              />
+              <Textarea
+                placeholder="Help Text"
+                value={q.helpText}
+                 onChange={(e) => handleQuestionChange('goal', index, 'helpText', e.target.value)}
+              />
+            </div>
+          ))}
+        </CardContent>
+      </Card>
+
+      {/* Section 2 Fixed Questions */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Section 2: Additional Fixed Questions</CardTitle>
+        </CardHeader>
+        <CardContent>
+          {section2FixedQuestions.map((q, index) => (
+            <div key={q.id} className="mb-4 p-4 border rounded-lg relative">
+              <Input
+                placeholder="Question Title"
+                value={q.title}
+                onChange={(e) => handleQuestionChange('s2', index, 'title', e.target.value)}
+                className="mb-2 font-bold"
+              />
+              <Textarea
+                placeholder="Help Text"
+                value={q.helpText}
+                onChange={(e) => handleQuestionChange('s2', index, 'helpText', e.target.value)}
+              />
+               <Button variant="ghost" size="icon" className="absolute top-2 right-2" onClick={() => deleteQuestion('s2', index)}>
+                <Trash2 className="h-4 w-4 text-red-500"/>
+              </Button>
+            </div>
+          ))}
+          <Button variant="outline" onClick={() => addQuestion('s2')}><Plus className="mr-2 h-4 w-4" /> Add Question</Button>
+        </CardContent>
+      </Card>
+
+      <div className="mt-8 flex justify-end">
+        <Button size="lg" onClick={handleSaveChanges} disabled={isSaving}>
+          {isSaving ? <LoadingSpinner /> : 'Save All Changes'}
+        </Button>
+      </div>
+    </div>
+  );
+}

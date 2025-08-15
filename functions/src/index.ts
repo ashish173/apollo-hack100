@@ -203,3 +203,4 @@ export { startGmailAuth, oauth2callback } from './gmailAuth';
 export { checkIncomingEmails } from './emailListener';
 export { parsePdfForEmail } from './pdfParser';
 export { processEmailWithAI } from './ai/emailProcessor';
+export * from './assessment';

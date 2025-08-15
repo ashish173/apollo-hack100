@@ -122,7 +122,8 @@ const ProjectControls = ({
   setSortFilter,
   difficultyFilter,
   setDifficultyFilter,
-  onCreateNew
+  onCreateNew,
+  onManageAssessment
 }: { 
   searchTerm: string;
   setSearchTerm: (value: string) => void;
@@ -131,6 +132,7 @@ const ProjectControls = ({
   difficultyFilter: string;
   setDifficultyFilter: (value: string) => void;
   onCreateNew: () => void;
+  onManageAssessment: () => void;
 }) => (
   <Card variant="elevated" className="mb-6 shadow-lg">
     <CardContent className="p-6">
@@ -211,16 +213,28 @@ const ProjectControls = ({
           </div>
         </div>
         
-        {/* Create New Button */}
-        <Button 
-          variant="default" 
-          size="xl"
-          onClick={onCreateNew}
-          className="bg-gradient-to-r from-blueberry-600 to-blueberry-700 hover:from-blueberry-700 hover:to-blueberry-800 shadow-button hover:shadow-button-hover w-full lg:w-auto"
-        >
-          <Plus className="w-5 h-5 mr-2" />
-          Create New Project
-        </Button>
+        <div className="flex flex-col sm:flex-row gap-4 w-full lg:w-auto">
+          {/* Manage Assessment Button */}
+          <Button
+            variant="outline"
+            size="xl"
+            onClick={onManageAssessment}
+            className="w-full lg:w-auto"
+          >
+            <Award className="w-5 h-5 mr-2" />
+            Manage Assessment
+          </Button>
+          {/* Create New Project Button */}
+          <Button
+            variant="default"
+            size="xl"
+            onClick={onCreateNew}
+            className="bg-gradient-to-r from-blueberry-600 to-blueberry-700 hover:from-blueberry-700 hover:to-blueberry-800 shadow-button hover:shadow-button-hover w-full lg:w-auto"
+          >
+            <Plus className="w-5 h-5 mr-2" />
+            Create New Project
+          </Button>
+        </div>
       </div>
     </CardContent>
   </Card>
@@ -489,6 +503,10 @@ export default function TeacherDashboardPage() {
     window.location.href = '/teacher/dashboard/student-mentor';
   };
 
+  const handleManageAssessment = () => {
+    window.location.href = '/teacher/assessment-admin';
+  };
+
   const filteredProjects = useMemo(() => {
     let filtered = [...projects];
 
@@ -575,6 +593,7 @@ export default function TeacherDashboardPage() {
         difficultyFilter={difficultyFilter}
         setDifficultyFilter={setDifficultyFilter}
         onCreateNew={handleCreateNew}
+        onManageAssessment={handleManageAssessment}
       />
 
       {loadingProjects ? (
