@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useMemo, useRef, useEffect, useCallback } from 'react';
+import Link from 'next/link';
 import { useAuth } from '@/context/auth-context';
 import { db } from '@/lib/firebase';
 import { doc, getDoc, setDoc, updateDoc, serverTimestamp } from 'firebase/firestore';
@@ -10,7 +11,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Progress } from '@/components/ui/progress';
-import { ChevronLeft, ChevronRight, Check, Download, RefreshCw, Trash2 } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Check, Download, RefreshCw, Trash2, LayoutDashboard } from 'lucide-react';
 import { AssessmentReport } from '@/components/student/AssessmentReport';
 import html2canvas from 'html2canvas';
 import jsPDF from 'jspdf';
@@ -362,9 +363,20 @@ export default function StudentAssessmentPage() {
     <div className="container mx-auto p-4 md:p-8 max-w-4xl">
       <Card>
         <CardHeader>
-          <CardTitle className="text-3xl">Personality & Goals Assessment</CardTitle>
-          <CardDescription>
-            {isSaving ? 'Saving...' : 'Complete all sections to generate your report.'}
+          <div className="flex justify-between items-start">
+            <div>
+              <CardTitle className="text-3xl">Personality & Goals Assessment</CardTitle>
+              <CardDescription>
+                {isSaving ? 'Saving...' : 'Complete all sections to generate your report.'}
+              </CardDescription>
+            </div>
+            <Link href="/student/dashboard">
+              <Button variant="outline">
+                <LayoutDashboard className="mr-2 h-4 w-4" />
+                Back to Dashboard
+              </Button>
+            </Link>
+          </div>
           </CardDescription>
 
           <div className="pt-4">
