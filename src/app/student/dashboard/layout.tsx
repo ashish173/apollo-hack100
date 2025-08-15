@@ -55,6 +55,13 @@ const navigationItems = [
     badge: null,
   },
   {
+    href: '/student/assessment',
+    label: 'Self Assessment',
+    icon: <Trophy />,
+    description: 'Your personal growth assessment',
+    badge: null,
+  },
+  {
     href: '/student/dashboard/courses',
     label: 'My Courses',
     icon: <BookOpen />,
@@ -304,7 +311,7 @@ function StudentDashboardInternal({ children }: { children: ReactNode }) {
 
         <SidebarNav className="px-4">
           <SidebarGroup>
-            {navigationItems.slice(0, 3).map((item) => {
+            {navigationItems.slice(0, 4).map((item) => {
               const isActive = pathname === item.href || pathname.startsWith(item.href + '/');
               return (
                 <Link key={item.href} href={item.href} className="block">
