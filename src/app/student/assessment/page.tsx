@@ -14,14 +14,12 @@ import { ChevronLeft, ChevronRight, Check, Download, RefreshCw, ArrowUp, ArrowDo
 import { AssessmentReport } from '@/components/student/AssessmentReport';
 import html2canvas from 'html2canvas';
 import jsPDF from 'jspdf';
-import { useToast } from '@/components/ui/use-toast';
 
 const MAX_GOALS = 8;
 const TEMPLATE_ID = 'main_template';
 
 export default function StudentAssessmentPage() {
   const { user, loading: authLoading } = useAuth();
-  const { toast } = useToast();
 
   const [assessmentData, setAssessmentData] = useState<any>(null);
   const [goals, setGoals] = useState<string[]>([]);
@@ -71,18 +69,17 @@ export default function StudentAssessmentPage() {
                 setIsLoading(false);
               });
             } else {
-              toast({ title: "Error", description: "Could not find assessment template.", variant: "destructive" });
+              console.error("Could not find assessment template.");
               setIsLoading(false);
             }
           });
         }
       }).catch(err => {
-        console.error(err);
-        toast({ title: "Error", description: "Could not load your assessment.", variant: "destructive" });
+        console.error("Could not load your assessment.", err);
         setIsLoading(false);
       });
     }
-  }, [user, toast]);
+  }, [user]);
 
   // --- Auto-saving Logic ---
   useEffect(() => {

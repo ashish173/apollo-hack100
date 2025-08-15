@@ -10,7 +10,6 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Plus, Trash2 } from 'lucide-react';
 import { LoadingSpinner } from '@/components/ui/loading-spinner';
-import { useToast } from '@/components/ui/use-toast';
 
 const TEMPLATE_ID = 'main_template';
 
@@ -22,7 +21,6 @@ interface Question {
 
 export default function AssessmentAdminPage() {
   const { user, loading: authLoading } = useAuth();
-  const { toast } = useToast();
 
   const [section1Questions, setSection1Questions] = useState<Question[]>([]);
   const [section2FixedQuestions, setSection2FixedQuestions] = useState<Question[]>([]);
@@ -58,7 +56,7 @@ export default function AssessmentAdminPage() {
 
   const handleSaveChanges = async () => {
     if(!user) {
-        toast({ title: "Error", description: "You must be logged in.", variant: "destructive" });
+        console.error("Error: You must be logged in to save.");
         return;
     }
 
@@ -73,18 +71,9 @@ export default function AssessmentAdminPage() {
         updatedAt: serverTimestamp(),
       }, { merge: true });
 
-      toast({
-        title: "Success!",
-        description: "The assessment template has been saved.",
-        variant: "success",
-      });
+      console.log("Success! The assessment template has been saved.");
     } catch (err) {
-      console.error(err);
-      toast({
-        title: "Error",
-        description: "Failed to save the template. Check permissions.",
-        variant: "destructive",
-      });
+      console.error("Failed to save the template. Check permissions.", err);
     } finally {
       setIsSaving(false);
     }
