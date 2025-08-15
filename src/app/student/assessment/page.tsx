@@ -377,7 +377,6 @@ export default function StudentAssessmentPage() {
               </Button>
             </Link>
           </div>
-          </CardDescription>
 
           <div className="pt-4">
             <style>{`
