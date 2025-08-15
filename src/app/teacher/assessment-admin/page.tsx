@@ -2,16 +2,18 @@
 
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/context/auth-context';
+import { db } from '@/lib/firebase';
+import { doc, getDoc, setDoc, serverTimestamp } from 'firebase/firestore';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Plus, Trash2 } from 'lucide-react';
 import { LoadingSpinner } from '@/components/ui/loading-spinner';
-import { getAssessmentTemplate, updateAssessmentTemplate } from '@/services/assessmentService';
 import { useToast } from '@/components/ui/use-toast';
 
-// Define types for questions
+const TEMPLATE_ID = 'main_template';
+
 interface Question {
   id: string;
   title: string;
@@ -32,20 +34,21 @@ export default function AssessmentAdminPage() {
 
   useEffect(() => {
     if (user) {
-      getAssessmentTemplate()
-        .then(result => {
-          const data = result.data as any;
-          setSection1Questions(data.section1Questions || []);
-          setGoalQuestions(data.goalQuestions || []);
-          setSection2FixedQuestions(data.section2FixedQuestions || []);
+      const templateRef = doc(db, 'personalityAssessmentTemplates', TEMPLATE_ID);
+      getDoc(templateRef)
+        .then(docSnap => {
+          if (docSnap.exists()) {
+            const data = docSnap.data();
+            setSection1Questions(data.section1Questions || []);
+            setGoalQuestions(data.goalQuestions || []);
+            setSection2FixedQuestions(data.section2FixedQuestions || []);
+          } else {
+             setError('No template found. Saving will create a new one.');
+          }
         })
         .catch(err => {
           console.error(err);
-          setError('Failed to load assessment template. It might not have been created yet.');
-          // Initialize with empty arrays if template doesn't exist
-          setSection1Questions([]);
-          setGoalQuestions([]);
-          setSection2FixedQuestions([]);
+          setError('Failed to load assessment template.');
         })
         .finally(() => {
           setIsLoading(false);
@@ -54,13 +57,22 @@ export default function AssessmentAdminPage() {
   }, [user]);
 
   const handleSaveChanges = async () => {
+    if(!user) {
+        toast({ title: "Error", description: "You must be logged in.", variant: "destructive" });
+        return;
+    }
+
     setIsSaving(true);
     try {
-      await updateAssessmentTemplate({
+      const templateRef = doc(db, 'personalityAssessmentTemplates', TEMPLATE_ID);
+      await setDoc(templateRef, {
+        teacherId: user.uid, // Set ownership
         section1Questions,
         goalQuestions,
         section2FixedQuestions,
-      });
+        updatedAt: serverTimestamp(),
+      }, { merge: true });
+
       toast({
         title: "Success!",
         description: "The assessment template has been saved.",
@@ -70,21 +82,13 @@ export default function AssessmentAdminPage() {
       console.error(err);
       toast({
         title: "Error",
-        description: "Failed to save the template. Please try again.",
+        description: "Failed to save the template. Check permissions.",
         variant: "destructive",
       });
     } finally {
       setIsSaving(false);
     }
   };
-
-  if (authLoading || isLoading) {
-    return <div className="flex h-screen items-center justify-center"><LoadingSpinner size="xl" label="Loading Template..."/></div>;
-  }
-
-  if (!user) {
-    return <p>You must be logged in to view this page.</p>;
-  }
 
   const handleQuestionChange = (section: 's1' | 's2' | 'goal', index: number, field: 'title' | 'helpText', value: string) => {
     const updater = (setter: React.Dispatch<React.SetStateAction<Question[]>>) => {
@@ -116,6 +120,14 @@ export default function AssessmentAdminPage() {
     else if (section === 's2') updater(setSection2FixedQuestions);
   }
 
+  if (authLoading || isLoading) {
+    return <div className="flex h-screen items-center justify-center"><LoadingSpinner size="xl" label="Loading Template..."/></div>;
+  }
+
+  if (!user) {
+    return <p>You must be logged in to view this page.</p>;
+  }
+
   return (
     <div className="container mx-auto p-4 md:p-8">
       <Card className="mb-8">
@@ -126,7 +138,7 @@ export default function AssessmentAdminPage() {
           <p className="text-muted-foreground">
             Here you can define the questions for the personality assessment. Changes will apply to new assessments.
           </p>
-           {error && <p className="text-red-500 mt-4">{error}</p>}
+           {error && <p className="text-yellow-600 mt-4">{error}</p>}
         </CardContent>
       </Card>
 

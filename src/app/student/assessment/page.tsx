@@ -2,6 +2,8 @@
 
 import { useState, useMemo, useRef, useEffect, useCallback } from 'react';
 import { useAuth } from '@/context/auth-context';
+import { db } from '@/lib/firebase';
+import { doc, getDoc, setDoc, updateDoc, serverTimestamp } from 'firebase/firestore';
 import { LoadingSpinner } from '@/components/ui/loading-spinner';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -12,11 +14,10 @@ import { ChevronLeft, ChevronRight, Check, Download, RefreshCw } from 'lucide-re
 import { AssessmentReport } from '@/components/student/AssessmentReport';
 import html2canvas from 'html2canvas';
 import jsPDF from 'jspdf';
-import { createOrGetUserAssessment, saveAssessment } from '@/services/assessmentService';
 import { useToast } from '@/components/ui/use-toast';
-import { debounce } from 'lodash';
 
 const MAX_GOALS = 8;
+const TEMPLATE_ID = 'main_template';
 
 export default function StudentAssessmentPage() {
   const { user, loading: authLoading } = useAuth();
@@ -29,61 +30,104 @@ export default function StudentAssessmentPage() {
   const [currentSectionIndex, setCurrentSectionIndex] = useState(0);
   const [view, setView] = useState<'assessment' | 'report'>('assessment');
   const [isLoading, setIsLoading] = useState(true);
+  const [isSaving, setIsSaving] = useState(false);
   const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
   const reportRef = useRef<HTMLDivElement>(null);
 
-  // --- Data Fetching ---
+  // --- Data Fetching and Snapshotting Logic ---
   useEffect(() => {
     if (user) {
-      createOrGetUserAssessment()
-        .then(result => {
-          const data = result.data as any;
+      const userAssessmentRef = doc(db, 'userAssessments', user.uid);
+      getDoc(userAssessmentRef).then(docSnap => {
+        if (docSnap.exists()) {
+          // User has an existing assessment
+          const data = docSnap.data();
           setAssessmentData(data);
           setAnswers(data.answers || {});
-          setGoals(data.goals || ['']);
-        })
-        .catch(err => {
-          console.error(err);
-          toast({ title: "Error", description: "Could not load your assessment.", variant: "destructive" });
-        })
-        .finally(() => setIsLoading(false));
+          setGoals(data.goals && data.goals.length > 0 ? data.goals : ['']);
+          setIsLoading(false);
+        } else {
+          // New user, snapshot the template
+          const templateRef = doc(db, 'personalityAssessmentTemplates', TEMPLATE_ID);
+          getDoc(templateRef).then(templateSnap => {
+            if (templateSnap.exists()) {
+              const templateData = templateSnap.data();
+              const newAssessment = {
+                userId: user.uid,
+                templateVersion: templateSnap.data()?.updatedAt || serverTimestamp(),
+                status: 'in-progress',
+                startedAt: serverTimestamp(),
+                answers: {},
+                goals: [''],
+                section1Questions: templateData.section1Questions || [],
+                goalQuestions: templateData.goalQuestions || [],
+                section2FixedQuestions: templateData.section2FixedQuestions || [],
+              };
+              setDoc(userAssessmentRef, newAssessment).then(() => {
+                setAssessmentData(newAssessment);
+                setAnswers(newAssessment.answers);
+                setGoals(newAssessment.goals);
+                setIsLoading(false);
+              });
+            } else {
+              toast({ title: "Error", description: "Could not find assessment template.", variant: "destructive" });
+              setIsLoading(false);
+            }
+          });
+        }
+      }).catch(err => {
+        console.error(err);
+        toast({ title: "Error", description: "Could not load your assessment.", variant: "destructive" });
+        setIsLoading(false);
+      });
     }
   }, [user, toast]);
 
   // --- Auto-saving Logic ---
-  const debouncedSave = useCallback(
-    debounce((dataToSave) => {
-      saveAssessment(dataToSave)
-        .then(() => console.log("Progress saved"))
-        .catch(err => console.error("Failed to save progress:", err));
-    }, 2000), // Save 2 seconds after the last change
-    []
-  );
-
   useEffect(() => {
-    if (!isLoading && assessmentData) {
-      debouncedSave({ answers, goals });
-    }
-  }, [answers, goals, isLoading, assessmentData, debouncedSave]);
+    if (isLoading || !assessmentData) return;
+
+    const interval = setInterval(() => {
+      setIsSaving(true);
+      const userAssessmentRef = doc(db, 'userAssessments', user.uid);
+      updateDoc(userAssessmentRef, {
+        answers,
+        goals,
+        lastSaved: serverTimestamp()
+      }).then(() => {
+        console.log("Progress auto-saved.");
+        setIsSaving(false);
+      }).catch(err => {
+        console.error("Auto-save failed:", err);
+        setIsSaving(false);
+      });
+    }, 5000); // Auto-save every 5 seconds
+
+    return () => clearInterval(interval);
+  }, [answers, goals, user, isLoading, assessmentData]);
 
 
   // --- Dynamic Sections Logic ---
   const assessmentSections = useMemo(() => {
     if (!assessmentData) return [];
 
+    const definedGoals = goals.filter(g => g.trim() !== '');
+    const goalSections = definedGoals.map((goal, index) => ({
+        id: `goal_${index + 1}`,
+        title: `Goal ${index + 1}`,
+        isGoalSection: true,
+        goal,
+        questions: assessmentData.goalQuestions
+    }));
+
     const baseSections = [
         { id: 's1', title: 'Section 1', questions: assessmentData.section1Questions },
         { id: 's2_goals', title: 'Goal Setting' },
-        ...goals.filter(g => g.trim() !== '').map((goal, index) => ({
-            id: `goal_${index + 1}`,
-            title: `Goal ${index + 1}`,
-            isGoalSection: true,
-            goal,
-            questions: assessmentData.goalQuestions
-        })),
+        ...goalSections,
         { id: 's2_fixed', title: 'Section 2', questions: assessmentData.section2FixedQuestions }
     ];
-    return baseSections.filter(s => s.questions || s.id === 's2_goals'); // Filter out sections with no questions
+
+    return baseSections.filter(s => (s.questions && s.questions.length > 0) || s.id === 's2_goals');
   }, [assessmentData, goals]);
 
   if (authLoading || isLoading) {
@@ -99,7 +143,7 @@ export default function StudentAssessmentPage() {
   }
 
   const totalSections = assessmentSections.length;
-  const progressPercentage = ((currentSectionIndex + 1) / totalSections) * 100;
+  const progressPercentage = totalSections > 0 ? ((currentSectionIndex + 1) / totalSections) * 100 : 0;
   const currentSection = assessmentSections[currentSectionIndex];
 
   const handleNext = () => {
@@ -135,7 +179,8 @@ export default function StudentAssessmentPage() {
   };
 
   const handleFinish = () => {
-    saveAssessment({ answers, goals }); // Final save
+    const userAssessmentRef = doc(db, 'userAssessments', user.uid);
+    updateDoc(userAssessmentRef, { status: 'completed', completedAt: serverTimestamp() });
     setView('report');
   }
 
@@ -204,7 +249,9 @@ export default function StudentAssessmentPage() {
       <Card>
         <CardHeader>
           <CardTitle className="text-3xl">Personality & Goals Assessment</CardTitle>
-          <CardDescription>Complete all sections to generate your report.</CardDescription>
+          <CardDescription>
+            {isSaving ? 'Saving...' : 'Complete all sections to generate your report.'}
+          </CardDescription>
 
           <div className="pt-4">
             <Progress value={progressPercentage} className="mb-2"/>
