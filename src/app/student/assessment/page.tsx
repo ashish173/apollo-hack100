@@ -104,29 +104,6 @@ export default function StudentAssessmentPage() {
     return () => clearInterval(interval);
   }, [answers, goals, user, isLoading, assessmentData]);
 
-  // --- Question Navigation Logic ---
-  useEffect(() => {
-    // Reset question index when section changes
-    setCurrentQuestionInSection(0);
-  }, [currentSectionIndex]);
-
-  useEffect(() => {
-    // Scroll to the current question when it changes
-    const currentSection = assessmentSections[currentSectionIndex];
-    if (currentSection && currentSection.questions && currentSection.questions.length > 0) {
-      let questionId = currentSection.questions[currentQuestionInSection]?.id;
-      if (questionId) {
-        // Goal sections have composite IDs for their questions
-        const elementId = currentSection.isGoalSection ? `question-${currentSection.id}-${questionId}` : `question-${questionId}`;
-        const element = document.getElementById(elementId);
-        if (element) {
-          element.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        }
-      }
-    }
-  }, [currentQuestionInSection, currentSectionIndex, assessmentSections]);
-
-
   // --- Dynamic Sections Logic ---
   const assessmentSections = useMemo(() => {
     if (!assessmentData) return [];
@@ -149,6 +126,28 @@ export default function StudentAssessmentPage() {
 
     return baseSections.filter(s => (s.questions && s.questions.length > 0) || s.id === 's2_goals');
   }, [assessmentData, goals]);
+
+  // --- Question Navigation Logic ---
+  useEffect(() => {
+    // Reset question index when section changes
+    setCurrentQuestionInSection(0);
+  }, [currentSectionIndex]);
+
+  useEffect(() => {
+    // Scroll to the current question when it changes
+    const currentSection = assessmentSections[currentSectionIndex];
+    if (currentSection && currentSection.questions && currentSection.questions.length > 0) {
+      let questionId = currentSection.questions[currentQuestionInSection]?.id;
+      if (questionId) {
+        // Goal sections have composite IDs for their questions
+        const elementId = currentSection.isGoalSection ? `question-${currentSection.id}-${questionId}` : `question-${questionId}`;
+        const element = document.getElementById(elementId);
+        if (element) {
+          element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+      }
+    }
+  }, [currentQuestionInSection, currentSectionIndex, assessmentSections]);
 
   if (authLoading || isLoading) {
     return <div className="flex h-screen items-center justify-center"><LoadingSpinner size="xl" label="Loading Your Assessment..." /></div>;
