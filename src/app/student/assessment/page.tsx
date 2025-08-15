@@ -10,7 +10,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Progress } from '@/components/ui/progress';
-import { ChevronLeft, ChevronRight, Check, Download, RefreshCw, ArrowUp, ArrowDown } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Check, Download, RefreshCw, Trash2 } from 'lucide-react';
 import { AssessmentReport } from '@/components/student/AssessmentReport';
 import html2canvas from 'html2canvas';
 import jsPDF from 'jspdf';
@@ -31,6 +31,31 @@ export default function StudentAssessmentPage() {
   const [isSaving, setIsSaving] = useState(false);
   const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
   const reportRef = useRef<HTMLDivElement>(null);
+
+  const handleDeleteGoal = (index: number) => {
+    const goalId = `goal_${index + 1}`;
+    const hasAnswers = Object.keys(answers).some(key => key.startsWith(goalId));
+
+    let confirmed = true;
+    if (hasAnswers) {
+      confirmed = window.confirm("Are you sure? Deleting this goal will also delete all of its answers.");
+    }
+
+    if (confirmed) {
+      // Remove the goal
+      const newGoals = goals.filter((_, i) => i !== index);
+      setGoals(newGoals);
+
+      // Remove associated answers
+      const newAnswers = { ...answers };
+      Object.keys(newAnswers).forEach(key => {
+        if (key.startsWith(goalId)) {
+          delete newAnswers[key];
+        }
+      });
+      setAnswers(newAnswers);
+    }
+  };
 
   // --- Data Fetching and Snapshotting Logic ---
   useEffect(() => {
@@ -153,13 +178,29 @@ export default function StudentAssessmentPage() {
   const currentStep = steps[currentStepIndex];
   const progressPercentage = steps.length > 0 ? ((currentStepIndex + 1) / steps.length) * 100 : 0;
 
+  const saveProgress = () => {
+      if (isLoading || !assessmentData) return;
+      const userAssessmentRef = doc(db, 'userAssessments', user.uid);
+      updateDoc(userAssessmentRef, {
+        answers,
+        goals,
+        lastSaved: serverTimestamp()
+      }).then(() => {
+        console.log("Progress saved on navigation.");
+      }).catch(err => {
+        console.error("Save on navigation failed:", err);
+      });
+  }
+
   const handleNext = () => {
+    saveProgress();
     if (currentStepIndex < steps.length - 1) {
       setCurrentStepIndex(currentStepIndex + 1);
     }
   };
 
   const handlePrev = () => {
+    saveProgress();
     if (currentStepIndex > 0) {
       setCurrentStepIndex(currentStepIndex - 1);
     }
@@ -214,13 +255,17 @@ export default function StudentAssessmentPage() {
             <p className="mb-4 text-muted-foreground">Define up to {MAX_GOALS} personal or professional goals.</p>
             <div className="space-y-4">
               {goals.map((goal, index) => (
-                  <Input
-                      key={index}
-                      value={goal}
-                      onChange={(e) => handleGoalChange(index, e.target.value)}
-                      placeholder={`Goal ${index + 1}`}
-                      className="text-lg"
-                  />
+                  <div key={index} className="flex items-center gap-2">
+                    <Input
+                        value={goal}
+                        onChange={(e) => handleGoalChange(index, e.target.value)}
+                        placeholder={`Goal ${index + 1}`}
+                        className="text-lg"
+                    />
+                    <Button variant="ghost" size="icon" onClick={() => handleDeleteGoal(index)} disabled={goals.length <= 1 && !goals[0]}>
+                        <Trash2 className="h-5 w-5 text-red-500" />
+                    </Button>
+                  </div>
               ))}
             </div>
             {goals.length < MAX_GOALS && (
@@ -323,7 +368,15 @@ export default function StudentAssessmentPage() {
           </CardDescription>
 
           <div className="pt-4">
-            <Progress value={progressPercentage} className="mb-2"/>
+            <style>{`
+              .custom-progress-bar > div {
+                background-color: #468966 !important;
+              }
+            `}</style>
+            <div className="flex items-center gap-4 mb-2">
+              <Progress value={progressPercentage} className="w-full custom-progress-bar"/>
+              <span className="font-bold text-lg text-[#468966]">{Math.round(progressPercentage)}%</span>
+            </div>
             <div className="flex flex-wrap gap-2">
               {sectionPills.map((pill) => (
                 <Button
