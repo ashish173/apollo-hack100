@@ -10,7 +10,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Progress } from '@/components/ui/progress';
-import { ChevronLeft, ChevronRight, Check, Download, RefreshCw } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Check, Download, RefreshCw, ArrowUp, ArrowDown } from 'lucide-react';
 import { AssessmentReport } from '@/components/student/AssessmentReport';
 import html2canvas from 'html2canvas';
 import jsPDF from 'jspdf';
@@ -28,6 +28,7 @@ export default function StudentAssessmentPage() {
   const [answers, setAnswers] = useState<Record<string, string>>({});
 
   const [currentSectionIndex, setCurrentSectionIndex] = useState(0);
+  const [currentQuestionInSection, setCurrentQuestionInSection] = useState(0);
   const [view, setView] = useState<'assessment' | 'report'>('assessment');
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
@@ -101,10 +102,32 @@ export default function StudentAssessmentPage() {
         console.error("Auto-save failed:", err);
         setIsSaving(false);
       });
-    }, 5000); // Auto-save every 5 seconds
+    }, 10000); // Auto-save every 10 seconds
 
     return () => clearInterval(interval);
   }, [answers, goals, user, isLoading, assessmentData]);
+
+  // --- Question Navigation Logic ---
+  useEffect(() => {
+    // Reset question index when section changes
+    setCurrentQuestionInSection(0);
+  }, [currentSectionIndex]);
+
+  useEffect(() => {
+    // Scroll to the current question when it changes
+    const currentSection = assessmentSections[currentSectionIndex];
+    if (currentSection && currentSection.questions && currentSection.questions.length > 0) {
+      let questionId = currentSection.questions[currentQuestionInSection]?.id;
+      if (questionId) {
+        // Goal sections have composite IDs for their questions
+        const elementId = currentSection.isGoalSection ? `question-${currentSection.id}-${questionId}` : `question-${questionId}`;
+        const element = document.getElementById(elementId);
+        if (element) {
+          element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+      }
+    }
+  }, [currentQuestionInSection, currentSectionIndex, assessmentSections]);
 
 
   // --- Dynamic Sections Logic ---
@@ -145,6 +168,7 @@ export default function StudentAssessmentPage() {
   const totalSections = assessmentSections.length;
   const progressPercentage = totalSections > 0 ? ((currentSectionIndex + 1) / totalSections) * 100 : 0;
   const currentSection = assessmentSections[currentSectionIndex];
+  const questionsInCurrentSection = currentSection?.questions?.length || 0;
 
   const handleNext = () => {
     if (currentSectionIndex < totalSections - 1) {
@@ -160,6 +184,14 @@ export default function StudentAssessmentPage() {
 
   const handleGoToSection = (index: number) => {
     setCurrentSectionIndex(index);
+  };
+
+  const handleQuestionNav = (direction: 'next' | 'prev') => {
+    if (direction === 'next' && currentQuestionInSection < questionsInCurrentSection - 1) {
+      setCurrentQuestionInSection(prev => prev + 1);
+    } else if (direction === 'prev' && currentQuestionInSection > 0) {
+      setCurrentQuestionInSection(prev => prev - 1);
+    }
   };
 
   const handleGoalChange = (index: number, value: string) => {
@@ -294,10 +326,13 @@ export default function StudentAssessmentPage() {
             </div>
           )}
 
-          {currentSection.questions && currentSection.questions.map((q: any) => (
-            <div key={q.id} className="mb-8">
-              <label className="block text-lg font-semibold mb-2">{q.title}</label>
-              <p className="text-sm text-muted-foreground mb-3">{q.helpText}</p>
+          {currentSection.questions && (
+            <div className="relative">
+                {currentSection.questions.map((q: any, index: number) => (
+                    <div key={q.id} id={`question-${q.id}`} className="mb-8 p-6 border-l-4 rounded-r-lg transition-all duration-300"
+                         style={{ borderColor: index === currentQuestionInSection ? '#3b82f6' : 'transparent' }}>
+                        <label className="block text-lg font-semibold mb-2">{q.title}</label>
+                        <p className="text-sm text-muted-foreground mb-3">{q.helpText}</p>
               <Textarea
                 rows={5}
                 placeholder="Your answer..."
@@ -305,16 +340,32 @@ export default function StudentAssessmentPage() {
                 value={answers[q.id] || ''}
                 onChange={(e) => handleAnswerChange(q.id, e.target.value)}
               />
+                    </div>
+                ))}
+                <div className="sticky bottom-4 w-full flex justify-center">
+                    <div className="flex items-center gap-2 p-2 bg-background/80 backdrop-blur-sm border rounded-full shadow-lg">
+                         <Button variant="outline" size="icon" onClick={() => handleQuestionNav('prev')} disabled={currentQuestionInSection === 0}>
+                            <ArrowUp className="h-5 w-5" />
+                        </Button>
+                        <span className="text-sm font-medium text-muted-foreground">
+                            Question {currentQuestionInSection + 1} of {questionsInCurrentSection}
+                        </span>
+                        <Button variant="outline" size="icon" onClick={() => handleQuestionNav('next')} disabled={currentQuestionInSection === questionsInCurrentSection - 1}>
+                            <ArrowDown className="h-5 w-5" />
+                        </Button>
+                    </div>
+                </div>
             </div>
-          ))}
+          )}
 
             {currentSection.isGoalSection && (
-              <div>
+              <div className="relative">
                 <p className="mb-4 p-4 bg-blue-50 border border-blue-200 rounded-lg text-blue-800">
                     Your Goal: <span className="font-bold">{currentSection.goal}</span>
                 </p>
-                {currentSection.questions.map((q: any) => (
-                    <div key={q.id} className="mb-8">
+                {currentSection.questions.map((q: any, index: number) => (
+                    <div key={q.id} id={`question-${currentSection.id}-${q.id}`} className="mb-8 p-6 border-l-4 rounded-r-lg transition-all duration-300"
+                         style={{ borderColor: index === currentQuestionInSection ? '#3b82f6' : 'transparent' }}>
                         <label className="block text-lg font-semibold mb-2">{q.title}</label>
                         <p className="text-sm text-muted-foreground mb-3">{q.helpText}</p>
                         <Textarea
@@ -326,6 +377,19 @@ export default function StudentAssessmentPage() {
                         />
                     </div>
                 ))}
+                <div className="sticky bottom-4 w-full flex justify-center">
+                    <div className="flex items-center gap-2 p-2 bg-background/80 backdrop-blur-sm border rounded-full shadow-lg">
+                         <Button variant="outline" size="icon" onClick={() => handleQuestionNav('prev')} disabled={currentQuestionInSection === 0}>
+                            <ArrowUp className="h-5 w-5" />
+                        </Button>
+                        <span className="text-sm font-medium text-muted-foreground">
+                            Question {currentQuestionInSection + 1} of {questionsInCurrentSection}
+                        </span>
+                        <Button variant="outline" size="icon" onClick={() => handleQuestionNav('next')} disabled={currentQuestionInSection === questionsInCurrentSection - 1}>
+                            <ArrowDown className="h-5 w-5" />
+                        </Button>
+                    </div>
+                </div>
               </div>
             )}
 

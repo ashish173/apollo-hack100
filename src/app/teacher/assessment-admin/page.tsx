@@ -103,21 +103,23 @@ export default function AssessmentAdminPage() {
     else if (section === 'goal') updater(setGoalQuestions);
   };
 
-  const addQuestion = (section: 's1' | 's2') => {
+  const addQuestion = (section: 's1' | 's2' | 'goal') => {
     const newQuestion: Question = { id: `new_${Date.now()}`, title: '', helpText: '' };
     const updater = (setter: React.Dispatch<React.SetStateAction<Question[]>>) => {
         setter(prev => [...prev, newQuestion]);
     }
     if (section === 's1') updater(setSection1Questions);
     else if (section === 's2') updater(setSection2FixedQuestions);
+    else if (section === 'goal') updater(setGoalQuestions);
   }
 
-  const deleteQuestion = (section: 's1' | 's2', index: number) => {
+  const deleteQuestion = (section: 's1' | 's2' | 'goal', index: number) => {
      const updater = (setter: React.Dispatch<React.SetStateAction<Question[]>>) => {
         setter(prev => prev.filter((_, i) => i !== index));
     }
     if (section === 's1') updater(setSection1Questions);
     else if (section === 's2') updater(setSection2FixedQuestions);
+    else if (section === 'goal') updater(setGoalQuestions);
   }
 
   if (authLoading || isLoading) {
@@ -174,11 +176,11 @@ export default function AssessmentAdminPage() {
       <Card className="mb-6">
         <CardHeader>
           <CardTitle>Section 2: Goal-Based Questions</CardTitle>
-          <p className="text-sm text-muted-foreground">These 5 questions will be repeated for every goal the user sets.</p>
+          <p className="text-sm text-muted-foreground">These questions will be repeated for every goal the user sets.</p>
         </CardHeader>
         <CardContent>
           {goalQuestions.map((q, index) => (
-            <div key={q.id} className="mb-4 p-4 border rounded-lg">
+            <div key={q.id} className="mb-4 p-4 border rounded-lg relative">
               <Input
                 placeholder="Question Title"
                 value={q.title}
@@ -190,8 +192,12 @@ export default function AssessmentAdminPage() {
                 value={q.helpText}
                  onChange={(e) => handleQuestionChange('goal', index, 'helpText', e.target.value)}
               />
+              <Button variant="ghost" size="icon" className="absolute top-2 right-2" onClick={() => deleteQuestion('goal', index)}>
+                <Trash2 className="h-4 w-4 text-red-500"/>
+              </Button>
             </div>
           ))}
+          <Button variant="outline" onClick={() => addQuestion('goal')}><Plus className="mr-2 h-4 w-4" /> Add Question</Button>
         </CardContent>
       </Card>
 
