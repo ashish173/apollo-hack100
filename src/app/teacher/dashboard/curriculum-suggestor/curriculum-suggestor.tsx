@@ -28,7 +28,6 @@ import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { mockCurriculumSuggestionCS } from './test-curriculum-data';
-import { generateCurriculumSuggestions } from '@/ai/flows/generate-curriculum-suggestions';
 import CurriculumViewer from './curriculum-viewer';
 
 // Use the types from the API library
@@ -96,10 +95,6 @@ export default function CurriculumSuggestor({ onEdit, onBack }: { onEdit: (sugge
       setIsGenerating(false);
     }
 
-    // const result = await generateCurriculumSuggestions(input);
-    // console.log(JSON.parse(result.curriculumSuggestions));
-    // setGeneratedSuggestion(JSON.parse(result.curriculumSuggestions));
-    // setGeneratedSuggestion(mockCurriculumSuggestionCS);
   };
 
   if (generatedSuggestion) {

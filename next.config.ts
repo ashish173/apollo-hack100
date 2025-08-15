@@ -19,6 +19,25 @@ const nextConfig: NextConfig = {
       },
     ],
   },
+  webpack: (config, { isServer }) => {
+    // Fix for node-gyp related build errors
+    if (!isServer) {
+      config.resolve.fallback = {
+        ...config.resolve.fallback,
+        fs: false,
+        net: false,
+        tls: false,
+      };
+    }
+
+    // Fix for handlebars related build errors
+    config.module.rules.push({
+      test: /\.handlebars$/,
+      loader: 'handlebars-loader',
+    });
+
+    return config;
+  },
 };
 
 export default nextConfig;
