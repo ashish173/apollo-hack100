@@ -15,6 +15,7 @@ import { ChevronLeft, ChevronRight, Check, Download, RefreshCw, Trash2, LayoutDa
 import { AssessmentReport } from '@/components/student/AssessmentReport';
 import html2canvas from 'html2canvas';
 import jsPDF from 'jspdf';
+import DOMPurify from 'isomorphic-dompurify';
 
 const MAX_GOALS = 8;
 const TEMPLATE_ID = 'main_template';
@@ -297,7 +298,7 @@ export default function StudentAssessmentPage() {
               )}
               <div className="mt-6 p-4 border rounded-lg bg-gray-50">
                   <h3 className="block text-lg font-semibold mb-2">{currentStep.question.title}</h3>
-                  <p className="text-sm text-muted-foreground">{currentStep.question.helpText}</p>
+                  <div className="text-sm text-muted-foreground" dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(currentStep.question.helpText) }} />
               </div>
             </div>
           );
@@ -312,7 +313,7 @@ export default function StudentAssessmentPage() {
             )}
             <div className="mt-6">
                 <label className="block text-lg font-semibold mb-2">{currentStep.question.title}</label>
-                <p className="text-sm text-muted-foreground mb-3">{currentStep.question.helpText}</p>
+                <div className="text-sm text-muted-foreground mb-3" dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(currentStep.question.helpText) }} />
                 <Textarea
                   rows={8}
                   placeholder="Your answer..."
