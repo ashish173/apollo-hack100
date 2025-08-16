@@ -83,6 +83,7 @@ export default function StudentAssessmentPage() {
                 goals: [''],
                 section1Questions: templateData.section1Questions || [],
                 goalQuestions: templateData.goalQuestions || [],
+                goalSettingQuestions: templateData.goalSettingQuestions || [],
                 section2FixedQuestions: templateData.section2FixedQuestions || [],
               };
               setDoc(userAssessmentRef, newAssessment).then(() => {
@@ -137,6 +138,14 @@ export default function StudentAssessmentPage() {
         pillData.push({ title: 'Section 1', stepIndex: flatSteps.length });
         assessmentData.section1Questions.forEach((q: any) => {
             flatSteps.push({ type: 'question', question: q, sectionTitle: 'Section 1' });
+        });
+    }
+
+    // Goal Setting Questions
+    if (assessmentData.goalSettingQuestions?.length > 0) {
+        pillData.push({ title: 'Goal Questions', stepIndex: flatSteps.length });
+        assessmentData.goalSettingQuestions.forEach((q: any) => {
+            flatSteps.push({ type: 'question', question: q, sectionTitle: 'Goal Questions' });
         });
     }
 
@@ -335,6 +344,10 @@ export default function StudentAssessmentPage() {
         section1: {
             title: "Section 1",
             questions: assessmentData.section1Questions.map((q:any) => ({...q, answer: answers[q.id] || ''}))
+        },
+        goalSetting: {
+            title: "Goal Questions",
+            questions: assessmentData.goalSettingQuestions.map((q:any) => ({...q, answer: answers[q.id] || ''}))
         },
         goalSections: goalReportSections,
         section2Fixed: {

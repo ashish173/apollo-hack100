@@ -21,6 +21,7 @@ export default function AssessmentAdminPage() {
   const [section1Questions, setSection1Questions] = useState<Question[]>([]);
   const [section2FixedQuestions, setSection2FixedQuestions] = useState<Question[]>([]);
   const [goalQuestions, setGoalQuestions] = useState<Question[]>([]);
+  const [goalSettingQuestions, setGoalSettingQuestions] = useState<Question[]>([]);
 
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
@@ -36,6 +37,7 @@ export default function AssessmentAdminPage() {
             setSection1Questions(data.section1Questions || []);
             setGoalQuestions(data.goalQuestions || []);
             setSection2FixedQuestions(data.section2FixedQuestions || []);
+            setGoalSettingQuestions(data.goalSettingQuestions || []);
           } else {
              setError('No template found. Saving will create a new one.');
           }
@@ -69,6 +71,7 @@ export default function AssessmentAdminPage() {
           section1Questions: section1Questions.map(a),
           goalQuestions: goalQuestions.map(a),
           section2FixedQuestions: section2FixedQuestions.map(a),
+          goalSettingQuestions: goalSettingQuestions.map(a),
           updatedAt: serverTimestamp(),
         },
         { merge: true }
@@ -107,9 +110,10 @@ export default function AssessmentAdminPage() {
     if (section === 's1') updater(setSection1Questions);
     else if (section === 's2') updater(setSection2FixedQuestions);
     else if (section === 'goal') updater(setGoalQuestions);
+    else if (section === 'goalSetting') updater(setGoalSettingQuestions);
   };
 
-  const addQuestion = (section: 's1' | 's2' | 'goal') => {
+  const addQuestion = (section: 's1' | 's2' | 'goal' | 'goalSetting') => {
     const updater = (setter: React.Dispatch<React.SetStateAction<Question[]>>) => {
       setter(prev => {
         const newQuestion: Question = {
@@ -125,10 +129,11 @@ export default function AssessmentAdminPage() {
     if (section === 's1') updater(setSection1Questions);
     else if (section === 's2') updater(setSection2FixedQuestions);
     else if (section === 'goal') updater(setGoalQuestions);
+    else if (section === 'goalSetting') updater(setGoalSettingQuestions);
   };
 
   const moveQuestion = (
-    section: 's1' | 's2' | 'goal',
+    section: 's1' | 's2' | 'goal' | 'goalSetting',
     index: number,
     direction: 'up' | 'down'
   ) => {
@@ -158,15 +163,17 @@ export default function AssessmentAdminPage() {
     if (section === 's1') updater(setSection1Questions);
     else if (section === 's2') updater(setSection2FixedQuestions);
     else if (section === 'goal') updater(setGoalQuestions);
+    else if (section === 'goalSetting') updater(setGoalSettingQuestions);
   };
 
-  const deleteQuestion = (section: 's1' | 's2' | 'goal', id: string) => {
+  const deleteQuestion = (section: 's1' | 's2' | 'goal' | 'goalSetting', id: string) => {
      const updater = (setter: React.Dispatch<React.SetStateAction<Question[]>>) => {
         setter(prev => prev.filter(q => q.id !== id));
     }
     if (section === 's1') updater(setSection1Questions);
     else if (section === 's2') updater(setSection2FixedQuestions);
     else if (section === 'goal') updater(setGoalQuestions);
+    else if (section === 'goalSetting') updater(setGoalSettingQuestions);
   }
 
   if (authLoading || isLoading) {
@@ -242,10 +249,62 @@ export default function AssessmentAdminPage() {
         </CardContent>
       </Card>
 
+      {/* Goal Setting Preamble Questions */}
+      <Card className="mb-6">
+        <CardHeader>
+          <CardTitle>Goal Setting Questions</CardTitle>
+          <p className="text-sm text-muted-foreground">These questions will be asked once before the user defines their goals.</p>
+        </CardHeader>
+        <CardContent>
+          {goalSettingQuestions.sort((a, b) => a.position - b.position).map((q, index) => (
+            <div key={q.id} className="mb-4 p-4 border rounded-lg relative flex flex-col gap-2">
+              <div className="flex items-center gap-2">
+                <div className="flex flex-col">
+                  <Button variant="ghost" size="icon" onClick={() => moveQuestion('goalSetting', index, 'up')} disabled={index === 0}>
+                    <ChevronUp className="h-4 w-4" />
+                  </Button>
+                  <Button variant="ghost" size="icon" onClick={() => moveQuestion('goalSetting', index, 'down')} disabled={index === goalSettingQuestions.length - 1}>
+                    <ChevronDown className="h-4 w-4" />
+                  </Button>
+                </div>
+                <Input
+                  placeholder="Question Title"
+                  value={q.title}
+                  onChange={(e) => handleQuestionChange('goalSetting', q.id, 'title', e.target.value)}
+                  className="mb-2 font-bold w-full"
+                />
+              </div>
+              <Textarea
+                placeholder="Help Text"
+                value={q.helpText}
+                onChange={(e) => handleQuestionChange('goalSetting', q.id, 'helpText', e.target.value)}
+              />
+              <div className="flex items-center space-x-2 mt-2">
+                <Checkbox
+                  id={`isInstruction-goalSetting-${q.id}`}
+                  checked={q.isInstruction}
+                  onCheckedChange={(checked) => handleQuestionChange('goalSetting', q.id, 'isInstruction', checked)}
+                />
+                <label
+                  htmlFor={`isInstruction-goalSetting-${q.id}`}
+                  className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                >
+                  This is an instruction (no answer required)
+                </label>
+              </div>
+              <Button variant="ghost" size="icon" className="absolute top-2 right-2" onClick={() => deleteQuestion('goalSetting', q.id)}>
+                <Trash2 className="h-4 w-4 text-red-500" />
+              </Button>
+            </div>
+          ))}
+          <Button variant="outline" onClick={() => addQuestion('goalSetting')}><Plus className="mr-2 h-4 w-4" /> Add Question</Button>
+        </CardContent>
+      </Card>
+
       {/* Section 2 Goal Questions */}
       <Card className="mb-6">
         <CardHeader>
-          <CardTitle>Section 2: Goal-Based Questions</CardTitle>
+          <CardTitle>Recurring Goal Questions</CardTitle>
           <p className="text-sm text-muted-foreground">These questions will be repeated for every goal the user sets.</p>
         </CardHeader>
         <CardContent>
