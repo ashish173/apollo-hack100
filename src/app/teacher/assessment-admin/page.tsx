@@ -203,15 +203,12 @@ export default function AssessmentAdminPage() {
                     <ChevronDown className="h-4 w-4" />
                   </Button>
                 </div>
-                <div
-                  contentEditable
-                  suppressContentEditableWarning
-                  onBlur={(e) => handleQuestionChange('s1', index, 'title', e.currentTarget.innerText)}
-                  className="mb-2 font-bold flex-grow p-2 border rounded-md"
-                  style={{ minWidth: '100px', display: 'inline-block', whiteSpace: 'nowrap' }}
-                >
-                  {q.title}
-                </div>
+                <Input
+                  placeholder="Question Title"
+                  value={q.title}
+                  onChange={(e) => handleQuestionChange('s1', index, 'title', e.target.value)}
+                  className="mb-2 font-bold w-full"
+                />
               </div>
               <Textarea
                 placeholder="Help Text"
@@ -258,15 +255,12 @@ export default function AssessmentAdminPage() {
                     <ChevronDown className="h-4 w-4" />
                   </Button>
                 </div>
-                <div
-                  contentEditable
-                  suppressContentEditableWarning
-                  onBlur={(e) => handleQuestionChange('goal', index, 'title', e.currentTarget.innerText)}
-                  className="mb-2 font-bold flex-grow p-2 border rounded-md"
-                  style={{ minWidth: '100px', display: 'inline-block', whiteSpace: 'nowrap' }}
-                >
-                  {q.title}
-                </div>
+                <Input
+                  placeholder="Question Title"
+                  value={q.title}
+                  onChange={(e) => handleQuestionChange('goal', index, 'title', e.target.value)}
+                  className="mb-2 font-bold w-full"
+                />
               </div>
               <Textarea
                 placeholder="Help Text"
@@ -312,15 +306,12 @@ export default function AssessmentAdminPage() {
                     <ChevronDown className="h-4 w-4" />
                   </Button>
                 </div>
-                <div
-                  contentEditable
-                  suppressContentEditableWarning
-                  onBlur={(e) => handleQuestionChange('s2', index, 'title', e.currentTarget.innerText)}
-                  className="mb-2 font-bold flex-grow p-2 border rounded-md"
-                  style={{ minWidth: '100px', display: 'inline-block', whiteSpace: 'nowrap' }}
-                >
-                  {q.title}
-                </div>
+                <Input
+                  placeholder="Question Title"
+                  value={q.title}
+                  onChange={(e) => handleQuestionChange('s2', index, 'title', e.target.value)}
+                  className="mb-2 font-bold w-full"
+                />
               </div>
               <Textarea
                 placeholder="Help Text"
