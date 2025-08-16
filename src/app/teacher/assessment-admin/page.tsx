@@ -86,11 +86,22 @@ export default function AssessmentAdminPage() {
     section: 's1' | 's2' | 'goal',
     index: number,
     field: 'title' | 'helpText' | 'isInstruction',
-    value: string | boolean
+    value: string | boolean | 'indeterminate'
   ) => {
     const updater = (setter: React.Dispatch<React.SetStateAction<Question[]>>) => {
       setter(prev =>
-        prev.map((q, i) => (i === index ? { ...q, [field]: value } : q))
+        prev.map((q, i) => {
+          if (i === index) {
+            const newQ = { ...q };
+            if (field === 'isInstruction') {
+              newQ.isInstruction = value === true;
+            } else if (typeof value === 'string') {
+              (newQ[field] as string) = value;
+            }
+            return newQ;
+          }
+          return q;
+        })
       );
     };
     if (section === 's1') updater(setSection1Questions);
@@ -192,12 +203,15 @@ export default function AssessmentAdminPage() {
                     <ChevronDown className="h-4 w-4" />
                   </Button>
                 </div>
-                <Input
-                  placeholder="Question Title"
-                  value={q.title}
-                  onChange={(e) => handleQuestionChange('s1', index, 'title', e.target.value)}
-                  className="mb-2 font-bold flex-grow"
-                />
+                <div
+                  contentEditable
+                  suppressContentEditableWarning
+                  onBlur={(e) => handleQuestionChange('s1', index, 'title', e.currentTarget.innerText)}
+                  className="mb-2 font-bold flex-grow p-2 border rounded-md"
+                  style={{ minWidth: '100px', display: 'inline-block', whiteSpace: 'nowrap' }}
+                >
+                  {q.title}
+                </div>
               </div>
               <Textarea
                 placeholder="Help Text"
@@ -208,7 +222,7 @@ export default function AssessmentAdminPage() {
                 <Checkbox
                   id={`isInstruction-s1-${index}`}
                   checked={q.isInstruction}
-                  onCheckedChange={(checked) => handleQuestionChange('s1', index, 'isInstruction', !!checked)}
+                  onCheckedChange={(checked) => handleQuestionChange('s1', index, 'isInstruction', checked)}
                 />
                 <label
                   htmlFor={`isInstruction-s1-${index}`}
@@ -244,12 +258,15 @@ export default function AssessmentAdminPage() {
                     <ChevronDown className="h-4 w-4" />
                   </Button>
                 </div>
-                <Input
-                  placeholder="Question Title"
-                  value={q.title}
-                  onChange={(e) => handleQuestionChange('goal', index, 'title', e.target.value)}
-                  className="mb-2 font-bold flex-grow"
-                />
+                <div
+                  contentEditable
+                  suppressContentEditableWarning
+                  onBlur={(e) => handleQuestionChange('goal', index, 'title', e.currentTarget.innerText)}
+                  className="mb-2 font-bold flex-grow p-2 border rounded-md"
+                  style={{ minWidth: '100px', display: 'inline-block', whiteSpace: 'nowrap' }}
+                >
+                  {q.title}
+                </div>
               </div>
               <Textarea
                 placeholder="Help Text"
@@ -260,7 +277,7 @@ export default function AssessmentAdminPage() {
                 <Checkbox
                   id={`isInstruction-goal-${index}`}
                   checked={q.isInstruction}
-                  onCheckedChange={(checked) => handleQuestionChange('goal', index, 'isInstruction', !!checked)}
+                  onCheckedChange={(checked) => handleQuestionChange('goal', index, 'isInstruction', checked)}
                 />
                 <label
                   htmlFor={`isInstruction-goal-${index}`}
@@ -295,12 +312,15 @@ export default function AssessmentAdminPage() {
                     <ChevronDown className="h-4 w-4" />
                   </Button>
                 </div>
-                <Input
-                  placeholder="Question Title"
-                  value={q.title}
-                  onChange={(e) => handleQuestionChange('s2', index, 'title', e.target.value)}
-                  className="mb-2 font-bold flex-grow"
-                />
+                <div
+                  contentEditable
+                  suppressContentEditableWarning
+                  onBlur={(e) => handleQuestionChange('s2', index, 'title', e.currentTarget.innerText)}
+                  className="mb-2 font-bold flex-grow p-2 border rounded-md"
+                  style={{ minWidth: '100px', display: 'inline-block', whiteSpace: 'nowrap' }}
+                >
+                  {q.title}
+                </div>
               </div>
               <Textarea
                 placeholder="Help Text"
@@ -311,7 +331,7 @@ export default function AssessmentAdminPage() {
                 <Checkbox
                   id={`isInstruction-s2-${index}`}
                   checked={q.isInstruction}
-                  onCheckedChange={(checked) => handleQuestionChange('s2', index, 'isInstruction', !!checked)}
+                  onCheckedChange={(checked) => handleQuestionChange('s2', index, 'isInstruction', checked)}
                 />
                 <label
                   htmlFor={`isInstruction-s2-${index}`}
