@@ -277,6 +277,22 @@ export default function StudentAssessmentPage() {
 
       case 'question':
         const questionId = currentStep.isGoalQuestion ? `${currentStep.parentId}_${currentStep.question.id}` : currentStep.question.id;
+        if (currentStep.question.isInstruction) {
+          return (
+            <div>
+              <h2 className="text-2xl font-bold mb-2">{currentStep.sectionTitle}</h2>
+              {currentStep.isGoalQuestion && (
+                  <p className="mb-4 p-2 bg-blue-50 border-l-4 border-blue-500 text-blue-800">
+                      Regarding your goal: <span className="font-bold">{currentStep.goal}</span>
+                  </p>
+              )}
+              <div className="mt-6 p-4 border rounded-lg bg-gray-50">
+                  <h3 className="block text-lg font-semibold mb-2">{currentStep.question.title}</h3>
+                  <p className="text-sm text-muted-foreground">{currentStep.question.helpText}</p>
+              </div>
+            </div>
+          );
+        }
         return (
           <div>
             <h2 className="text-2xl font-bold mb-2">{currentStep.sectionTitle}</h2>

@@ -8,16 +8,12 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
-import { Plus, Trash2 } from 'lucide-react';
+import { Plus, Trash2, ChevronUp, ChevronDown } from 'lucide-react';
 import { LoadingSpinner } from '@/components/ui/loading-spinner';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Question } from '@/types';
 
 const TEMPLATE_ID = 'main_template';
-
-interface Question {
-  id: string;
-  title: string;
-  helpText: string;
-}
 
 export default function AssessmentAdminPage() {
   const { user, loading: authLoading } = useAuth();
@@ -55,21 +51,28 @@ export default function AssessmentAdminPage() {
   }, [user]);
 
   const handleSaveChanges = async () => {
-    if(!user) {
-        console.error("Error: You must be logged in to save.");
-        return;
+    if (!user) {
+      console.error("Error: You must be logged in to save.");
+      return;
     }
 
     setIsSaving(true);
     try {
       const templateRef = doc(db, 'personalityAssessmentTemplates', TEMPLATE_ID);
-      await setDoc(templateRef, {
-        teacherId: user.uid, // Set ownership
-        section1Questions,
-        goalQuestions,
-        section2FixedQuestions,
-        updatedAt: serverTimestamp(),
-      }, { merge: true });
+
+      const a = (q: Question) => ({...q, isInstruction: q.isInstruction || false});
+
+      await setDoc(
+        templateRef,
+        {
+          teacherId: user.uid, // Set ownership
+          section1Questions: section1Questions.map(a),
+          goalQuestions: goalQuestions.map(a),
+          section2FixedQuestions: section2FixedQuestions.map(a),
+          updatedAt: serverTimestamp(),
+        },
+        { merge: true }
+      );
 
       console.log("Success! The assessment template has been saved.");
     } catch (err) {
@@ -79,13 +82,16 @@ export default function AssessmentAdminPage() {
     }
   };
 
-  const handleQuestionChange = (section: 's1' | 's2' | 'goal', index: number, field: 'title' | 'helpText', value: string) => {
+  const handleQuestionChange = (
+    section: 's1' | 's2' | 'goal',
+    index: number,
+    field: 'title' | 'helpText' | 'isInstruction',
+    value: string | boolean
+  ) => {
     const updater = (setter: React.Dispatch<React.SetStateAction<Question[]>>) => {
-      setter(prev => {
-        const newQuestions = [...prev];
-        newQuestions[index] = { ...newQuestions[index], [field]: value };
-        return newQuestions;
-      });
+      setter(prev =>
+        prev.map((q, i) => (i === index ? { ...q, [field]: value } : q))
+      );
     };
     if (section === 's1') updater(setSection1Questions);
     else if (section === 's2') updater(setSection2FixedQuestions);
@@ -93,14 +99,50 @@ export default function AssessmentAdminPage() {
   };
 
   const addQuestion = (section: 's1' | 's2' | 'goal') => {
-    const newQuestion: Question = { id: `new_${Date.now()}`, title: '', helpText: '' };
     const updater = (setter: React.Dispatch<React.SetStateAction<Question[]>>) => {
-        setter(prev => [...prev, newQuestion]);
-    }
+      setter(prev => {
+        const newQuestion: Question = {
+          id: `new_${Date.now()}`,
+          title: '',
+          helpText: '',
+          isInstruction: false,
+          position: prev.length,
+        };
+        return [...prev, newQuestion];
+      });
+    };
     if (section === 's1') updater(setSection1Questions);
     else if (section === 's2') updater(setSection2FixedQuestions);
     else if (section === 'goal') updater(setGoalQuestions);
-  }
+  };
+
+  const moveQuestion = (
+    section: 's1' | 's2' | 'goal',
+    index: number,
+    direction: 'up' | 'down'
+  ) => {
+    const updater = (setter: React.Dispatch<React.SetStateAction<Question[]>>) => {
+      setter(prev => {
+        const newQuestions = [...prev];
+        const questionToMove = newQuestions[index];
+        const swapIndex = direction === 'up' ? index - 1 : index + 1;
+
+        if (swapIndex < 0 || swapIndex >= newQuestions.length) {
+          return newQuestions; // Cannot move further
+        }
+
+        const questionToSwap = newQuestions[swapIndex];
+        newQuestions[index] = { ...questionToSwap, position: index };
+        newQuestions[swapIndex] = { ...questionToMove, position: swapIndex };
+
+        return newQuestions;
+      });
+    };
+
+    if (section === 's1') updater(setSection1Questions);
+    else if (section === 's2') updater(setSection2FixedQuestions);
+    else if (section === 'goal') updater(setGoalQuestions);
+  };
 
   const deleteQuestion = (section: 's1' | 's2' | 'goal', index: number) => {
      const updater = (setter: React.Dispatch<React.SetStateAction<Question[]>>) => {
@@ -139,21 +181,44 @@ export default function AssessmentAdminPage() {
           <CardTitle>Section 1: Fixed Questions</CardTitle>
         </CardHeader>
         <CardContent>
-          {section1Questions.map((q, index) => (
-            <div key={q.id} className="mb-4 p-4 border rounded-lg relative">
-              <Input
-                placeholder="Question Title"
-                value={q.title}
-                onChange={(e) => handleQuestionChange('s1', index, 'title', e.target.value)}
-                className="mb-2 font-bold"
-              />
+          {section1Questions.sort((a, b) => a.position - b.position).map((q, index) => (
+            <div key={q.id} className="mb-4 p-4 border rounded-lg relative flex flex-col gap-2">
+              <div className="flex items-center gap-2">
+                <Input
+                  placeholder="Question Title"
+                  value={q.title}
+                  onChange={(e) => handleQuestionChange('s1', index, 'title', e.target.value)}
+                  className="mb-2 font-bold"
+                />
+                <div className="flex flex-col">
+                  <Button variant="ghost" size="icon" onClick={() => moveQuestion('s1', index, 'up')} disabled={index === 0}>
+                    <ChevronUp className="h-4 w-4" />
+                  </Button>
+                  <Button variant="ghost" size="icon" onClick={() => moveQuestion('s1', index, 'down')} disabled={index === section1Questions.length - 1}>
+                    <ChevronDown className="h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
               <Textarea
                 placeholder="Help Text"
                 value={q.helpText}
                 onChange={(e) => handleQuestionChange('s1', index, 'helpText', e.target.value)}
               />
-               <Button variant="ghost" size="icon" className="absolute top-2 right-2" onClick={() => deleteQuestion('s1', index)}>
-                <Trash2 className="h-4 w-4 text-red-500"/>
+              <div className="flex items-center space-x-2 mt-2">
+                <Checkbox
+                  id={`isInstruction-s1-${index}`}
+                  checked={q.isInstruction}
+                  onCheckedChange={(checked) => handleQuestionChange('s1', index, 'isInstruction', !!checked)}
+                />
+                <label
+                  htmlFor={`isInstruction-s1-${index}`}
+                  className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                >
+                  This is an instruction (no answer required)
+                </label>
+              </div>
+              <Button variant="ghost" size="icon" className="absolute top-2 right-2" onClick={() => deleteQuestion('s1', index)}>
+                <Trash2 className="h-4 w-4 text-red-500" />
               </Button>
             </div>
           ))}
@@ -168,21 +233,44 @@ export default function AssessmentAdminPage() {
           <p className="text-sm text-muted-foreground">These questions will be repeated for every goal the user sets.</p>
         </CardHeader>
         <CardContent>
-          {goalQuestions.map((q, index) => (
-            <div key={q.id} className="mb-4 p-4 border rounded-lg relative">
-              <Input
-                placeholder="Question Title"
-                value={q.title}
-                 onChange={(e) => handleQuestionChange('goal', index, 'title', e.target.value)}
-                className="mb-2 font-bold"
-              />
+          {goalQuestions.sort((a, b) => a.position - b.position).map((q, index) => (
+            <div key={q.id} className="mb-4 p-4 border rounded-lg relative flex flex-col gap-2">
+              <div className="flex items-center gap-2">
+                <Input
+                  placeholder="Question Title"
+                  value={q.title}
+                  onChange={(e) => handleQuestionChange('goal', index, 'title', e.target.value)}
+                  className="mb-2 font-bold"
+                />
+                <div className="flex flex-col">
+                  <Button variant="ghost" size="icon" onClick={() => moveQuestion('goal', index, 'up')} disabled={index === 0}>
+                    <ChevronUp className="h-4 w-4" />
+                  </Button>
+                  <Button variant="ghost" size="icon" onClick={() => moveQuestion('goal', index, 'down')} disabled={index === goalQuestions.length - 1}>
+                    <ChevronDown className="h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
               <Textarea
                 placeholder="Help Text"
                 value={q.helpText}
-                 onChange={(e) => handleQuestionChange('goal', index, 'helpText', e.target.value)}
+                onChange={(e) => handleQuestionChange('goal', index, 'helpText', e.target.value)}
               />
+              <div className="flex items-center space-x-2 mt-2">
+                <Checkbox
+                  id={`isInstruction-goal-${index}`}
+                  checked={q.isInstruction}
+                  onCheckedChange={(checked) => handleQuestionChange('goal', index, 'isInstruction', !!checked)}
+                />
+                <label
+                  htmlFor={`isInstruction-goal-${index}`}
+                  className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                >
+                  This is an instruction (no answer required)
+                </label>
+              </div>
               <Button variant="ghost" size="icon" className="absolute top-2 right-2" onClick={() => deleteQuestion('goal', index)}>
-                <Trash2 className="h-4 w-4 text-red-500"/>
+                <Trash2 className="h-4 w-4 text-red-500" />
               </Button>
             </div>
           ))}
@@ -196,21 +284,44 @@ export default function AssessmentAdminPage() {
           <CardTitle>Section 2: Additional Fixed Questions</CardTitle>
         </CardHeader>
         <CardContent>
-          {section2FixedQuestions.map((q, index) => (
-            <div key={q.id} className="mb-4 p-4 border rounded-lg relative">
-              <Input
-                placeholder="Question Title"
-                value={q.title}
-                onChange={(e) => handleQuestionChange('s2', index, 'title', e.target.value)}
-                className="mb-2 font-bold"
-              />
+          {section2FixedQuestions.sort((a, b) => a.position - b.position).map((q, index) => (
+            <div key={q.id} className="mb-4 p-4 border rounded-lg relative flex flex-col gap-2">
+              <div className="flex items-center gap-2">
+                <Input
+                  placeholder="Question Title"
+                  value={q.title}
+                  onChange={(e) => handleQuestionChange('s2', index, 'title', e.target.value)}
+                  className="mb-2 font-bold"
+                />
+                <div className="flex flex-col">
+                  <Button variant="ghost" size="icon" onClick={() => moveQuestion('s2', index, 'up')} disabled={index === 0}>
+                    <ChevronUp className="h-4 w-4" />
+                  </Button>
+                  <Button variant="ghost" size="icon" onClick={() => moveQuestion('s2', index, 'down')} disabled={index === section2FixedQuestions.length - 1}>
+                    <ChevronDown className="h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
               <Textarea
                 placeholder="Help Text"
                 value={q.helpText}
                 onChange={(e) => handleQuestionChange('s2', index, 'helpText', e.target.value)}
               />
-               <Button variant="ghost" size="icon" className="absolute top-2 right-2" onClick={() => deleteQuestion('s2', index)}>
-                <Trash2 className="h-4 w-4 text-red-500"/>
+              <div className="flex items-center space-x-2 mt-2">
+                <Checkbox
+                  id={`isInstruction-s2-${index}`}
+                  checked={q.isInstruction}
+                  onCheckedChange={(checked) => handleQuestionChange('s2', index, 'isInstruction', !!checked)}
+                />
+                <label
+                  htmlFor={`isInstruction-s2-${index}`}
+                  className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                >
+                  This is an instruction (no answer required)
+                </label>
+              </div>
+              <Button variant="ghost" size="icon" className="absolute top-2 right-2" onClick={() => deleteQuestion('s2', index)}>
+                <Trash2 className="h-4 w-4 text-red-500" />
               </Button>
             </div>
           ))}
