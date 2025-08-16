@@ -8,6 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
+import Editor from 'react-simple-wysiwyg';
 import { Plus, Trash2, ChevronUp, ChevronDown } from 'lucide-react';
 import { LoadingSpinner } from '@/components/ui/loading-spinner';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -222,11 +223,11 @@ export default function AssessmentAdminPage() {
                   className="mb-2 font-bold w-full"
                 />
               </div>
-              <Textarea
-                placeholder="Help Text"
-                value={q.helpText}
+              <Editor
+                value={q.helpText || ''}
                 onChange={(e) => handleQuestionChange('s1', q.id, 'helpText', e.target.value)}
-              />
+              >
+              </Editor>
               <div className="flex items-center space-x-2 mt-2">
                 <Checkbox
                   id={`isInstruction-s1-${q.id}`}
@@ -274,11 +275,11 @@ export default function AssessmentAdminPage() {
                   className="mb-2 font-bold w-full"
                 />
               </div>
-              <Textarea
-                placeholder="Help Text"
-                value={q.helpText}
+              <Editor
+                value={q.helpText || ''}
                 onChange={(e) => handleQuestionChange('goalSetting', q.id, 'helpText', e.target.value)}
-              />
+              >
+              </Editor>
               <div className="flex items-center space-x-2 mt-2">
                 <Checkbox
                   id={`isInstruction-goalSetting-${q.id}`}
@@ -326,11 +327,11 @@ export default function AssessmentAdminPage() {
                   className="mb-2 font-bold w-full"
                 />
               </div>
-              <Textarea
-                placeholder="Help Text"
-                value={q.helpText}
+              <Editor
+                value={q.helpText || ''}
                 onChange={(e) => handleQuestionChange('goal', q.id, 'helpText', e.target.value)}
-              />
+              >
+              </Editor>
               <div className="flex items-center space-x-2 mt-2">
                 <Checkbox
                   id={`isInstruction-goal-${q.id}`}
@@ -377,11 +378,11 @@ export default function AssessmentAdminPage() {
                   className="mb-2 font-bold w-full"
                 />
               </div>
-              <Textarea
-                placeholder="Help Text"
-                value={q.helpText}
+              <Editor
+                value={q.helpText || ''}
                 onChange={(e) => handleQuestionChange('s2', q.id, 'helpText', e.target.value)}
-              />
+              >
+              </Editor>
               <div className="flex items-center space-x-2 mt-2">
                 <Checkbox
                   id={`isInstruction-s2-${q.id}`}
