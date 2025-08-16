@@ -84,19 +84,19 @@ export default function AssessmentAdminPage() {
 
   const handleQuestionChange = (
     section: 's1' | 's2' | 'goal',
-    index: number,
+    id: string,
     field: 'title' | 'helpText' | 'isInstruction',
     value: string | boolean | 'indeterminate'
   ) => {
     const updater = (setter: React.Dispatch<React.SetStateAction<Question[]>>) => {
       setter(prev =>
-        prev.map((q, i) => {
-          if (i === index) {
+        prev.map(q => {
+          if (q.id === id) {
             const newQ = { ...q };
             if (field === 'isInstruction') {
               newQ.isInstruction = value === true;
             } else if (typeof value === 'string') {
-              (newQ[field] as string) = value;
+              (newQ[field] as any) = value;
             }
             return newQ;
           }
@@ -134,30 +134,35 @@ export default function AssessmentAdminPage() {
   ) => {
     const updater = (setter: React.Dispatch<React.SetStateAction<Question[]>>) => {
       setter(prev => {
-        const newQuestions = [...prev];
-        const questionToMove = newQuestions[index];
+        const sorted = [...prev].sort((a, b) => a.position - b.position);
+        const questionToMove = sorted[index];
         const swapIndex = direction === 'up' ? index - 1 : index + 1;
 
-        if (swapIndex < 0 || swapIndex >= newQuestions.length) {
-          return newQuestions; // Cannot move further
+        if (swapIndex < 0 || swapIndex >= sorted.length) {
+          return prev;
         }
 
-        const questionToSwap = newQuestions[swapIndex];
-        newQuestions[index] = { ...questionToSwap, position: index };
-        newQuestions[swapIndex] = { ...questionToMove, position: swapIndex };
+        const questionToSwapWith = sorted[swapIndex];
 
-        return newQuestions;
+        return prev.map(q => {
+          if (q.id === questionToMove.id) {
+            return { ...q, position: questionToSwapWith.position };
+          }
+          if (q.id === questionToSwapWith.id) {
+            return { ...q, position: questionToMove.position };
+          }
+          return q;
+        });
       });
     };
-
     if (section === 's1') updater(setSection1Questions);
     else if (section === 's2') updater(setSection2FixedQuestions);
     else if (section === 'goal') updater(setGoalQuestions);
   };
 
-  const deleteQuestion = (section: 's1' | 's2' | 'goal', index: number) => {
+  const deleteQuestion = (section: 's1' | 's2' | 'goal', id: string) => {
      const updater = (setter: React.Dispatch<React.SetStateAction<Question[]>>) => {
-        setter(prev => prev.filter((_, i) => i !== index));
+        setter(prev => prev.filter(q => q.id !== id));
     }
     if (section === 's1') updater(setSection1Questions);
     else if (section === 's2') updater(setSection2FixedQuestions);
@@ -206,29 +211,29 @@ export default function AssessmentAdminPage() {
                 <Input
                   placeholder="Question Title"
                   value={q.title}
-                  onChange={(e) => handleQuestionChange('s1', index, 'title', e.target.value)}
+                  onChange={(e) => handleQuestionChange('s1', q.id, 'title', e.target.value)}
                   className="mb-2 font-bold w-full"
                 />
               </div>
               <Textarea
                 placeholder="Help Text"
                 value={q.helpText}
-                onChange={(e) => handleQuestionChange('s1', index, 'helpText', e.target.value)}
+                onChange={(e) => handleQuestionChange('s1', q.id, 'helpText', e.target.value)}
               />
               <div className="flex items-center space-x-2 mt-2">
                 <Checkbox
-                  id={`isInstruction-s1-${index}`}
+                  id={`isInstruction-s1-${q.id}`}
                   checked={q.isInstruction}
-                  onCheckedChange={(checked) => handleQuestionChange('s1', index, 'isInstruction', checked)}
+                  onCheckedChange={(checked) => handleQuestionChange('s1', q.id, 'isInstruction', checked)}
                 />
                 <label
-                  htmlFor={`isInstruction-s1-${index}`}
+                  htmlFor={`isInstruction-s1-${q.id}`}
                   className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
                 >
                   This is an instruction (no answer required)
                 </label>
               </div>
-              <Button variant="ghost" size="icon" className="absolute top-2 right-2" onClick={() => deleteQuestion('s1', index)}>
+              <Button variant="ghost" size="icon" className="absolute top-2 right-2" onClick={() => deleteQuestion('s1', q.id)}>
                 <Trash2 className="h-4 w-4 text-red-500" />
               </Button>
             </div>
@@ -258,29 +263,29 @@ export default function AssessmentAdminPage() {
                 <Input
                   placeholder="Question Title"
                   value={q.title}
-                  onChange={(e) => handleQuestionChange('goal', index, 'title', e.target.value)}
+                  onChange={(e) => handleQuestionChange('goal', q.id, 'title', e.target.value)}
                   className="mb-2 font-bold w-full"
                 />
               </div>
               <Textarea
                 placeholder="Help Text"
                 value={q.helpText}
-                onChange={(e) => handleQuestionChange('goal', index, 'helpText', e.target.value)}
+                onChange={(e) => handleQuestionChange('goal', q.id, 'helpText', e.target.value)}
               />
               <div className="flex items-center space-x-2 mt-2">
                 <Checkbox
-                  id={`isInstruction-goal-${index}`}
+                  id={`isInstruction-goal-${q.id}`}
                   checked={q.isInstruction}
-                  onCheckedChange={(checked) => handleQuestionChange('goal', index, 'isInstruction', checked)}
+                  onCheckedChange={(checked) => handleQuestionChange('goal', q.id, 'isInstruction', checked)}
                 />
                 <label
-                  htmlFor={`isInstruction-goal-${index}`}
+                  htmlFor={`isInstruction-goal-${q.id}`}
                   className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
                 >
                   This is an instruction (no answer required)
                 </label>
               </div>
-              <Button variant="ghost" size="icon" className="absolute top-2 right-2" onClick={() => deleteQuestion('goal', index)}>
+              <Button variant="ghost" size="icon" className="absolute top-2 right-2" onClick={() => deleteQuestion('goal', q.id)}>
                 <Trash2 className="h-4 w-4 text-red-500" />
               </Button>
             </div>
@@ -309,29 +314,29 @@ export default function AssessmentAdminPage() {
                 <Input
                   placeholder="Question Title"
                   value={q.title}
-                  onChange={(e) => handleQuestionChange('s2', index, 'title', e.target.value)}
+                  onChange={(e) => handleQuestionChange('s2', q.id, 'title', e.target.value)}
                   className="mb-2 font-bold w-full"
                 />
               </div>
               <Textarea
                 placeholder="Help Text"
                 value={q.helpText}
-                onChange={(e) => handleQuestionChange('s2', index, 'helpText', e.target.value)}
+                onChange={(e) => handleQuestionChange('s2', q.id, 'helpText', e.target.value)}
               />
               <div className="flex items-center space-x-2 mt-2">
                 <Checkbox
-                  id={`isInstruction-s2-${index}`}
+                  id={`isInstruction-s2-${q.id}`}
                   checked={q.isInstruction}
-                  onCheckedChange={(checked) => handleQuestionChange('s2', index, 'isInstruction', checked)}
+                  onCheckedChange={(checked) => handleQuestionChange('s2', q.id, 'isInstruction', checked)}
                 />
                 <label
-                  htmlFor={`isInstruction-s2-${index}`}
+                  htmlFor={`isInstruction-s2-${q.id}`}
                   className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
                 >
                   This is an instruction (no answer required)
                 </label>
               </div>
-              <Button variant="ghost" size="icon" className="absolute top-2 right-2" onClick={() => deleteQuestion('s2', index)}>
+              <Button variant="ghost" size="icon" className="absolute top-2 right-2" onClick={() => deleteQuestion('s2', q.id)}>
                 <Trash2 className="h-4 w-4 text-red-500" />
               </Button>
             </div>
