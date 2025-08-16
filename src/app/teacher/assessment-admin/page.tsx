@@ -184,12 +184,6 @@ export default function AssessmentAdminPage() {
           {section1Questions.sort((a, b) => a.position - b.position).map((q, index) => (
             <div key={q.id} className="mb-4 p-4 border rounded-lg relative flex flex-col gap-2">
               <div className="flex items-center gap-2">
-                <Input
-                  placeholder="Question Title"
-                  value={q.title}
-                  onChange={(e) => handleQuestionChange('s1', index, 'title', e.target.value)}
-                  className="mb-2 font-bold"
-                />
                 <div className="flex flex-col">
                   <Button variant="ghost" size="icon" onClick={() => moveQuestion('s1', index, 'up')} disabled={index === 0}>
                     <ChevronUp className="h-4 w-4" />
@@ -198,6 +192,12 @@ export default function AssessmentAdminPage() {
                     <ChevronDown className="h-4 w-4" />
                   </Button>
                 </div>
+                <Input
+                  placeholder="Question Title"
+                  value={q.title}
+                  onChange={(e) => handleQuestionChange('s1', index, 'title', e.target.value)}
+                  className="mb-2 font-bold flex-grow"
+                />
               </div>
               <Textarea
                 placeholder="Help Text"
@@ -236,12 +236,6 @@ export default function AssessmentAdminPage() {
           {goalQuestions.sort((a, b) => a.position - b.position).map((q, index) => (
             <div key={q.id} className="mb-4 p-4 border rounded-lg relative flex flex-col gap-2">
               <div className="flex items-center gap-2">
-                <Input
-                  placeholder="Question Title"
-                  value={q.title}
-                  onChange={(e) => handleQuestionChange('goal', index, 'title', e.target.value)}
-                  className="mb-2 font-bold"
-                />
                 <div className="flex flex-col">
                   <Button variant="ghost" size="icon" onClick={() => moveQuestion('goal', index, 'up')} disabled={index === 0}>
                     <ChevronUp className="h-4 w-4" />
@@ -250,6 +244,12 @@ export default function AssessmentAdminPage() {
                     <ChevronDown className="h-4 w-4" />
                   </Button>
                 </div>
+                <Input
+                  placeholder="Question Title"
+                  value={q.title}
+                  onChange={(e) => handleQuestionChange('goal', index, 'title', e.target.value)}
+                  className="mb-2 font-bold flex-grow"
+                />
               </div>
               <Textarea
                 placeholder="Help Text"
@@ -287,12 +287,6 @@ export default function AssessmentAdminPage() {
           {section2FixedQuestions.sort((a, b) => a.position - b.position).map((q, index) => (
             <div key={q.id} className="mb-4 p-4 border rounded-lg relative flex flex-col gap-2">
               <div className="flex items-center gap-2">
-                <Input
-                  placeholder="Question Title"
-                  value={q.title}
-                  onChange={(e) => handleQuestionChange('s2', index, 'title', e.target.value)}
-                  className="mb-2 font-bold"
-                />
                 <div className="flex flex-col">
                   <Button variant="ghost" size="icon" onClick={() => moveQuestion('s2', index, 'up')} disabled={index === 0}>
                     <ChevronUp className="h-4 w-4" />
@@ -301,6 +295,12 @@ export default function AssessmentAdminPage() {
                     <ChevronDown className="h-4 w-4" />
                   </Button>
                 </div>
+                <Input
+                  placeholder="Question Title"
+                  value={q.title}
+                  onChange={(e) => handleQuestionChange('s2', index, 'title', e.target.value)}
+                  className="mb-2 font-bold flex-grow"
+                />
               </div>
               <Textarea
                 placeholder="Help Text"
