@@ -20,6 +20,10 @@ interface ReportData {
     title: string;
     questions: Question[];
   };
+  goalSetting: {
+    title: string;
+    questions: Question[];
+  };
   goalSections: GoalSection[];
   section2Fixed: {
     title: string;
@@ -52,6 +56,19 @@ export const AssessmentReport: React.FC<AssessmentReportProps> = ({ reportData }
             </div>
           ))}
         </section>
+
+        {/* Goal Setting Questions */}
+        {reportData.goalSetting && reportData.goalSetting.questions.length > 0 && (
+          <section className="mb-10">
+            <h2 className="text-2xl font-semibold mb-4 border-b pb-2">{reportData.goalSetting.title}</h2>
+            {reportData.goalSetting.questions.map(q => (
+              <div key={q.id} className="mb-6">
+                <h3 className="text-lg font-semibold text-gray-700">{q.title}</h3>
+                <p className="mt-2 p-4 bg-gray-50 rounded-md border border-gray-200 whitespace-pre-wrap">{q.answer || 'No answer provided.'}</p>
+              </div>
+            ))}
+          </section>
+        )}
 
         {/* Goal Sections */}
         {reportData.goalSections.length > 0 && (
