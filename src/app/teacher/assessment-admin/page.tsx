@@ -23,6 +23,7 @@ export default function AssessmentAdminPage() {
   const [section2FixedQuestions, setSection2FixedQuestions] = useState<Question[]>([]);
   const [goalQuestions, setGoalQuestions] = useState<Question[]>([]);
   const [goalSettingQuestions, setGoalSettingQuestions] = useState<Question[]>([]);
+  const [goalSettingInstructions, setGoalSettingInstructions] = useState('');
 
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
@@ -39,6 +40,7 @@ export default function AssessmentAdminPage() {
             setGoalQuestions(data.goalQuestions || []);
             setSection2FixedQuestions(data.section2FixedQuestions || []);
             setGoalSettingQuestions(data.goalSettingQuestions || []);
+            setGoalSettingInstructions(data.goalSettingInstructions || 'Define up to 8 personal or professional goals.');
           } else {
              setError('No template found. Saving will create a new one.');
           }
@@ -73,6 +75,7 @@ export default function AssessmentAdminPage() {
           goalQuestions: goalQuestions.map(a),
           section2FixedQuestions: section2FixedQuestions.map(a),
           goalSettingQuestions: goalSettingQuestions.map(a),
+          goalSettingInstructions,
           updatedAt: serverTimestamp(),
         },
         { merge: true }
@@ -196,6 +199,20 @@ export default function AssessmentAdminPage() {
             Here you can define the questions for the personality assessment. Changes will apply to new assessments.
           </p>
            {error && <p className="text-yellow-600 mt-4">{error}</p>}
+        </CardContent>
+      </Card>
+
+      {/* Goal Setting Instructions */}
+      <Card className="mb-6">
+        <CardHeader>
+          <CardTitle>Goal Setting Instructions</CardTitle>
+          <p className="text-sm text-muted-foreground">This text will be shown to the user when they are defining their goals.</p>
+        </CardHeader>
+        <CardContent>
+          <Editor
+            value={goalSettingInstructions}
+            onChange={(e) => setGoalSettingInstructions(e.target.value)}
+            />
         </CardContent>
       </Card>
 
