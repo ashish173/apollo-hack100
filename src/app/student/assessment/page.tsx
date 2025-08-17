@@ -277,8 +277,8 @@ export default function StudentAssessmentPage() {
       case 'goal_setting':
         return (
           <div>
-            <h2 className="text-3xl font-bold mb-6 text-black">{currentStep.sectionTitle}</h2>
-            <div className="mb-4 text-black text-lg" dangerouslySetInnerHTML={{ __html: assessmentData.goalSettingInstructions || `Define up to ${MAX_GOALS} personal or professional goals.` }} />
+            <h2 className="text-4xl font-bold mb-6 text-black">{currentStep.sectionTitle}</h2>
+            <div className="mb-4 text-black text-xl" dangerouslySetInnerHTML={{ __html: assessmentData.goalSettingInstructions || `Define up to ${MAX_GOALS} personal or professional goals.` }} />
             <div className="space-y-4">
               {goals.map((goal, index) => (
                   <div key={index} className="flex items-center gap-2">
@@ -286,7 +286,7 @@ export default function StudentAssessmentPage() {
                         value={goal}
                         onChange={(e) => handleGoalChange(index, e.target.value)}
                         placeholder={`Goal ${index + 1}`}
-                        className="text-xl p-4"
+                        className="text-2xl p-4 border-2 border-black"
                     />
                     <Button variant="ghost" size="icon" onClick={() => handleDeleteGoal(index)} disabled={goals.length <= 1 && !goals[0]}>
                         <Trash2 className="h-6 w-6 text-red-500" />
@@ -295,7 +295,7 @@ export default function StudentAssessmentPage() {
               ))}
             </div>
             {goals.length < MAX_GOALS && (
-               <Button onClick={addGoal} variant="link" className="mt-2 text-lg">Add another goal</Button>
+               <Button onClick={addGoal} variant="link" className="mt-2 text-xl">Add another goal</Button>
             )}
           </div>
         );
@@ -305,34 +305,34 @@ export default function StudentAssessmentPage() {
         if (currentStep.question.isInstruction) {
           return (
             <div>
-              <h2 className="text-3xl font-bold mb-2 text-black">{currentStep.sectionTitle}</h2>
+              <h2 className="text-4xl font-bold mb-2 text-black">{currentStep.sectionTitle}</h2>
               {currentStep.isGoalQuestion && (
-                  <p className="mb-4 p-3 bg-blue-50 border-l-4 border-blue-500 text-blue-800 text-lg">
+                  <p className="mb-4 p-3 bg-blue-50 border-l-4 border-blue-500 text-blue-800 text-xl">
                       Regarding your goal: <span className="font-bold">{currentStep.goal}</span>
                   </p>
               )}
               <div className="mt-6 p-6 border rounded-lg bg-gray-100">
-                  <h3 className="block text-2xl font-semibold mb-2 text-black">{currentStep.question.title}</h3>
-                  <div className="text-lg text-black" dangerouslySetInnerHTML={{ __html: currentStep.question.helpText }} />
+                  <h3 className="block text-3xl font-semibold mb-2 text-black">{currentStep.question.title}</h3>
+                  <div className="text-xl text-black" dangerouslySetInnerHTML={{ __html: currentStep.question.helpText }} />
               </div>
             </div>
           );
         }
         return (
           <div>
-            <h2 className="text-3xl font-bold mb-2 text-black">{currentStep.sectionTitle}</h2>
+            <h2 className="text-4xl font-bold mb-2 text-black">{currentStep.sectionTitle}</h2>
             {currentStep.isGoalQuestion && (
-                <p className="mb-4 p-3 bg-blue-50 border-l-4 border-blue-500 text-blue-800 text-lg">
+                <p className="mb-4 p-3 bg-blue-50 border-l-4 border-blue-500 text-blue-800 text-xl">
                     Regarding your goal: <span className="font-bold">{currentStep.goal}</span>
                 </p>
             )}
             <div className="mt-6">
-                <label className="block text-2xl font-semibold mb-3 text-black">{currentStep.question.title}</label>
-                <div className="text-lg text-black mb-4" dangerouslySetInnerHTML={{ __html: currentStep.question.helpText }} />
+                <label className="block text-3xl font-semibold mb-3 text-black">{currentStep.question.title}</label>
+                <div className="text-xl text-black mb-4" dangerouslySetInnerHTML={{ __html: currentStep.question.helpText }} />
                 <Textarea
                   rows={10}
                   placeholder="Your answer..."
-                  className="text-xl p-4"
+                  className="text-2xl p-4 border-2 border-black"
                   value={answers[questionId] || ''}
                   onChange={(e) => handleAnswerChange(questionId, e.target.value)}
                   minLength={currentStep.question.minLength}
@@ -408,13 +408,13 @@ export default function StudentAssessmentPage() {
   }
 
   return (
-    <div className="w-full h-screen flex flex-col bg-gray-50">
+    <div className="w-full min-h-screen flex flex-col bg-gray-50">
       <Card className="flex-grow flex flex-col rounded-none border-none">
         <CardHeader className="px-6 pt-6 bg-white border-b">
           <div className="flex justify-between items-start">
             <div>
-              <CardTitle className="text-4xl font-bold text-black">Personality & Goals Assessment</CardTitle>
-              <CardDescription className="text-black">
+              <CardTitle className="text-5xl font-bold text-black">Personality & Goals Assessment</CardTitle>
+              <CardDescription className="text-lg text-black">
                 {isSaving ? 'Saving...' : 'Complete all sections to generate your report.'}
               </CardDescription>
             </div>
@@ -434,7 +434,7 @@ export default function StudentAssessmentPage() {
             `}</style>
             <div className="flex items-center gap-4 mb-2">
               <Progress value={progressPercentage} className="w-full custom-progress-bar"/>
-              <span className="font-bold text-xl text-[#468966]">{Math.round(progressPercentage)}%</span>
+              <span className="font-bold text-2xl text-[#468966]">{Math.round(progressPercentage)}%</span>
             </div>
             <div className="flex flex-wrap gap-2">
               {sectionPills.map((pill) => (
@@ -443,7 +443,7 @@ export default function StudentAssessmentPage() {
                   variant={currentStep.sectionTitle === pill.title ? 'default' : 'outline'}
                   size="sm"
                   onClick={() => handleGoToSection(pill.stepIndex)}
-                  className="text-sm"
+                  className="text-base"
                 >
                   {pill.title}
                 </Button>
@@ -452,7 +452,7 @@ export default function StudentAssessmentPage() {
           </div>
         </CardHeader>
 
-        <CardContent className="flex-grow overflow-y-auto p-6 md:p-10">
+        <CardContent className="flex-grow p-6 md:p-10 pb-24">
           <div className="max-w-4xl mx-auto">
             {renderStepContent()}
           </div>
@@ -462,7 +462,7 @@ export default function StudentAssessmentPage() {
             <Button variant="outline" onClick={handlePrev} disabled={currentStepIndex === 0} className="h-12 px-6 text-lg">
                 <ChevronLeft className="mr-2 h-5 w-5"/> Previous
             </Button>
-            <p className="text-base text-black">
+            <p className="text-lg text-black">
                 Step {currentStepIndex + 1} of {steps.length}
             </p>
             {currentStepIndex === steps.length - 1 ? (
