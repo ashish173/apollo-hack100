@@ -408,8 +408,8 @@ export default function StudentAssessmentPage() {
   }
 
   return (
-    <div className="w-full h-screen bg-gray-50">
-      <div className="h-full overflow-y-auto">
+    <div className="w-full flex-grow flex flex-col bg-gray-50 relative">
+      <div className="absolute inset-0 overflow-y-auto">
         <CardHeader className="sticky top-0 z-10 px-6 pt-6 bg-white border-b">
           <div className="flex justify-between items-start">
             <div>
@@ -459,7 +459,7 @@ export default function StudentAssessmentPage() {
         </CardContent>
       </div>
 
-      <div className="fixed bottom-0 left-0 right-0 z-10 bg-white border-t p-4 flex justify-between items-center shadow-[0_-2px_10px_rgba(0,0,0,0.05)]">
+      <div className="fixed bottom-0 left-0 right-0 z-20 bg-white border-t p-4 flex justify-between items-center shadow-[0_-2px_10px_rgba(0,0,0,0.05)]">
           <Button variant="outline" onClick={handlePrev} disabled={currentStepIndex === 0} className="h-12 px-6 text-lg">
               <ChevronLeft className="mr-2 h-5 w-5"/> Previous
           </Button>
