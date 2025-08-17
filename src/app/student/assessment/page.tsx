@@ -408,9 +408,9 @@ export default function StudentAssessmentPage() {
   }
 
   return (
-    <div className="w-full h-screen flex flex-col bg-gray-50">
-      <Card className="flex-grow flex flex-col rounded-none border-none overflow-hidden">
-        <CardHeader className="px-6 pt-6 bg-white border-b">
+    <div className="w-full h-screen bg-gray-50">
+      <div className="h-full overflow-y-auto">
+        <CardHeader className="sticky top-0 z-10 px-6 pt-6 bg-white border-b">
           <div className="flex justify-between items-start">
             <div>
               <CardTitle className="text-5xl font-bold text-black">Personality & Goals Assessment</CardTitle>
@@ -452,30 +452,30 @@ export default function StudentAssessmentPage() {
           </div>
         </CardHeader>
 
-        <CardContent className="flex-grow p-6 md:p-10 pb-24 overflow-y-auto">
+        <CardContent className="p-6 md:p-10 pb-24">
           <div className="max-w-4xl mx-auto">
             {renderStepContent()}
           </div>
         </CardContent>
+      </div>
 
-        <div className="fixed bottom-0 left-0 right-0 z-10 bg-white border-t p-4 flex justify-between items-center shadow-[0_-2px_10px_rgba(0,0,0,0.05)]">
-            <Button variant="outline" onClick={handlePrev} disabled={currentStepIndex === 0} className="h-12 px-6 text-lg">
-                <ChevronLeft className="mr-2 h-5 w-5"/> Previous
-            </Button>
-            <p className="text-lg text-black">
-                Step {currentStepIndex + 1} of {steps.length}
-            </p>
-            {currentStepIndex === steps.length - 1 ? (
-                <Button variant="success" onClick={handleFinish} className="h-12 px-6 text-lg">
-                    <Check className="mr-2 h-5 w-5"/> Finish & View Report
-                </Button>
-            ) : (
-                <Button onClick={handleNext} disabled={isNextDisabled} className="h-12 px-6 text-lg">
-                    Next <ChevronRight className="ml-2 h-5 w-5"/>
-                </Button>
-            )}
-        </div>
-      </Card>
+      <div className="fixed bottom-0 left-0 right-0 z-10 bg-white border-t p-4 flex justify-between items-center shadow-[0_-2px_10px_rgba(0,0,0,0.05)]">
+          <Button variant="outline" onClick={handlePrev} disabled={currentStepIndex === 0} className="h-12 px-6 text-lg">
+              <ChevronLeft className="mr-2 h-5 w-5"/> Previous
+          </Button>
+          <p className="text-lg text-black">
+              Step {currentStepIndex + 1} of {steps.length}
+          </p>
+          {currentStepIndex === steps.length - 1 ? (
+              <Button variant="success" onClick={handleFinish} className="h-12 px-6 text-lg">
+                  <Check className="mr-2 h-5 w-5"/> Finish & View Report
+              </Button>
+          ) : (
+              <Button onClick={handleNext} disabled={isNextDisabled} className="h-12 px-6 text-lg">
+                  Next <ChevronRight className="ml-2 h-5 w-5"/>
+              </Button>
+          )}
+      </div>
     </div>
   );
 }
