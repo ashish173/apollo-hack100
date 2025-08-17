@@ -265,6 +265,7 @@ export default function AssessmentAdminPage() {
                   value={q.minLength || ''}
                   onChange={(e) => handleQuestionChange('s1', q.id, 'minLength', e.target.value)}
                   className="w-24"
+                  disabled={q.isInstruction}
                 />
                 <Input
                   type="number"
@@ -272,6 +273,7 @@ export default function AssessmentAdminPage() {
                   value={q.maxLength || ''}
                   onChange={(e) => handleQuestionChange('s1', q.id, 'maxLength', e.target.value)}
                   className="w-24"
+                  disabled={q.isInstruction}
                 />
               </div>
               <Button variant="ghost" size="icon" className="absolute top-2 right-2" onClick={() => deleteQuestion('s1', q.id)}>
@@ -333,6 +335,7 @@ export default function AssessmentAdminPage() {
                   value={q.minLength || ''}
                   onChange={(e) => handleQuestionChange('goalSetting', q.id, 'minLength', e.target.value)}
                   className="w-24"
+                  disabled={q.isInstruction}
                 />
                 <Input
                   type="number"
@@ -340,6 +343,7 @@ export default function AssessmentAdminPage() {
                   value={q.maxLength || ''}
                   onChange={(e) => handleQuestionChange('goalSetting', q.id, 'maxLength', e.target.value)}
                   className="w-24"
+                  disabled={q.isInstruction}
                 />
               </div>
               <Button variant="ghost" size="icon" className="absolute top-2 right-2" onClick={() => deleteQuestion('goalSetting', q.id)}>
@@ -401,6 +405,7 @@ export default function AssessmentAdminPage() {
                   value={q.minLength || ''}
                   onChange={(e) => handleQuestionChange('goal', q.id, 'minLength', e.target.value)}
                   className="w-24"
+                  disabled={q.isInstruction}
                 />
                 <Input
                   type="number"
@@ -408,6 +413,7 @@ export default function AssessmentAdminPage() {
                   value={q.maxLength || ''}
                   onChange={(e) => handleQuestionChange('goal', q.id, 'maxLength', e.target.value)}
                   className="w-24"
+                  disabled={q.isInstruction}
                 />
               </div>
               <Button variant="ghost" size="icon" className="absolute top-2 right-2" onClick={() => deleteQuestion('goal', q.id)}>
@@ -468,6 +474,7 @@ export default function AssessmentAdminPage() {
                   value={q.minLength || ''}
                   onChange={(e) => handleQuestionChange('s2', q.id, 'minLength', e.target.value)}
                   className="w-24"
+                  disabled={q.isInstruction}
                 />
                 <Input
                   type="number"
@@ -475,6 +482,7 @@ export default function AssessmentAdminPage() {
                   value={q.maxLength || ''}
                   onChange={(e) => handleQuestionChange('s2', q.id, 'maxLength', e.target.value)}
                   className="w-24"
+                  disabled={q.isInstruction}
                 />
               </div>
               <Button variant="ghost" size="icon" className="absolute top-2 right-2" onClick={() => deleteQuestion('s2', q.id)}>
