@@ -175,6 +175,22 @@ export default function StudentAssessmentPage() {
     return { steps: flatSteps, sectionPills: pillData };
   }, [assessmentData, goals]);
 
+  const currentStep = steps[currentStepIndex];
+
+  const isNextDisabled = useMemo(() => {
+    if (!currentStep || currentStep.type !== 'question' || currentStep.question.isInstruction) {
+      return false;
+    }
+    const questionId = currentStep.isGoalQuestion ? `${currentStep.parentId}_${currentStep.question.id}` : currentStep.question.id;
+    const answer = answers[questionId] || '';
+    const { minLength, maxLength } = currentStep.question;
+
+    if (minLength && answer.length < minLength) return true;
+    if (maxLength && answer.length > maxLength) return true;
+
+    return false;
+  }, [currentStep, answers]);
+
 
   if (authLoading || isLoading) {
     return <div className="flex h-screen items-center justify-center"><LoadingSpinner size="xl" label="Loading Your Assessment..." /></div>;
@@ -186,7 +202,6 @@ export default function StudentAssessmentPage() {
      return <p className="text-center mt-10">Could not load assessment data. Please try again later.</p>;
   }
 
-  const currentStep = steps[currentStepIndex];
   const progressPercentage = steps.length > 0 ? ((currentStepIndex + 1) / steps.length) * 100 : 0;
 
   const saveProgress = () => {
@@ -320,6 +335,9 @@ export default function StudentAssessmentPage() {
                   className="text-base"
                   value={answers[questionId] || ''}
                   onChange={(e) => handleAnswerChange(questionId, e.target.value)}
+                  minLength={currentStep.question.minLength}
+                  maxLength={currentStep.question.maxLength}
+                  showCount={true}
                 />
             </div>
           </div>
@@ -450,7 +468,7 @@ export default function StudentAssessmentPage() {
                     <Check className="mr-2 h-4 w-4"/> Finish & View Report
                 </Button>
             ) : (
-                <Button onClick={handleNext}>
+                <Button onClick={handleNext} disabled={isNextDisabled}>
                     Next <ChevronRight className="ml-2 h-4 w-4"/>
                 </Button>
             )}
