@@ -90,9 +90,9 @@ export default function AssessmentAdminPage() {
   };
 
   const handleQuestionChange = (
-    section: 's1' | 's2' | 'goal',
+    section: 's1' | 's2' | 'goal' | 'goalSetting',
     id: string,
-    field: 'title' | 'helpText' | 'isInstruction',
+    field: 'title' | 'helpText' | 'isInstruction' | 'minLength' | 'maxLength',
     value: string | boolean | 'indeterminate'
   ) => {
     const updater = (setter: React.Dispatch<React.SetStateAction<Question[]>>) => {
@@ -258,6 +258,22 @@ export default function AssessmentAdminPage() {
                   This is an instruction (no answer required)
                 </label>
               </div>
+              <div className="flex items-center gap-4 mt-2">
+                <Input
+                  type="number"
+                  placeholder="Min Chars"
+                  value={q.minLength || ''}
+                  onChange={(e) => handleQuestionChange('s1', q.id, 'minLength', e.target.value)}
+                  className="w-24"
+                />
+                <Input
+                  type="number"
+                  placeholder="Max Chars"
+                  value={q.maxLength || ''}
+                  onChange={(e) => handleQuestionChange('s1', q.id, 'maxLength', e.target.value)}
+                  className="w-24"
+                />
+              </div>
               <Button variant="ghost" size="icon" className="absolute top-2 right-2" onClick={() => deleteQuestion('s1', q.id)}>
                 <Trash2 className="h-4 w-4 text-red-500" />
               </Button>
@@ -309,6 +325,22 @@ export default function AssessmentAdminPage() {
                 >
                   This is an instruction (no answer required)
                 </label>
+              </div>
+              <div className="flex items-center gap-4 mt-2">
+                <Input
+                  type="number"
+                  placeholder="Min Chars"
+                  value={q.minLength || ''}
+                  onChange={(e) => handleQuestionChange('goalSetting', q.id, 'minLength', e.target.value)}
+                  className="w-24"
+                />
+                <Input
+                  type="number"
+                  placeholder="Max Chars"
+                  value={q.maxLength || ''}
+                  onChange={(e) => handleQuestionChange('goalSetting', q.id, 'maxLength', e.target.value)}
+                  className="w-24"
+                />
               </div>
               <Button variant="ghost" size="icon" className="absolute top-2 right-2" onClick={() => deleteQuestion('goalSetting', q.id)}>
                 <Trash2 className="h-4 w-4 text-red-500" />
@@ -362,6 +394,22 @@ export default function AssessmentAdminPage() {
                   This is an instruction (no answer required)
                 </label>
               </div>
+              <div className="flex items-center gap-4 mt-2">
+                <Input
+                  type="number"
+                  placeholder="Min Chars"
+                  value={q.minLength || ''}
+                  onChange={(e) => handleQuestionChange('goal', q.id, 'minLength', e.target.value)}
+                  className="w-24"
+                />
+                <Input
+                  type="number"
+                  placeholder="Max Chars"
+                  value={q.maxLength || ''}
+                  onChange={(e) => handleQuestionChange('goal', q.id, 'maxLength', e.target.value)}
+                  className="w-24"
+                />
+              </div>
               <Button variant="ghost" size="icon" className="absolute top-2 right-2" onClick={() => deleteQuestion('goal', q.id)}>
                 <Trash2 className="h-4 w-4 text-red-500" />
               </Button>
@@ -412,6 +460,22 @@ export default function AssessmentAdminPage() {
                 >
                   This is an instruction (no answer required)
                 </label>
+              </div>
+              <div className="flex items-center gap-4 mt-2">
+                <Input
+                  type="number"
+                  placeholder="Min Chars"
+                  value={q.minLength || ''}
+                  onChange={(e) => handleQuestionChange('s2', q.id, 'minLength', e.target.value)}
+                  className="w-24"
+                />
+                <Input
+                  type="number"
+                  placeholder="Max Chars"
+                  value={q.maxLength || ''}
+                  onChange={(e) => handleQuestionChange('s2', q.id, 'maxLength', e.target.value)}
+                  className="w-24"
+                />
               </div>
               <Button variant="ghost" size="icon" className="absolute top-2 right-2" onClick={() => deleteQuestion('s2', q.id)}>
                 <Trash2 className="h-4 w-4 text-red-500" />

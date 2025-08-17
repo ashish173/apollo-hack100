@@ -68,6 +68,7 @@ export interface TextareaProps
   description?: string
   error?: string
   success?: string
+  minLength?: number
   maxLength?: number
   showCount?: boolean
   autoResize?: boolean
@@ -84,6 +85,7 @@ const Textarea = React.forwardRef<HTMLTextAreaElement, TextareaProps>(
     description,
     error,
     success,
+    minLength,
     maxLength,
     showCount = false,
     autoResize = false,
@@ -138,10 +140,11 @@ const Textarea = React.forwardRef<HTMLTextAreaElement, TextareaProps>(
     }, [adjustHeight, value])
     
     // Determine the actual variant based on state
-    const actualVariant = error ? "error" : success ? "success" : variant
-    
-    const isNearLimit = maxLength && charCount > maxLength * 0.8
-    const isOverLimit = maxLength && charCount > maxLength
+    const isOverLimit = maxLength && charCount > maxLength;
+    const isUnderLimit = minLength && charCount < minLength;
+    const isInvalid = isOverLimit || isUnderLimit;
+
+    const actualVariant = isInvalid ? "error" : error ? "error" : success ? "success" : variant;
 
     return (
       <div className="space-y-2">
@@ -166,18 +169,17 @@ const Textarea = React.forwardRef<HTMLTextAreaElement, TextareaProps>(
             {...props}
           />
           
-          {(showCount || maxLength) && (
+          {showCount && (
             <div className="absolute bottom-2 right-3 flex items-center gap-2">
-              {showCount && (
-                <span className={cn(
-                  "text-xs tabular-nums",
-                  isOverLimit ? "text-error-600 dark:text-error-400" :
-                  isNearLimit ? "text-warning-600 dark:text-warning-400" :
-                  "text-neutral-500 dark:text-neutral-400"
-                )}>
-                  {charCount}{maxLength && `/${maxLength}`}
-                </span>
-              )}
+              <span className={cn(
+                "text-xs tabular-nums",
+                isInvalid ? "text-error-600 dark:text-error-400" : "text-neutral-500 dark:text-neutral-400"
+              )}>
+                {charCount}
+                {(minLength || maxLength) && '/'}
+                {minLength && `${minLength}-`}
+                {maxLength && maxLength}
+              </span>
               
               {success && (
                 <Check className="h-4 w-4 text-success-500" />

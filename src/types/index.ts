@@ -21,9 +21,11 @@ export interface ProjectReport {
 }
 
 export interface Question {
-  id: string;
+  id:string;
   title: string;
   helpText: string;
   isInstruction?: boolean;
   position: number;
+  minLength?: number;
+  maxLength?: number;
 }
