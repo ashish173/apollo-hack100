@@ -408,8 +408,8 @@ export default function StudentAssessmentPage() {
   }
 
   return (
-    <div className="w-full min-h-screen flex flex-col bg-gray-50">
-      <Card className="flex-grow flex flex-col rounded-none border-none">
+    <div className="w-full h-screen flex flex-col bg-gray-50">
+      <Card className="flex-grow flex flex-col rounded-none border-none overflow-hidden">
         <CardHeader className="px-6 pt-6 bg-white border-b">
           <div className="flex justify-between items-start">
             <div>
@@ -452,7 +452,7 @@ export default function StudentAssessmentPage() {
           </div>
         </CardHeader>
 
-        <CardContent className="flex-grow p-6 md:p-10 pb-24">
+        <CardContent className="flex-grow p-6 md:p-10 pb-24 overflow-y-auto">
           <div className="max-w-4xl mx-auto">
             {renderStepContent()}
           </div>
