@@ -84,6 +84,7 @@ export default function StudentAssessmentPage() {
                 section1Questions: templateData.section1Questions || [],
                 goalQuestions: templateData.goalQuestions || [],
                 goalSettingQuestions: templateData.goalSettingQuestions || [],
+                goalSettingInstructions: templateData.goalSettingInstructions || `Define up to ${MAX_GOALS} personal or professional goals.`,
                 section2FixedQuestions: templateData.section2FixedQuestions || [],
               };
               setDoc(userAssessmentRef, newAssessment).then(() => {
@@ -262,7 +263,7 @@ export default function StudentAssessmentPage() {
         return (
           <div>
             <h2 className="text-2xl font-bold mb-6">{currentStep.sectionTitle}</h2>
-            <p className="mb-4 text-muted-foreground">Define up to {MAX_GOALS} personal or professional goals.</p>
+            <div className="mb-4 text-muted-foreground" dangerouslySetInnerHTML={{ __html: assessmentData.goalSettingInstructions || `Define up to ${MAX_GOALS} personal or professional goals.` }} />
             <div className="space-y-4">
               {goals.map((goal, index) => (
                   <div key={index} className="flex items-center gap-2">
